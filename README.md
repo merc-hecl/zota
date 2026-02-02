@@ -8,8 +8,8 @@
 
 ## Screenshots
 
-|             Sidebar Panel             |                 Float Window                 |
-| :-------------------------------------------: | :-----------------------------------------------: |
+|                     Sidebar Panel                     |                   Float Window                    |
+| :---------------------------------------------------: | :-----------------------------------------------: |
 | ![sidebar](doc/screenshots/screenshot_sidebar_en.png) | ![float](doc/screenshots/screenshot_float_en.png) |
 
 ## Features
@@ -21,18 +21,19 @@
 - **Markdown**: Full markdown with syntax rendering
 
 ## Installation
+
 1. Download `.xpi` from [Releases](https://github.com/merc-hecl/zota/releases)
 2. Zotero → `Tools` → `Add-ons` → ⚙️ → `Install Add-on From File...`
 
-
 ## Quick Start
+
 1. Open a PDF in Zotero
 2. Click the chat icon in toolbar
-3. Check "Attach PDF" or select specific paragraphs to include document context 
+3. Check "Attach PDF" or select specific paragraphs to include document context
 4. Start chatting in the sidebar panel or float window
 
-
 ## Configuration
+
 Go to `Settings` → `Zota` to:
 
 - Set OpenAI-compatible API endpoint (e.g., https://api.openai.com/v1)

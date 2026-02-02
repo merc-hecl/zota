@@ -1,17 +1,15 @@
 <h1><img src="../addon/content/icons/favicon.svg" width="32" height="32" style="vertical-align: middle;"> Zota</h1>
 
-[![Zotero](https://img.shields.io/badge/Zotero-7-green?style=flat-square&logo=zotero&logoColor=CC2936)](https://www.zotero.org) [![Using Zotero Plugin Template](https://img.shields.io/badge/Using-Zotero%20Plugin%20Template-blue?style=flat-square&logo=github)](https://github.com/windingwind/zotero-plugin-template) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg?style=flat-square)](https://www.gnu.org/licenses/agpl-3.0) 
-
+[![Zotero](https://img.shields.io/badge/Zotero-7-green?style=flat-square&logo=zotero&logoColor=CC2936)](https://www.zotero.org) [![Using Zotero Plugin Template](https://img.shields.io/badge/Using-Zotero%20Plugin%20Template-blue?style=flat-square&logo=github)](https://github.com/windingwind/zotero-plugin-template) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg?style=flat-square)](https://www.gnu.org/licenses/agpl-3.0)
 
 **在 Zotero 中直接与 AI 讨论 PDF 文档。**
-
 
 [English](../README.md) | [简体中文](README-zhCN.md)
 
 ## 截图
 
-|              边栏窗口               |                 浮动窗口                  |
-| :---------------------------------------: | :---------------------------------------: |
+|                    边栏窗口                    |                   浮动窗口                   |
+| :--------------------------------------------: | :------------------------------------------: |
 | ![边栏](screenshots/screenshot_sidebar_zh.png) | ![浮动](screenshots/screenshot_float_zh.png) |
 
 ## 特性
@@ -33,7 +31,6 @@
 2. 点击工具栏中的聊天图标
 3. 勾选"附加 PDF"或选择特定段落以包含文档上下文
 4. 开始在边栏面板或浮动窗口中聊天
-
 
 ## 配置
 

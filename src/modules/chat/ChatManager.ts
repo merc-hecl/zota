@@ -501,13 +501,17 @@ export class ChatManager {
       const questionMatch = userContent.match(/\[Question\]:\s*(.+)/s);
       let userQuestion = questionMatch
         ? questionMatch[1].trim()
-        : userContent.replace(/\[PDF Content\]:[\s\S]*?(?=\[Question\]:|$)/, "").replace(/\[Selected[^\]]*\]:\s*/g, "").trim();
+        : userContent
+            .replace(/\[PDF Content\]:[\s\S]*?(?=\[Question\]:|$)/, "")
+            .replace(/\[Selected[^\]]*\]:\s*/g, "")
+            .trim();
 
       // 去掉开头的 "[Selected]:" 等标记
       userQuestion = userQuestion.replace(/^\[[^\]]*\]:\s*/, "").trim();
 
       // 直接使用用户问题的前20个字符作为标题（天然是用户的语言）
-      const title = userQuestion.substring(0, 20) + (userQuestion.length > 20 ? "..." : "");
+      const title =
+        userQuestion.substring(0, 20) + (userQuestion.length > 20 ? "..." : "");
 
       if (title && title.trim()) {
         session.title = title.trim();

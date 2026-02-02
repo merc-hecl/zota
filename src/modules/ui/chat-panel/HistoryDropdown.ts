@@ -161,8 +161,7 @@ export function createSessionItem(
   deleteBtnArea.addEventListener("mouseenter", () => {
     deleteBtn.style.display = "flex";
     // 使用条目hover背景色作为渐变起点
-    deleteBtnArea.style.background =
-      `linear-gradient(to left, ${theme.dropdownItemHoverBg} 0%, ${theme.dropdownItemHoverBg} 40%, transparent 100%)`;
+    deleteBtnArea.style.background = `linear-gradient(to left, ${theme.dropdownItemHoverBg} 0%, ${theme.dropdownItemHoverBg} 40%, transparent 100%)`;
   });
 
   deleteBtnArea.addEventListener("mouseleave", () => {
