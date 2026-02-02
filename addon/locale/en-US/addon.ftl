@@ -1,0 +1,48 @@
+# Chat Panel
+chat-toolbar-button-tooltip = Open AI Chat Panel
+chat-error-no-provider = ⚠️ No AI provider available. Please configure a provider in Settings.
+chat-start-conversation = Start a conversation
+chat-attach-pdf = Attach PDF
+chat-new-chat = New Chat
+chat-history = Chat History
+chat-input-placeholder = Ask a question about the PDF...
+chat-send = Send
+chat-no-messages = (no messages)
+chat-message-count = { $count } messages
+chat-show-more = Show more ({ $count } remaining)
+chat-no-history = No chat history
+chat-close = Close
+chat-open-settings = Open Settings
+chat-select-model = Select Model
+chat-toggle-panel-mode = Toggle sidebar/floating mode
+chat-switch-to-floating = Switch to floating mode
+chat-switch-to-sidebar = Switch to sidebar mode
+chat-no-models = No models available
+chat-configure-provider = Please configure a provider in Settings first
+chat-model-list-title = Model List
+chat-delete = Delete
+chat-pin = Pin to top
+chat-unpin = Unpin from top
+chat-copy-message = Copy message
+chat-copy-table = Copy
+
+# Empty State
+chat-empty-title = The important thing is not to stop questioning. Curiosity has its own reason for existing.
+chat-empty-subtitle = —— Albert Einstein
+chat-empty-tip-1 = 
+chat-empty-tip-2 = 
+chat-empty-tip-3 =
+
+# Preferences
+pref-model-custom = Custom
+pref-fetching-models = Fetching models...
+pref-models-loaded = Loaded { $count } models
+pref-fetch-models-failed = Failed to fetch models
+pref-show-key = Show
+pref-hide-key = Hide
+pref-testing = Testing...
+pref-test-success = Connection successful!
+pref-test-failed = Connection failed
+pref-provider-not-ready = Provider not configured
+pref-enter-model-id = Enter model ID:
+pref-model-exists = Model already exists

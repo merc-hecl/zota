@@ -1,0 +1,67 @@
+{
+  "name": "zota",
+  "version": "0.0.1",
+  "description": "Zota - Chat with AI about your PDF documents in Zotero",
+  "config": {
+    "addonName": "Zota",
+    "addonID": "zota@zotero.plugin",
+    "addonRef": "zota",
+    "addonInstance": "Zota",
+    "prefsPrefix": "extensions.zotero.zota"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/merc-hecl/zota.git"
+  },
+  "author": "merc-hecl",
+  "bugs": {
+    "url": "https://github.com/merc-hecl/zota/issues"
+  },
+  "homepage": "https://github.com/merc-hecl/zota#readme",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "start": "zotero-plugin serve",
+    "build": "zotero-plugin build && tsc --noEmit",
+    "lint:check": "prettier --check . && eslint .",
+    "lint:fix": "prettier --write . && eslint . --fix",
+    "release": "zotero-plugin release",
+    "test": "zotero-plugin test",
+    "update-deps": "npm update --save"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.28",
+    "markdown-it": "^14.1.0",
+    "markdown-it-texmath": "^1.0.0",
+    "zotero-plugin-toolkit": "^5.1.0-beta.13"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.2.3",
+    "@types/markdown-it": "^14.1.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^24.10.0",
+    "@zotero-plugin/eslint-config": "^0.6.7",
+    "chai": "^6.2.1",
+    "eslint": "^9.39.2",
+    "mocha": "^11.7.5",
+    "prettier": "^3.7.4",
+    "typescript": "^5.9.3",
+    "zotero-plugin-scaffold": "^0.8.2",
+    "zotero-types": "^4.1.0-beta.4"
+  },
+  "prettier": {
+    "printWidth": 80,
+    "tabWidth": 2,
+    "endOfLine": "lf",
+    "overrides": [
+      {
+        "files": [
+          "*.xhtml"
+        ],
+        "options": {
+          "htmlWhitespaceSensitivity": "css"
+        }
+      }
+    ]
+  }
+}

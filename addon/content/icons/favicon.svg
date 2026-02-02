@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .duck-body { fill: #FFD700; }
+    .duck-beak { fill: #FF8C00; }
+    .duck-eye { fill: #000; }
+    .duck-eye-white { fill: #fff; }
+    .duck-highlight { fill: #FFED4A; opacity: 0.6; }
+    @media (prefers-color-scheme: dark) {
+      .duck-body { fill: #FFD700; }
+      .duck-beak { fill: #FF8C00; }
+      .duck-highlight { fill: #FFED4A; opacity: 0.4; }
+    }
+  </style>
+  <!-- 鸭子身体 -->
+  <ellipse cx="24" cy="32" rx="16" ry="12" class="duck-body"/>
+  <!-- 身体高光 -->
+  <ellipse cx="18" cy="28" rx="7" ry="5" class="duck-highlight"/>
+  <!-- 鸭子头 -->
+  <circle cx="24" cy="14" r="11" class="duck-body"/>
+  <!-- 头部高光 -->
+  <ellipse cx="19" cy="10" rx="5" ry="4" class="duck-highlight"/>
+  <!-- 鸭子嘴巴 - 更小更扁 -->
+  <ellipse cx="36" cy="16" rx="6" ry="3.5" class="duck-beak"/>
+  <!-- 鸭子眼睛 -->
+  <circle cx="29" cy="12" r="3.5" class="duck-eye-white"/>
+  <circle cx="29.5" cy="12" r="2.2" class="duck-eye"/>
+  <circle cx="30" cy="11" r="1" fill="#fff"/>
+  <!-- 鸭子翅膀 -->
+  <ellipse cx="16" cy="32" rx="7" ry="6" fill="#F0C800"/>
+</svg>
