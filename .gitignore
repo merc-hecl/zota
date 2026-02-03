@@ -10,6 +10,7 @@ yarn.lock
 tsconfig.tsbuildinfo
 
 # Scaffold
+.trae
 .vscode
 .env
 .scaffold

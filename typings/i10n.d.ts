@@ -12,6 +12,7 @@ export type FluentMessageId =
   | 'chat-empty-subtitle'
   | 'chat-empty-title'
   | 'chat-error-no-provider'
+  | 'chat-export-note'
   | 'chat-history'
   | 'chat-input-placeholder'
   | 'chat-message-count'

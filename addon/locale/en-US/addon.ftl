@@ -21,6 +21,7 @@ chat-no-models = No models available
 chat-configure-provider = Please configure a provider in Settings first
 chat-model-list-title = Model List
 chat-delete = Delete
+chat-export-note = Export as Note
 chat-pin = Pin to top
 chat-unpin = Unpin from top
 chat-copy-message = Copy message

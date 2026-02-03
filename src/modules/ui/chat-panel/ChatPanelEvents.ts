@@ -20,6 +20,7 @@ import { getPref, setPref } from "../../../utils/prefs";
 import { formatModelLabel } from "../../preferences/ModelsFetcher";
 import type { PanelMode } from "./ChatPanelManager";
 import { startStreamingScroll } from "./AutoScrollManager";
+import { getNoteExportService } from "../../chat";
 import {
   getGlobalInputText,
   setGlobalInputText,
@@ -441,6 +442,42 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       },
       // documentName - 显示在顶部的PDF文档名
       documentName,
+      // onExport callback - export session as note
+      async (session: SessionInfo) => {
+        ztoolkit.log(
+          "Exporting session as note:",
+          session.sessionId,
+          "for item:",
+          session.itemId,
+        );
+
+        // Load the full session data
+        const fullSession = await chatManager.getSessionWithTitle(
+          session.itemId,
+          session.sessionId,
+        );
+
+        if (!fullSession) {
+          const errorMsg = `Failed to load session for export: ${session.sessionId}`;
+          ztoolkit.log(errorMsg);
+          throw new Error(errorMsg);
+        }
+
+        // Export the session as a note
+        const noteExportService = getNoteExportService();
+        const result = await noteExportService.exportSessionAsNote(
+          fullSession,
+          session.itemId,
+        );
+
+        // Show result notification
+        if (result.success) {
+          ztoolkit.log("Note exported successfully:", result.noteItem?.id);
+        } else {
+          ztoolkit.log("Failed to export note:", result.message);
+          throw new Error(result.message);
+        }
+      },
     );
   };
 

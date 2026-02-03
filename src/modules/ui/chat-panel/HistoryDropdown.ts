@@ -19,6 +19,7 @@ export function createSessionItem(
   theme: ThemeColors,
   onSelect: (session: SessionInfo) => void,
   onDelete?: (session: SessionInfo) => void,
+  onExport?: (session: SessionInfo) => void,
 ): HTMLElement {
   const sessionItem = createElement(doc, "div", {
     padding: "12px 14px",
@@ -28,19 +29,41 @@ export function createSessionItem(
     position: "relative",
   });
 
-  // Delete button area (悬浮在右方尾部时浮现)
-  const deleteBtnArea = createElement(doc, "div", {
+  // Button area (悬浮在右方尾部时浮现导出和删除按钮)
+  const buttonArea = createElement(doc, "div", {
     position: "absolute",
     right: "0",
     top: "0",
     bottom: "0",
-    width: "60px",
+    width: "70px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    gap: "6px",
     background: "transparent",
     zIndex: "5",
+    paddingRight: "8px",
   });
+
+  // Export button
+  const exportBtn = createElement(doc, "button", {
+    width: "24px",
+    height: "24px",
+    background: "rgba(255, 255, 255, 0.9)",
+    border: `1px solid ${theme.borderColor}`,
+    borderRadius: "4px",
+    cursor: "pointer",
+    display: "none",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "12px",
+    color: theme.textMuted,
+    padding: "0",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    flexShrink: "0",
+  });
+  exportBtn.innerHTML = "&#128190;"; // 💾 软盘图标
+  exportBtn.title = getString("chat-export-note");
 
   // Delete button
   const deleteBtn = createElement(doc, "button", {
@@ -57,11 +80,13 @@ export function createSessionItem(
     color: theme.textMuted,
     padding: "0",
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+    flexShrink: "0",
   });
   deleteBtn.textContent = "×";
   deleteBtn.title = getString("chat-delete");
 
-  deleteBtnArea.appendChild(deleteBtn);
+  buttonArea.appendChild(exportBtn);
+  buttonArea.appendChild(deleteBtn);
 
   // Content wrapper (全宽，不再预留删除按钮空间)
   const contentWrapper = createElement(doc, "div", {
@@ -157,16 +182,78 @@ export function createSessionItem(
     ? `${month}/${day} ${hours}:${minutes}`
     : `${date.getFullYear()}/${month}/${day} ${hours}:${minutes}`;
 
-  // 悬浮区域事件 - 显示删除按钮，背景渐变从条目hover背景色开始
-  deleteBtnArea.addEventListener("mouseenter", () => {
+  // 悬浮区域事件 - 显示导出和删除按钮，背景渐变从条目hover背景色开始
+  buttonArea.addEventListener("mouseenter", () => {
+    exportBtn.style.display = "flex";
     deleteBtn.style.display = "flex";
     // 使用条目hover背景色作为渐变起点
-    deleteBtnArea.style.background = `linear-gradient(to left, ${theme.dropdownItemHoverBg} 0%, ${theme.dropdownItemHoverBg} 40%, transparent 100%)`;
+    buttonArea.style.background = `linear-gradient(to left, ${theme.dropdownItemHoverBg} 0%, ${theme.dropdownItemHoverBg} 40%, transparent 100%)`;
   });
 
-  deleteBtnArea.addEventListener("mouseleave", () => {
+  buttonArea.addEventListener("mouseleave", () => {
+    exportBtn.style.display = "none";
     deleteBtn.style.display = "none";
-    deleteBtnArea.style.background = "transparent";
+    buttonArea.style.background = "transparent";
+  });
+
+  // Export button hover
+  exportBtn.addEventListener("mouseenter", () => {
+    exportBtn.style.background = "rgba(0, 128, 0, 0.1)";
+    exportBtn.style.color = "#2e7d32";
+    exportBtn.style.borderColor = "#2e7d32";
+  });
+  exportBtn.addEventListener("mouseleave", () => {
+    exportBtn.style.background = "rgba(255, 255, 255, 0.9)";
+    exportBtn.style.color = theme.textMuted;
+    exportBtn.style.borderColor = theme.borderColor;
+  });
+
+  // Export button click with visual feedback
+  exportBtn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+
+    // Show loading state
+    const originalIcon = exportBtn.innerHTML;
+    exportBtn.innerHTML = "&#8230;"; // ... loading
+    exportBtn.style.cursor = "wait";
+    exportBtn.setAttribute("disabled", "true");
+
+    try {
+      // Call export callback
+      await onExport?.(session);
+
+      // Show success checkmark
+      exportBtn.innerHTML = "&#10003;"; // ✓ checkmark
+      exportBtn.style.color = "#2e7d32";
+      exportBtn.style.borderColor = "#2e7d32";
+      exportBtn.style.background = "rgba(0, 128, 0, 0.15)";
+
+      // Restore original icon after delay
+      setTimeout(() => {
+        exportBtn.innerHTML = originalIcon;
+        exportBtn.style.color = theme.textMuted;
+        exportBtn.style.borderColor = theme.borderColor;
+        exportBtn.style.background = "rgba(255, 255, 255, 0.9)";
+        exportBtn.style.cursor = "pointer";
+        exportBtn.removeAttribute("disabled");
+      }, 600);
+    } catch {
+      // Show error state
+      exportBtn.innerHTML = "&#10007;"; // ✗ error
+      exportBtn.style.color = "#e53935";
+      exportBtn.style.borderColor = "#e53935";
+      exportBtn.style.background = "rgba(255, 0, 0, 0.15)";
+
+      // Restore original icon after delay
+      setTimeout(() => {
+        exportBtn.innerHTML = originalIcon;
+        exportBtn.style.color = theme.textMuted;
+        exportBtn.style.borderColor = theme.borderColor;
+        exportBtn.style.background = "rgba(255, 255, 255, 0.9)";
+        exportBtn.style.cursor = "pointer";
+        exportBtn.removeAttribute("disabled");
+      }, 600);
+    }
   });
 
   // Delete button hover
@@ -197,7 +284,7 @@ export function createSessionItem(
 
   sessionItem.appendChild(contentWrapper);
   sessionItem.appendChild(timeEl);
-  sessionItem.appendChild(deleteBtnArea);
+  sessionItem.appendChild(buttonArea);
 
   // Click handler
   sessionItem.addEventListener("click", () => {
@@ -235,6 +322,7 @@ export function renderMoreSessions(
   theme: ThemeColors,
   onSelect: (session: SessionInfo) => void,
   onDelete?: (session: SessionInfo) => void,
+  onExport?: (session: SessionInfo) => void,
 ): void {
   const endIndex = Math.min(
     state.displayedCount + SESSIONS_PER_PAGE,
@@ -250,7 +338,14 @@ export function renderMoreSessions(
   // Add session items
   for (let i = state.displayedCount; i < endIndex; i++) {
     container.appendChild(
-      createSessionItem(doc, state.allSessions[i], theme, onSelect, onDelete),
+      createSessionItem(
+        doc,
+        state.allSessions[i],
+        theme,
+        onSelect,
+        onDelete,
+        onExport,
+      ),
     );
   }
   state.displayedCount = endIndex;
@@ -272,7 +367,15 @@ export function renderMoreSessions(
 
     loadMoreBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      renderMoreSessions(container, doc, state, theme, onSelect, onDelete);
+      renderMoreSessions(
+        container,
+        doc,
+        state,
+        theme,
+        onSelect,
+        onDelete,
+        onExport,
+      );
     });
     loadMoreBtn.addEventListener("mouseenter", () => {
       loadMoreBtn.style.background = chatColors.loadMoreBg;
@@ -323,6 +426,7 @@ export function populateHistoryDropdown(
   onSelect: (session: SessionInfo) => void,
   onDelete?: (session: SessionInfo) => void,
   documentName?: string,
+  onExport?: (session: SessionInfo) => void,
 ): void {
   // Reset state
   state.allSessions = sessions;
@@ -347,7 +451,15 @@ export function populateHistoryDropdown(
     }
 
     // Render first page
-    renderMoreSessions(dropdown, doc, state, theme, onSelect, onDelete);
+    renderMoreSessions(
+      dropdown,
+      doc,
+      state,
+      theme,
+      onSelect,
+      onDelete,
+      onExport,
+    );
   }
 }
 

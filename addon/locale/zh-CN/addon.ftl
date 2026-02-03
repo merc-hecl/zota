@@ -21,6 +21,7 @@ chat-no-models = 无可用模型
 chat-configure-provider = 请先在设置中配置提供商
 chat-model-list-title = 模型列表
 chat-delete = 删除
+chat-export-note = 导出为笔记
 chat-pin = 固定到顶部
 chat-unpin = 取消固定
 chat-copy-message = 复制消息
