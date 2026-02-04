@@ -472,6 +472,21 @@ export class ChatManager {
   }
 
   /**
+   * System prompt for generating chat titles
+   * Instructs the AI to create concise, descriptive titles in the same language as the user's message
+   */
+  private readonly TITLE_GENERATION_SYSTEM_PROMPT =
+    "You are a chat naming assistant. Given a user's message, generate a short, descriptive title for the conversation.\n\n" +
+    "Rules:\n" +
+    "- Keep it under 50 characters\n" +
+    "- Be concise and descriptive\n" +
+    "- Don't use quotes or special formatting\n" +
+    "- Focus on the main topic or intent\n" +
+    "- Use title case\n" +
+    "- IMPORTANT: The title MUST be in the SAME LANGUAGE as the user's message\n\n" +
+    "Respond with ONLY the title, nothing else.";
+
+  /**
    * 生成会话标题
    * 基于第一轮对话内容使用AI生成简短标题
    */
@@ -509,16 +524,57 @@ export class ChatManager {
       // 去掉开头的 "[Selected]:" 等标记
       userQuestion = userQuestion.replace(/^\[[^\]]*\]:\s*/, "").trim();
 
-      // 直接使用用户问题的前20个字符作为标题（天然是用户的语言）
-      const title =
-        userQuestion.substring(0, 20) + (userQuestion.length > 20 ? "..." : "");
+      if (!userQuestion) return;
 
-      if (title && title.trim()) {
-        session.title = title.trim();
-        ztoolkit.log("Generated session title:", title.trim());
+      // Use AI to generate a descriptive title
+      const titleMessages: ChatMessage[] = [
+        {
+          id: this.generateId(),
+          role: "system",
+          content: this.TITLE_GENERATION_SYSTEM_PROMPT,
+          timestamp: Date.now(),
+        },
+        {
+          id: this.generateId(),
+          role: "user",
+          content: userQuestion,
+          timestamp: Date.now(),
+        },
+      ];
+
+      const generatedTitle = await provider.chatCompletion(titleMessages);
+      const title = generatedTitle.trim().slice(0, 100);
+
+      if (title) {
+        session.title = title;
+        ztoolkit.log("Generated session title:", title);
       }
     } catch (error) {
       ztoolkit.log("Error generating session title:", error);
+      // Fallback: use first 30 characters of user question as title
+      try {
+        const userContent = session.messages.find(
+          (m) => m.role === "user",
+        )?.content;
+        if (userContent) {
+          const questionMatch = userContent.match(/\[Question\]:\s*(.+)/s);
+          const userQuestion = questionMatch
+            ? questionMatch[1].trim()
+            : userContent
+                .replace(/\[PDF Content\]:[\s\S]*?(?=\[Question\]:|$)/, "")
+                .replace(/\[Selected[^\]]*\]:\s*/g, "")
+                .trim();
+          const fallbackTitle =
+            userQuestion.substring(0, 30) +
+            (userQuestion.length > 30 ? "..." : "");
+          if (fallbackTitle) {
+            session.title = fallbackTitle;
+            ztoolkit.log("Using fallback session title:", fallbackTitle);
+          }
+        }
+      } catch {
+        // Ignore fallback errors
+      }
     }
   }
 
