@@ -26,6 +26,7 @@ chat-pin = Pin to top
 chat-unpin = Unpin from top
 chat-copy-message = Copy message
 chat-copy-table = Copy
+chat-copy-code = Copy
 
 # Empty State
 chat-empty-title = The important thing is not to stop questioning. Curiosity has its own reason for existing.

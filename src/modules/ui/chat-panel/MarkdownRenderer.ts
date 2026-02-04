@@ -304,6 +304,12 @@ export function buildDOMFromTokens(
 
       case "code_block":
       case "fence": {
+        // Create a wrapper for the code block with copy button
+        const codeWrapper = doc.createElementNS(HTML_NS, "div") as HTMLElement;
+        codeWrapper.style.position = "relative";
+        codeWrapper.style.margin = "8px 0";
+        parent.appendChild(codeWrapper);
+
         const pre = doc.createElementNS(HTML_NS, "pre") as HTMLElement;
         const code = doc.createElementNS(HTML_NS, "code") as HTMLElement;
 
@@ -321,7 +327,7 @@ export function buildDOMFromTokens(
         pre.style.fontFamily =
           "'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
         pre.style.lineHeight = "1.45";
-        pre.style.margin = "8px 0";
+        pre.style.margin = "0";
 
         // Try to highlight with language detection
         try {
@@ -341,7 +347,10 @@ export function buildDOMFromTokens(
         }
 
         pre.appendChild(code);
-        parent.appendChild(pre);
+        codeWrapper.appendChild(pre);
+
+        // Add copy button to code block wrapper
+        addCodeCopyButton(doc, codeWrapper, token.content);
         break;
       }
 
@@ -960,6 +969,60 @@ function extractTableContent(table: HTMLElement): string {
   });
 
   return rows.join("\n");
+}
+
+/**
+ * Add a copy button to code block wrapper
+ */
+function addCodeCopyButton(
+  doc: Document,
+  codeWrapper: HTMLElement,
+  codeContent: string,
+): void {
+  // Create copy button
+  const copyBtn = doc.createElementNS(HTML_NS, "button") as HTMLButtonElement;
+  copyBtn.style.position = "absolute";
+  copyBtn.style.top = "4px";
+  copyBtn.style.right = "4px";
+  copyBtn.style.padding = "4px 8px";
+  copyBtn.style.background = "rgba(255, 255, 255, 0.9)";
+  copyBtn.style.border = "1px solid #ddd";
+  copyBtn.style.borderRadius = "4px";
+  copyBtn.style.cursor = "pointer";
+  copyBtn.style.fontSize = "11px";
+  copyBtn.style.opacity = "0";
+  copyBtn.style.transition = "opacity 0.2s ease";
+  copyBtn.style.zIndex = "10";
+  copyBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+  copyBtn.textContent = getString("chat-copy-code");
+
+  // Show button on hover
+  codeWrapper.addEventListener("mouseenter", () => {
+    copyBtn.style.opacity = "1";
+  });
+  codeWrapper.addEventListener("mouseleave", () => {
+    copyBtn.style.opacity = "0";
+  });
+
+  // Copy functionality
+  copyBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    copyToClipboard(codeContent);
+
+    // Show success feedback
+    copyBtn.textContent = "✓";
+    copyBtn.style.fontWeight = "600";
+
+    setTimeout(() => {
+      copyBtn.style.opacity = "0";
+      setTimeout(() => {
+        copyBtn.textContent = getString("chat-copy-code");
+        copyBtn.style.fontWeight = "normal";
+      }, 200);
+    }, 800);
+  });
+
+  codeWrapper.appendChild(copyBtn);
 }
 
 /**

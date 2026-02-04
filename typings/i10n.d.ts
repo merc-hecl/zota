@@ -6,6 +6,7 @@ export type FluentMessageId =
   | 'chat-attach-pdf'
   | 'chat-close'
   | 'chat-configure-provider'
+  | 'chat-copy-code'
   | 'chat-copy-message'
   | 'chat-copy-table'
   | 'chat-delete'
