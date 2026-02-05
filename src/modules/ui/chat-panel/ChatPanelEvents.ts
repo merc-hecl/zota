@@ -984,7 +984,7 @@ function populateModelDropdown(
         const modelItem = createElement(doc, "div", {
           padding: "8px 12px",
           fontSize: "12px",
-          color: isCurrentModel ? chatColors.userBubble : theme.textPrimary,
+          color: isCurrentModel ? theme.textPrimary : theme.textPrimary,
           cursor: "pointer",
           background: isCurrentModel
             ? theme.dropdownItemHoverBg
@@ -997,7 +997,7 @@ function populateModelDropdown(
         // Checkmark for current model
         if (isCurrentModel) {
           const check = createElement(doc, "span", {
-            color: chatColors.userBubble,
+            color: theme.textPrimary,
             fontWeight: "bold",
           });
           check.textContent = "✓";
