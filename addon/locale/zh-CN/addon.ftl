@@ -27,6 +27,7 @@ chat-unpin = 取消固定
 chat-copy-message = 复制消息
 chat-copy-table = 复制
 chat-copy-code = 复制
+chat-quote-label = 引用
 
 # Empty State
 chat-empty-title = 学贵知疑，小疑则小进，大疑则大进。

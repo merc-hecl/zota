@@ -24,6 +24,7 @@ export type FluentMessageId =
   | 'chat-no-models'
   | 'chat-open-settings'
   | 'chat-pin'
+  | 'chat-quote-label'
   | 'chat-select-model'
   | 'chat-send'
   | 'chat-show-more'

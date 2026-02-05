@@ -358,6 +358,120 @@ export function createChatContainer(
     { id: "chat-attachments-preview" },
   );
 
+  // Text Selection Quote Box - appears between toolbar and input area
+  const quoteBox = createElement(
+    doc,
+    "div",
+    {
+      display: "none",
+      flexDirection: "column",
+      padding: "12px 16px",
+      background: "rgba(59, 130, 246, 0.08)",
+      borderTop: `1px solid ${theme.borderColor}`,
+      borderBottom: `1px solid ${theme.borderColor}`,
+      position: "relative",
+    },
+    { id: "chat-quote-box" },
+  );
+
+  // Quote box header with label and close button
+  const quoteBoxHeader = createElement(doc, "div", {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "8px",
+  });
+
+  // Quote label with icon
+  const quoteLabel = createElement(doc, "div", {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    fontSize: "11px",
+    color: "#3b82f6",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: "0.3px",
+  });
+
+  // Quote icon (quotation mark)
+  const quoteIcon = createElement(doc, "span", {
+    fontSize: "16px",
+    color: "#3b82f6",
+    fontWeight: "bold",
+    lineHeight: "1",
+  });
+  quoteIcon.textContent = "❝";
+
+  const quoteLabelText = createElement(doc, "span", {});
+  quoteLabelText.textContent = getString("chat-quote-label");
+
+  quoteLabel.appendChild(quoteIcon);
+  quoteLabel.appendChild(quoteLabelText);
+
+  // Close button
+  const quoteCloseBtn = createElement(
+    doc,
+    "button",
+    {
+      width: "20px",
+      height: "20px",
+      background: "rgba(0, 0, 0, 0.06)",
+      border: "none",
+      borderRadius: "50%",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0",
+      fontSize: "12px",
+      color: theme.textMuted,
+      transition: "all 0.2s ease",
+    },
+    { id: "chat-quote-close-btn", title: "Remove quote" },
+  );
+  quoteCloseBtn.textContent = "✕";
+
+  // Hover effect for close button
+  quoteCloseBtn.addEventListener("mouseenter", () => {
+    quoteCloseBtn.style.background = "rgba(0, 0, 0, 0.1)";
+    quoteCloseBtn.style.color = theme.textPrimary;
+  });
+  quoteCloseBtn.addEventListener("mouseleave", () => {
+    quoteCloseBtn.style.background = "rgba(0, 0, 0, 0.06)";
+    quoteCloseBtn.style.color = theme.textMuted;
+  });
+
+  quoteBoxHeader.appendChild(quoteLabel);
+  quoteBoxHeader.appendChild(quoteCloseBtn);
+
+  // Quote content container with card style
+  const quoteContent = createElement(
+    doc,
+    "div",
+    {
+      fontSize: "13px",
+      color: theme.textPrimary,
+      lineHeight: "1.6",
+      maxHeight: "72px",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      display: "-webkit-box",
+      webkitLineClamp: "3",
+      webkitBoxOrient: "vertical",
+      padding: "10px 14px",
+      background: theme.inputBg,
+      borderRadius: "8px",
+      border: `1px solid ${theme.borderColor}`,
+      boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+      fontStyle: "italic",
+    },
+    { id: "chat-quote-content" },
+  );
+
+  quoteBox.appendChild(quoteBoxHeader);
+  quoteBox.appendChild(quoteContent);
+
   // Input Area - ChatBox style with vertical layout
   const inputArea = createElement(doc, "div", {
     display: "flex",
@@ -731,6 +845,7 @@ export function createChatContainer(
   root.appendChild(chatHistory);
   root.appendChild(toolbar);
   root.appendChild(attachmentsPreview);
+  root.appendChild(quoteBox);
   root.appendChild(inputArea);
   root.appendChild(historyDropdown);
   container.appendChild(root);

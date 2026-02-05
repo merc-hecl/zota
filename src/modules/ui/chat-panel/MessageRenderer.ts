@@ -187,6 +187,7 @@ export function createMessageElement(
     doc,
     "div",
     {
+      fontSize: "14px",
       lineHeight: "1.6",
       whiteSpace: "pre-wrap",
       userSelect: "text",
@@ -199,14 +200,92 @@ export function createMessageElement(
   let rawContent = msg.content;
 
   if (msg.role === "user") {
-    // Format user message for display
-    const displayContent = msg.selectedText
-      ? `[Selected]: ${msg.selectedText}\n\n${msg.content.split("[Question]:").pop()?.trim() || msg.content}`
-      : msg.content.includes("[Question]:")
-        ? msg.content.split("[Question]:").pop()?.trim() || msg.content
-        : msg.content;
-    content.textContent = displayContent;
-    rawContent = displayContent;
+    // Extract question content
+    const questionContent = msg.content.includes("[Question]:")
+      ? msg.content.split("[Question]:").pop()?.trim() || msg.content
+      : msg.content;
+
+    // If there's selected text, create a styled quote section
+    if (msg.selectedText) {
+      // Create container for quote + question
+      const userContentContainer = createElement(doc, "div", {
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+      });
+
+      // Create quote card with subtle background
+      const quoteCard = createElement(doc, "div", {
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        padding: "10px 12px",
+        background: "rgba(255, 255, 255, 0.15)",
+        borderRadius: "8px",
+        border: "1px solid rgba(255, 255, 255, 0.2)",
+      });
+
+      // Quote header with icon and label
+      const quoteHeader = createElement(doc, "div", {
+        display: "flex",
+        alignItems: "center",
+        gap: "5px",
+        fontSize: "10px",
+        fontWeight: "600",
+        textTransform: "uppercase",
+        letterSpacing: "0.4px",
+        opacity: "0.85",
+      });
+
+      // Quote icon
+      const quoteIcon = createElement(doc, "span", {
+        fontSize: "14px",
+        fontWeight: "bold",
+        lineHeight: "1",
+      });
+      quoteIcon.textContent = "❝";
+
+      const quoteLabel = createElement(doc, "span", {});
+      quoteLabel.textContent = getString("chat-quote-label");
+
+      quoteHeader.appendChild(quoteIcon);
+      quoteHeader.appendChild(quoteLabel);
+
+      // Quote text content with italic style
+      const quoteText = createElement(doc, "div", {
+        fontSize: "12px",
+        lineHeight: "1.5",
+        opacity: "0.95",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        display: "-webkit-box",
+        webkitLineClamp: "3",
+        webkitBoxOrient: "vertical",
+        fontStyle: "italic",
+        paddingLeft: "4px",
+      });
+      quoteText.textContent = msg.selectedText;
+
+      quoteCard.appendChild(quoteHeader);
+      quoteCard.appendChild(quoteText);
+
+      // Question text with slightly larger font
+      const questionText = createElement(doc, "div", {
+        fontSize: "14px",
+        lineHeight: "1.5",
+      });
+      questionText.textContent = questionContent;
+
+      userContentContainer.appendChild(quoteCard);
+      userContentContainer.appendChild(questionText);
+
+      content.appendChild(userContentContainer);
+      rawContent = questionContent;
+    } else {
+      // No selected text, just show question
+      content.textContent = questionContent;
+      rawContent = questionContent;
+    }
   } else if (msg.role === "error") {
     // 错误消息显示为纯文本，带警告图标
     // 尝试解析 JSON 错误消息以获取更友好的显示

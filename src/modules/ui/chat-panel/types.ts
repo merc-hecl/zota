@@ -53,6 +53,8 @@ export interface SessionInfo {
 // Attachment state for pending uploads
 export interface AttachmentState {
   pendingSelectedText: string | null;
+  pendingSelectedTextDocumentId: number | null;
+  isQuoteCancelled: boolean;
 }
 
 // Context passed to event handlers
@@ -63,7 +65,7 @@ export interface ChatPanelContext {
   setCurrentItem: (item: Zotero.Item | null) => void;
   getTheme: () => ThemeColors;
   getAttachmentState: () => AttachmentState;
-  clearAttachments: () => void;
+  clearAttachments: (cancelled?: boolean) => void;
   updateAttachmentsPreview: () => void;
   updatePdfCheckboxVisibility: (item: Zotero.Item | null) => Promise<void>;
   renderMessages: (messages: ChatMessage[]) => void;

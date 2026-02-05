@@ -7,9 +7,31 @@ export class PdfExtractor {
   private currentSelectedText: string | null = null;
   // 是否已注册事件监听
   private isEventListenerRegistered: boolean = false;
+  // 当前文档ID，用于文档隔离
+  private currentDocumentId: number | null = null;
+  // 文本选择回调函数
+  private onTextSelectedCallback:
+    | ((text: string, documentId: number) => void)
+    | null = null;
 
   constructor() {
     this.registerSelectionListener();
+  }
+
+  /**
+   * Set callback for text selection events
+   */
+  setOnTextSelectedCallback(
+    callback: (text: string, documentId: number) => void,
+  ): void {
+    this.onTextSelectedCallback = callback;
+  }
+
+  /**
+   * Get current document ID
+   */
+  getCurrentDocumentId(): number | null {
+    return this.currentDocumentId;
   }
 
   /**
@@ -26,10 +48,37 @@ export class PdfExtractor {
           const { params } = event;
           if (params?.annotation?.text) {
             this.currentSelectedText = params.annotation.text.trim();
+
+            // Get current document ID from reader
+            const mainWindow = Zotero.getMainWindow() as Window & {
+              Zotero_Tabs?: { selectedID: string };
+            };
+            const tabs = mainWindow.Zotero_Tabs;
+            if (tabs) {
+              const reader = Zotero.Reader.getByTabID(tabs.selectedID);
+              if (reader?.itemID) {
+                this.currentDocumentId = reader.itemID;
+              }
+            }
+
             ztoolkit.log(
               "[PdfExtractor] Text selected:",
               this.currentSelectedText.substring(0, 50),
+              "Document ID:",
+              this.currentDocumentId,
             );
+
+            // Trigger callback if set
+            if (
+              this.onTextSelectedCallback &&
+              this.currentSelectedText &&
+              this.currentDocumentId
+            ) {
+              this.onTextSelectedCallback(
+                this.currentSelectedText,
+                this.currentDocumentId,
+              );
+            }
           }
         },
         // 使用一个唯一的标识符

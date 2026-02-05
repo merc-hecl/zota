@@ -8,7 +8,7 @@
 
 ## Screenshots
 
-|                     Sidebar Panel                     |                   Float Window                    |
+|                    Sidebar Window                     |                   Float Window                    |
 | :---------------------------------------------------: | :-----------------------------------------------: |
 | ![sidebar](doc/screenshots/screenshot_sidebar_en.png) | ![float](doc/screenshots/screenshot_float_en.png) |
 

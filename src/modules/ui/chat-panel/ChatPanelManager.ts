@@ -24,6 +24,7 @@ import {
   setupEventHandlers,
   updateAttachmentsPreviewDisplay,
   updatePdfCheckboxVisibilityForItem,
+  updateQuoteBoxDisplay,
   focusInput,
   setActiveReaderItemFn,
   setTogglePanelModeFn,
@@ -122,6 +123,9 @@ let floatingTabNotifierID: string | null = null;
 
 // Attachment state
 let pendingSelectedText: string | null = null;
+let pendingSelectedTextDocumentId: number | null = null;
+// Flag to track if user manually cancelled the quote
+let isQuoteCancelled: boolean = false;
 
 /**
  * Get current panel mode
@@ -196,9 +200,43 @@ function initializeEventsModule(): void {
 export function getChatManager(): ChatManager {
   if (!chatManager) {
     chatManager = new ChatManager();
+    // Set up text selection callback
+    const pdfExtractor = chatManager.getPdfExtractor();
+    pdfExtractor.setOnTextSelectedCallback((text, documentId) => {
+      handleTextSelected(text, documentId);
+    });
   }
   initializeEventsModule();
   return chatManager;
+}
+
+/**
+ * Handle text selection from PDF
+ * Shows quote box in all active containers
+ */
+function handleTextSelected(text: string, documentId: number): void {
+  // Store selected text and document ID
+  pendingSelectedText = text;
+  pendingSelectedTextDocumentId = documentId;
+  // Reset cancelled flag when new text is selected
+  isQuoteCancelled = false;
+
+  ztoolkit.log(
+    "[TextSelection] Text selected from document:",
+    documentId,
+    "Text length:",
+    text.length,
+  );
+
+  // Update quote box in sidebar container
+  if (chatContainer) {
+    updateQuoteBoxDisplay(chatContainer, text);
+  }
+
+  // Update quote box in floating container
+  if (floatingContainer) {
+    updateQuoteBoxDisplay(floatingContainer, text);
+  }
 }
 
 /**
@@ -470,6 +508,17 @@ async function initializeChatContentCommon(
   // Update PDF checkbox visibility
   await context.updatePdfCheckboxVisibility(moduleCurrentItem);
 
+  // Sync quote box state - show if there's pending selected text for current document
+  const activeReaderItem = getActiveReaderItem();
+  const currentDocId = activeReaderItem?.id ?? null;
+  if (
+    pendingSelectedText &&
+    pendingSelectedTextDocumentId !== null &&
+    currentDocId === pendingSelectedTextDocumentId
+  ) {
+    updateQuoteBoxDisplay(container, pendingSelectedText);
+  }
+
   // Load session and render
   const session = await manager.getOrCreateSession(moduleCurrentItem.id);
   manager.setActiveItem(moduleCurrentItem.id);
@@ -560,6 +609,29 @@ async function initializeFloatingChatContent(): Promise<void> {
     floatingTabNotifierID = Zotero.Notifier.registerObserver(
       {
         notify: async () => {
+          // Check if document changed - clear quote box if so
+          const activeReaderItem = getActiveReaderItem();
+          const currentDocId = activeReaderItem?.id ?? null;
+          if (
+            pendingSelectedTextDocumentId !== null &&
+            currentDocId !== pendingSelectedTextDocumentId
+          ) {
+            ztoolkit.log(
+              "[DocumentSwitch] Document changed from",
+              pendingSelectedTextDocumentId,
+              "to",
+              currentDocId,
+              "- clearing quote box (floating)",
+            );
+            pendingSelectedText = null;
+            pendingSelectedTextDocumentId = null;
+            if (floatingContainer) {
+              updateQuoteBoxDisplay(floatingContainer, null);
+            }
+            if (chatContainer) {
+              updateQuoteBoxDisplay(chatContainer, null);
+            }
+          }
           if (floatingContainer) {
             await refreshChatForContainer(floatingContainer);
           }
@@ -677,6 +749,26 @@ function showSidebarPanel(): void {
       {
         notify: () => {
           updateContainerSize();
+          // Check if document changed - clear quote box if so
+          const activeReaderItem = getActiveReaderItem();
+          const currentDocId = activeReaderItem?.id ?? null;
+          if (
+            pendingSelectedTextDocumentId !== null &&
+            currentDocId !== pendingSelectedTextDocumentId
+          ) {
+            ztoolkit.log(
+              "[DocumentSwitch] Document changed from",
+              pendingSelectedTextDocumentId,
+              "to",
+              currentDocId,
+              "- clearing quote box",
+            );
+            pendingSelectedText = null;
+            pendingSelectedTextDocumentId = null;
+            if (chatContainer) {
+              updateQuoteBoxDisplay(chatContainer, null);
+            }
+          }
           if (chatContainer?.style.display !== "none") {
             refreshChatForCurrentItem();
           }
@@ -1180,14 +1272,30 @@ function createContext(container: HTMLElement): ChatPanelContext {
     getTheme: getCurrentTheme,
     getAttachmentState: () => ({
       pendingSelectedText,
+      pendingSelectedTextDocumentId,
+      isQuoteCancelled,
     }),
-    clearAttachments: () => {
+    clearAttachments: (cancelled: boolean = false) => {
       pendingSelectedText = null;
+      pendingSelectedTextDocumentId = null;
+      // Set cancelled flag only when user manually closes the quote box
+      if (cancelled) {
+        isQuoteCancelled = true;
+      }
+      // Update quote box in all containers
+      if (chatContainer) {
+        updateQuoteBoxDisplay(chatContainer, null);
+      }
+      if (floatingContainer) {
+        updateQuoteBoxDisplay(floatingContainer, null);
+      }
     },
     updateAttachmentsPreview: () => {
       if (container) {
         updateAttachmentsPreviewDisplay(container, {
           pendingSelectedText,
+          pendingSelectedTextDocumentId,
+          isQuoteCancelled,
         });
       }
     },
@@ -1339,6 +1447,8 @@ export function addSelectedTextAttachment(text: string): void {
   if (chatContainer) {
     updateAttachmentsPreviewDisplay(chatContainer, {
       pendingSelectedText,
+      pendingSelectedTextDocumentId,
+      isQuoteCancelled,
     });
   }
 }

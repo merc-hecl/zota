@@ -132,9 +132,20 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   const closeBtn = container.querySelector(
     "#chat-close-btn",
   ) as HTMLButtonElement;
+  const quoteCloseBtn = container.querySelector(
+    "#chat-quote-close-btn",
+  ) as HTMLButtonElement;
 
   // History dropdown state
   const historyState = createHistoryDropdownState();
+
+  // Quote box close button - clear selected text
+  quoteCloseBtn?.addEventListener("click", () => {
+    ztoolkit.log("Quote close button clicked");
+    // Pass true to indicate user manually cancelled the quote
+    context.clearAttachments(true);
+    updateQuoteBoxDisplay(container, null);
+  });
 
   // Initialize send button state based on global streaming or sending state
   if (sendButton) {
@@ -697,6 +708,29 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 }
 
 /**
+ * Update quote box display with selected text
+ */
+export function updateQuoteBoxDisplay(
+  container: HTMLElement,
+  text: string | null,
+): void {
+  const quoteBox = container.querySelector("#chat-quote-box") as HTMLElement;
+  const quoteContent = container.querySelector(
+    "#chat-quote-content",
+  ) as HTMLElement;
+
+  if (!quoteBox || !quoteContent) return;
+
+  if (text) {
+    quoteContent.textContent = text;
+    quoteBox.style.display = "flex";
+  } else {
+    quoteBox.style.display = "none";
+    quoteContent.textContent = "";
+  }
+}
+
+/**
  * Update attachments preview display
  */
 export function updateAttachmentsPreviewDisplay(
@@ -806,8 +840,9 @@ async function sendMessage(
   // Get selected text from PDF if available
   let selectedText = attachmentState.pendingSelectedText;
 
-  // If no pending selected text, try to get it directly from the PDF reader
-  if (!selectedText && activeReaderItem) {
+  // If no pending selected text and user hasn't cancelled the quote,
+  // try to get it directly from the PDF reader
+  if (!selectedText && activeReaderItem && !attachmentState.isQuoteCancelled) {
     selectedText = chatManager.getSelectedText();
     if (selectedText) {
       ztoolkit.log(
