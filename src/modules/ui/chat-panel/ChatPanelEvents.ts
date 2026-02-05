@@ -19,6 +19,11 @@ import { getProviderManager, getModelStateManager } from "../../providers";
 import { getPref, setPref } from "../../../utils/prefs";
 import { formatModelLabel } from "../../preferences/ModelsFetcher";
 import type { PanelMode } from "./ChatPanelManager";
+import {
+  getIsGloballyStreaming,
+  getIsSendingMessage,
+  setIsSendingMessage,
+} from "./ChatPanelManager";
 import { startStreamingScroll } from "./AutoScrollManager";
 import { getNoteExportService } from "../../chat";
 import {
@@ -131,6 +136,19 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   // History dropdown state
   const historyState = createHistoryDropdownState();
 
+  // Initialize send button state based on global streaming or sending state
+  if (sendButton) {
+    if (getIsGloballyStreaming() || getIsSendingMessage()) {
+      sendButton.disabled = true;
+      sendButton.style.opacity = "0.5";
+      sendButton.style.cursor = "not-allowed";
+    } else {
+      sendButton.disabled = false;
+      sendButton.style.opacity = "1";
+      sendButton.style.cursor = "pointer";
+    }
+  }
+
   // Initialize input with global text (in case it was set by another view)
   if (messageInput) {
     const globalText = getGlobalInputText();
@@ -145,6 +163,21 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   // Send button
   sendButton?.addEventListener("click", async () => {
     ztoolkit.log("Send button clicked");
+    // Block send button while AI is responding or message is being sent
+    if (getIsGloballyStreaming() || getIsSendingMessage()) {
+      ztoolkit.log(
+        "Send button blocked - AI is responding or message is being sent",
+      );
+      return;
+    }
+    // Disable send button immediately when clicked
+    if (sendButton) {
+      sendButton.disabled = true;
+      sendButton.style.opacity = "0.5";
+      sendButton.style.cursor = "not-allowed";
+    }
+    // Set global sending state
+    setIsSendingMessage(true);
     ztoolkit.log("[Send] attachPdfCheckbox element:", attachPdfCheckbox);
     ztoolkit.log(
       "[Send] attachPdfCheckbox.checked:",
@@ -210,9 +243,11 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      // Block Enter key while sending
-      if (isSending) {
-        ztoolkit.log("Enter key blocked - message is being sent");
+      // Block Enter key while sending or AI is responding
+      if (isSending || getIsGloballyStreaming()) {
+        ztoolkit.log(
+          "Enter key blocked - message is being sent or AI is responding",
+        );
         return;
       }
       ztoolkit.log("Enter key pressed to send");
@@ -711,8 +746,8 @@ async function sendMessage(
   attachPdfCheckbox: HTMLInputElement | null,
   _attachmentsPreview: HTMLElement | null,
 ): Promise<void> {
-  // Prevent duplicate sends
-  if (isSending) return;
+  // Prevent duplicate sends or sending while AI is responding
+  if (isSending || getIsGloballyStreaming()) return;
 
   const content = messageInput?.value?.trim();
   if (!content) return;
@@ -816,8 +851,7 @@ async function sendMessage(
     });
   } catch (error) {
     ztoolkit.log("Error in sendMessage:", error);
-  } finally {
-    // Re-enable send button and reset sending state
+    // Re-enable send button on error
     isSending = false;
     if (sendButton) {
       sendButton.disabled = false;

@@ -45,6 +45,30 @@ const activeScrollManagers = new Set<HTMLElement>();
 // Global streaming state to track across view switches
 let isGloballyStreaming = false;
 
+// Global sending state to track if user has sent a message but not yet received response
+let isSendingMessage = false;
+
+/**
+ * Check if AI is currently streaming a response
+ */
+export function getIsGloballyStreaming(): boolean {
+  return isGloballyStreaming;
+}
+
+/**
+ * Check if a message is being sent (user clicked send but response not started)
+ */
+export function getIsSendingMessage(): boolean {
+  return isSendingMessage;
+}
+
+/**
+ * Set the sending message state
+ */
+export function setIsSendingMessage(value: boolean): void {
+  isSendingMessage = value;
+}
+
 // Panel display mode: 'sidebar' or 'floating'
 export type PanelMode = "sidebar" | "floating";
 
@@ -819,26 +843,47 @@ function setupChatManagerCallbacks(
       if (moduleCurrentItem && itemId === moduleCurrentItem.id) {
         // Set global streaming state
         isGloballyStreaming = true;
+        // Clear sending state since response has started
+        isSendingMessage = false;
 
         // Update streaming content in all active containers
         const containers = getActiveContainers();
         containers.forEach((cont) => {
           updateStreamingContent(cont, content);
           scrollDuringStreaming(cont);
+          // Disable send button while streaming
+          const sendButton = cont.querySelector(
+            "#chat-send-button",
+          ) as HTMLButtonElement;
+          if (sendButton) {
+            sendButton.disabled = true;
+            sendButton.style.opacity = "0.5";
+            sendButton.style.cursor = "not-allowed";
+          }
         });
       }
     },
     onError: (error) => {
       ztoolkit.log("[ChatPanel] API Error:", error.message);
       context.appendError(error.message);
-      // Clear global streaming state
+      // Clear global streaming state and sending state
       isGloballyStreaming = false;
+      isSendingMessage = false;
       // Stop streaming scroll in all containers
       const containers = getActiveContainers();
       containers.forEach((cont) => {
         const chatHistory = getChatHistory(cont);
         if (chatHistory) {
           stopStreamingScroll(chatHistory);
+        }
+        // Re-enable send button
+        const sendButton = cont.querySelector(
+          "#chat-send-button",
+        ) as HTMLButtonElement;
+        if (sendButton) {
+          sendButton.disabled = false;
+          sendButton.style.opacity = "1";
+          sendButton.style.cursor = "pointer";
         }
       });
     },
@@ -858,14 +903,24 @@ function setupChatManagerCallbacks(
       );
     },
     onMessageComplete: async () => {
-      // Clear global streaming state
+      // Clear global streaming state and sending state
       isGloballyStreaming = false;
+      isSendingMessage = false;
       // Stop streaming scroll in all containers
       const containers = getActiveContainers();
       containers.forEach((cont) => {
         const chatHistory = getChatHistory(cont);
         if (chatHistory) {
           stopStreamingScroll(chatHistory);
+        }
+        // Re-enable send button
+        const sendButton = cont.querySelector(
+          "#chat-send-button",
+        ) as HTMLButtonElement;
+        if (sendButton) {
+          sendButton.disabled = false;
+          sendButton.style.opacity = "1";
+          sendButton.style.cursor = "pointer";
         }
       });
       // Re-render messages to show copy button and timestamp for completed message
