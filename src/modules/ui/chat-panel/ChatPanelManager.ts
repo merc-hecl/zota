@@ -74,8 +74,8 @@ export function setIsSendingMessage(value: boolean): void {
 export type PanelMode = "sidebar" | "floating";
 
 // Floating window default size
-const FLOATING_WIDTH = 420;
-const FLOATING_HEIGHT = 600;
+const FLOATING_DEFAULT_WIDTH = 420;
+const FLOATING_DEFAULT_HEIGHT = 600;
 
 // Initialize the events module with the getActiveReaderItem function reference
 // This is done immediately to avoid issues with early calls
@@ -342,6 +342,66 @@ function updateContainerSize(): void {
 }
 
 /**
+ * Load saved floating window bounds from preferences
+ */
+function loadFloatingWindowBounds(): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  const mainWindow = Zotero.getMainWindow();
+
+  // Get saved values or use defaults (use Zotero.Prefs directly for new prefs)
+  const prefsPrefix = config.prefsPrefix;
+  let x = Zotero.Prefs.get(`${prefsPrefix}.floatingWindowX`, true) as
+    | number
+    | undefined;
+  let y = Zotero.Prefs.get(`${prefsPrefix}.floatingWindowY`, true) as
+    | number
+    | undefined;
+  let width = Zotero.Prefs.get(`${prefsPrefix}.floatingWindowWidth`, true) as
+    | number
+    | undefined;
+  let height = Zotero.Prefs.get(`${prefsPrefix}.floatingWindowHeight`, true) as
+    | number
+    | undefined;
+
+  // Use defaults if not saved
+  if (x === undefined || y === undefined) {
+    x =
+      mainWindow.screenX + (mainWindow.outerWidth - FLOATING_DEFAULT_WIDTH) / 2;
+    y =
+      mainWindow.screenY +
+      (mainWindow.outerHeight - FLOATING_DEFAULT_HEIGHT) / 2;
+  }
+
+  // Use default size if not saved
+  if (width === undefined || height === undefined) {
+    width = FLOATING_DEFAULT_WIDTH;
+    height = FLOATING_DEFAULT_HEIGHT;
+  }
+
+  return { x, y, width, height };
+}
+
+/**
+ * Save floating window bounds to preferences
+ */
+function saveFloatingWindowBounds(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void {
+  const prefsPrefix = config.prefsPrefix;
+  Zotero.Prefs.set(`${prefsPrefix}.floatingWindowX`, x, true);
+  Zotero.Prefs.set(`${prefsPrefix}.floatingWindowY`, y, true);
+  Zotero.Prefs.set(`${prefsPrefix}.floatingWindowWidth`, width, true);
+  Zotero.Prefs.set(`${prefsPrefix}.floatingWindowHeight`, height, true);
+}
+
+/**
  * Open floating window
  */
 function openFloatingWindow(): void {
@@ -361,11 +421,8 @@ function openFloatingWindow(): void {
 
   const mainWindow = Zotero.getMainWindow();
 
-  // Calculate position (center on main window)
-  const width = FLOATING_WIDTH;
-  const height = FLOATING_HEIGHT;
-  const left = mainWindow.screenX + (mainWindow.outerWidth - width) / 2;
-  const top = mainWindow.screenY + (mainWindow.outerHeight - height) / 2;
+  // Load saved window bounds
+  const bounds = loadFloatingWindowBounds();
 
   // Check if window should be always on top
   const isAlwaysOnTop = getPref("keepWindowTop") as boolean;
@@ -376,7 +433,7 @@ function openFloatingWindow(): void {
   ).openDialog(
     `chrome://${config.addonRef}/content/chatWindow.xhtml`,
     "zota-chat-window",
-    `chrome,dialog=no,resizable=yes,centerscreen,${isAlwaysOnTop ? "alwaysRaised=yes," : ""}width=${width},height=${height},left=${left},top=${top}`,
+    `chrome,dialog=no,resizable=yes,${isAlwaysOnTop ? "alwaysRaised=yes," : ""}width=${bounds.width},height=${bounds.height},left=${bounds.x},top=${bounds.y}`,
   );
 
   if (!floatingWindow) {
@@ -389,9 +446,38 @@ function openFloatingWindow(): void {
     ztoolkit.log("Floating window load event fired");
     initializeFloatingWindowContent();
 
+    // Setup window resize/move listeners to save bounds
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const saveBounds = () => {
+      if (floatingWindow && !floatingWindow.closed) {
+        saveFloatingWindowBounds(
+          floatingWindow.screenX,
+          floatingWindow.screenY,
+          floatingWindow.outerWidth,
+          floatingWindow.outerHeight,
+        );
+      }
+    };
+
+    // Debounced save to avoid excessive writes
+    const debouncedSaveBounds = () => {
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+      resizeTimeout = setTimeout(saveBounds, 500);
+    };
+
+    floatingWindow?.addEventListener("resize", debouncedSaveBounds);
+    floatingWindow?.addEventListener("move", debouncedSaveBounds);
+
     // Handle window close - only after content is loaded
     floatingWindow?.addEventListener("unload", () => {
       ztoolkit.log("Floating window unload event");
+
+      // Save final bounds before closing
+      saveBounds();
+
       // Check if window is being reopened (for pin toggle)
       // If showPanel will be called soon, don't reset toolbar button state
       const wasPinnedToggle = (floatingWindow as any)?._isPinToggle;
