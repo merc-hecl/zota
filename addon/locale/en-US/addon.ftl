@@ -28,6 +28,9 @@ chat-copy-message = Copy message
 chat-copy-table = Copy
 chat-copy-code = Copy
 chat-quote-label = Quote
+chat-image-label = Image
+chat-reference-label = Reference
+chat-text-quote-label = Text Quote
 
 # Empty State
 chat-empty-title = The important thing is not to stop questioning. Curiosity has its own reason for existing.

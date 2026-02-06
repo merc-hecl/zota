@@ -13,6 +13,12 @@ export class PdfExtractor {
   private onTextSelectedCallback:
     | ((text: string, documentId: number) => void)
     | null = null;
+  // 上次处理的文本，用于去重
+  private lastProcessedText: string | null = null;
+  // 上次处理的时间戳，用于去重
+  private lastProcessedTime: number = 0;
+  // 去重时间窗口（毫秒）
+  private static DEDUPLICATION_WINDOW = 100;
 
   constructor() {
     this.registerSelectionListener();
@@ -61,23 +67,34 @@ export class PdfExtractor {
               }
             }
 
-            ztoolkit.log(
-              "[PdfExtractor] Text selected:",
-              this.currentSelectedText.substring(0, 50),
-              "Document ID:",
-              this.currentDocumentId,
-            );
+            // Check for duplicate events (same text within short time window)
+            const now = Date.now();
+            const isDuplicate =
+              this.currentSelectedText === this.lastProcessedText &&
+              now - this.lastProcessedTime < PdfExtractor.DEDUPLICATION_WINDOW;
 
-            // Trigger callback if set
-            if (
-              this.onTextSelectedCallback &&
-              this.currentSelectedText &&
-              this.currentDocumentId
-            ) {
-              this.onTextSelectedCallback(
-                this.currentSelectedText,
+            if (!isDuplicate) {
+              this.lastProcessedText = this.currentSelectedText;
+              this.lastProcessedTime = now;
+
+              ztoolkit.log(
+                "[PdfExtractor] Text selected:",
+                this.currentSelectedText.substring(0, 50),
+                "Document ID:",
                 this.currentDocumentId,
               );
+
+              // Trigger callback if set
+              if (
+                this.onTextSelectedCallback &&
+                this.currentSelectedText &&
+                this.currentDocumentId
+              ) {
+                this.onTextSelectedCallback(
+                  this.currentSelectedText,
+                  this.currentDocumentId,
+                );
+              }
             }
           }
         },

@@ -358,65 +358,77 @@ export function createChatContainer(
     { id: "chat-attachments-preview" },
   );
 
-  // Text Selection Quote Box - appears between toolbar and input area
-  const quoteBox = createElement(
+  // Unified Reference Container - combines text quote and image preview
+  // Using neutral gray tone to match the panel style
+  const unifiedReferenceContainer = createElement(
     doc,
     "div",
     {
       display: "none",
       flexDirection: "column",
       padding: "12px 16px",
-      background: "rgba(59, 130, 246, 0.08)",
+      background: "rgba(107, 114, 128, 0.08)", // Neutral gray tint
       borderTop: `1px solid ${theme.borderColor}`,
       borderBottom: `1px solid ${theme.borderColor}`,
       position: "relative",
+      animation: "fadeIn 0.3s ease-out",
     },
-    { id: "chat-quote-box" },
+    { id: "chat-unified-reference-container" },
   );
 
-  // Quote box header with label and close button
-  const quoteBoxHeader = createElement(doc, "div", {
+  // Add fade-in animation keyframes
+  const styleEl = doc.createElementNS(HTML_NS, "style") as HTMLStyleElement;
+  styleEl.textContent = `
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  `;
+  doc.head?.appendChild(styleEl);
+
+  // Unified header with label and close button
+  const unifiedHeader = createElement(doc, "div", {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: "8px",
+    marginBottom: "10px",
   });
 
-  // Quote label with icon
-  const quoteLabel = createElement(doc, "div", {
+  // Reference label with icon - using neutral gray color
+  const referenceLabel = createElement(doc, "div", {
     display: "flex",
     alignItems: "center",
     gap: "6px",
     fontSize: "11px",
-    color: "#3b82f6",
+    color: "#6b7280", // Neutral gray color
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: "0.3px",
   });
 
-  // Quote icon (quotation mark)
-  const quoteIcon = createElement(doc, "span", {
-    fontSize: "16px",
-    color: "#3b82f6",
+  // Reference icon
+  const referenceIcon = createElement(doc, "span", {
+    fontSize: "14px",
+    color: "#6b7280",
     fontWeight: "bold",
     lineHeight: "1",
   });
-  quoteIcon.textContent = "❝";
+  referenceIcon.textContent = "❝";
 
-  const quoteLabelText = createElement(doc, "span", {});
-  quoteLabelText.textContent = getString("chat-quote-label");
+  const referenceLabelText = createElement(doc, "span", {});
+  referenceLabelText.textContent = getString("chat-reference-label");
 
-  quoteLabel.appendChild(quoteIcon);
-  quoteLabel.appendChild(quoteLabelText);
+  referenceLabel.appendChild(referenceIcon);
+  referenceLabel.appendChild(referenceLabelText);
 
-  // Close button
-  const quoteCloseBtn = createElement(
+  // Close button for entire reference container
+  const referenceCloseBtn = createElement(
     doc,
     "button",
     {
       width: "20px",
       height: "20px",
-      background: "rgba(0, 0, 0, 0.06)",
+      background: "rgba(107, 114, 128, 0.15)",
       border: "none",
       borderRadius: "50%",
       cursor: "pointer",
@@ -425,28 +437,93 @@ export function createChatContainer(
       justifyContent: "center",
       padding: "0",
       fontSize: "12px",
-      color: theme.textMuted,
+      color: "#6b7280",
       transition: "all 0.2s ease",
     },
-    { id: "chat-quote-close-btn", title: "Remove quote" },
+    { id: "chat-reference-close-btn", title: "Remove all references" },
   );
-  quoteCloseBtn.textContent = "✕";
+  referenceCloseBtn.textContent = "✕";
 
   // Hover effect for close button
-  quoteCloseBtn.addEventListener("mouseenter", () => {
-    quoteCloseBtn.style.background = "rgba(0, 0, 0, 0.1)";
-    quoteCloseBtn.style.color = theme.textPrimary;
+  referenceCloseBtn.addEventListener("mouseenter", () => {
+    referenceCloseBtn.style.background = "rgba(107, 114, 128, 0.25)";
+    referenceCloseBtn.style.color = "#4b5563";
   });
-  quoteCloseBtn.addEventListener("mouseleave", () => {
-    quoteCloseBtn.style.background = "rgba(0, 0, 0, 0.06)";
-    quoteCloseBtn.style.color = theme.textMuted;
+  referenceCloseBtn.addEventListener("mouseleave", () => {
+    referenceCloseBtn.style.background = "rgba(107, 114, 128, 0.15)";
+    referenceCloseBtn.style.color = "#6b7280";
   });
 
-  quoteBoxHeader.appendChild(quoteLabel);
-  quoteBoxHeader.appendChild(quoteCloseBtn);
+  unifiedHeader.appendChild(referenceLabel);
+  unifiedHeader.appendChild(referenceCloseBtn);
 
-  // Quote content container with card style
-  const quoteContent = createElement(
+  // Text quote section
+  const textQuoteSection = createElement(
+    doc,
+    "div",
+    {
+      display: "none",
+      flexDirection: "column",
+      marginBottom: "10px",
+    },
+    { id: "chat-text-quote-section" },
+  );
+
+  // Text quote header
+  const textQuoteHeader = createElement(doc, "div", {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "6px",
+  });
+
+  const textQuoteLabel = createElement(doc, "span", {
+    fontSize: "10px",
+    color: "#6b7280",
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: "0.2px",
+  });
+  textQuoteLabel.textContent = getString("chat-text-quote-label");
+
+  // Close button for text quote only
+  const textQuoteCloseBtn = createElement(
+    doc,
+    "button",
+    {
+      width: "16px",
+      height: "16px",
+      background: "transparent",
+      border: "none",
+      borderRadius: "50%",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0",
+      fontSize: "10px",
+      color: "#6b7280",
+      opacity: "0.7",
+      transition: "all 0.2s ease",
+    },
+    { id: "chat-text-quote-close-btn", title: "Remove text quote" },
+  );
+  textQuoteCloseBtn.textContent = "✕";
+
+  textQuoteCloseBtn.addEventListener("mouseenter", () => {
+    textQuoteCloseBtn.style.opacity = "1";
+    textQuoteCloseBtn.style.background = "rgba(107, 114, 128, 0.1)";
+  });
+  textQuoteCloseBtn.addEventListener("mouseleave", () => {
+    textQuoteCloseBtn.style.opacity = "0.7";
+    textQuoteCloseBtn.style.background = "transparent";
+  });
+
+  textQuoteHeader.appendChild(textQuoteLabel);
+  textQuoteHeader.appendChild(textQuoteCloseBtn);
+
+  // Text quote content
+  const textQuoteContent = createElement(
     doc,
     "div",
     {
@@ -466,11 +543,65 @@ export function createChatContainer(
       boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
       fontStyle: "italic",
     },
-    { id: "chat-quote-content" },
+    { id: "chat-text-quote-content" },
   );
 
-  quoteBox.appendChild(quoteBoxHeader);
-  quoteBox.appendChild(quoteContent);
+  textQuoteSection.appendChild(textQuoteHeader);
+  textQuoteSection.appendChild(textQuoteContent);
+
+  // Image preview section
+  const imagePreviewSection = createElement(
+    doc,
+    "div",
+    {
+      display: "none",
+      flexDirection: "column",
+    },
+    { id: "chat-image-preview-section" },
+  );
+
+  // Image preview header
+  const imagePreviewHeader = createElement(doc, "div", {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "6px",
+  });
+
+  const imagePreviewLabel = createElement(doc, "span", {
+    fontSize: "10px",
+    color: "#6b7280",
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: "0.2px",
+  });
+  imagePreviewLabel.textContent = getString("chat-image-label");
+
+  imagePreviewHeader.appendChild(imagePreviewLabel);
+
+  // Images grid container
+  const imagesGrid = createElement(
+    doc,
+    "div",
+    {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "8px",
+      padding: "10px 14px",
+      background: theme.inputBg,
+      borderRadius: "8px",
+      border: `1px solid ${theme.borderColor}`,
+      boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+    },
+    { id: "chat-images-grid" },
+  );
+
+  imagePreviewSection.appendChild(imagePreviewHeader);
+  imagePreviewSection.appendChild(imagesGrid);
+
+  unifiedReferenceContainer.appendChild(unifiedHeader);
+  unifiedReferenceContainer.appendChild(textQuoteSection);
+  unifiedReferenceContainer.appendChild(imagePreviewSection);
 
   // Input Area - ChatBox style with vertical layout
   const inputArea = createElement(doc, "div", {
@@ -845,7 +976,7 @@ export function createChatContainer(
   root.appendChild(chatHistory);
   root.appendChild(toolbar);
   root.appendChild(attachmentsPreview);
-  root.appendChild(quoteBox);
+  root.appendChild(unifiedReferenceContainer);
   root.appendChild(inputArea);
   root.appendChild(historyDropdown);
   container.appendChild(root);
@@ -901,4 +1032,252 @@ export function copyToClipboard(text: string): void {
   } catch (e) {
     ztoolkit.log("Copy to clipboard failed:", e);
   }
+}
+
+/**
+ * Create an image preview element for the input area
+ */
+export function createImagePreviewElement(
+  doc: Document,
+  imageData: { id: string; base64: string; mimeType: string },
+  onRemove: (imageId: string) => void,
+  theme: { borderColor: string; textMuted: string },
+): HTMLElement {
+  const container = createElement(
+    doc,
+    "div",
+    {
+      position: "relative",
+      width: "64px",
+      height: "64px",
+      borderRadius: "8px",
+      overflow: "hidden",
+      border: `1px solid ${theme.borderColor}`,
+      flexShrink: "0",
+    },
+    { "data-image-id": imageData.id },
+  );
+
+  // Image element
+  const img = createElement(doc, "img", {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  }) as HTMLImageElement;
+  img.src = `data:${imageData.mimeType};base64,${imageData.base64}`;
+  img.alt = "Uploaded image";
+
+  // Remove button
+  const removeBtn = createElement(
+    doc,
+    "button",
+    {
+      position: "absolute",
+      top: "2px",
+      right: "2px",
+      width: "18px",
+      height: "18px",
+      borderRadius: "50%",
+      border: "none",
+      background: "rgba(0, 0, 0, 0.5)",
+      color: "#fff",
+      fontSize: "12px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0",
+      lineHeight: "1",
+      opacity: "0.8",
+      transition: "opacity 0.2s ease",
+    },
+    { title: "Remove image" },
+  );
+  removeBtn.textContent = "×";
+
+  // Hover effects
+  removeBtn.addEventListener("mouseenter", () => {
+    removeBtn.style.opacity = "1";
+    removeBtn.style.background = "rgba(0, 0, 0, 0.7)";
+  });
+  removeBtn.addEventListener("mouseleave", () => {
+    removeBtn.style.opacity = "0.8";
+    removeBtn.style.background = "rgba(0, 0, 0, 0.5)";
+  });
+
+  // Click handler
+  removeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    onRemove(imageData.id);
+  });
+
+  container.appendChild(img);
+  container.appendChild(removeBtn);
+
+  return container;
+}
+
+/**
+ * Update unified reference container display
+ * Shows/hides text quote and image sections based on content
+ */
+export function updateUnifiedReferenceDisplay(
+  container: HTMLElement,
+  options: {
+    textQuote: string | null;
+    images: Array<{ id: string; base64: string; mimeType: string }>;
+    onRemoveImage: (imageId: string) => void;
+    onCloseTextQuote: () => void;
+    onCloseAll: () => void;
+  },
+  theme: { borderColor: string; textMuted: string; inputBg: string },
+): void {
+  const unifiedContainer = container.querySelector(
+    "#chat-unified-reference-container",
+  ) as HTMLElement;
+  const textQuoteSection = container.querySelector(
+    "#chat-text-quote-section",
+  ) as HTMLElement;
+  const textQuoteContent = container.querySelector(
+    "#chat-text-quote-content",
+  ) as HTMLElement;
+  const imagePreviewSection = container.querySelector(
+    "#chat-image-preview-section",
+  ) as HTMLElement;
+  const imagesGrid = container.querySelector(
+    "#chat-images-grid",
+  ) as HTMLElement;
+
+  if (!unifiedContainer) return;
+
+  const doc = container.ownerDocument;
+  if (!doc) return;
+
+  // Update text quote section
+  if (options.textQuote && textQuoteSection && textQuoteContent) {
+    textQuoteContent.textContent = options.textQuote;
+    textQuoteSection.style.display = "flex";
+
+    // Setup close button for text quote
+    const textQuoteCloseBtn = textQuoteSection.querySelector(
+      "#chat-text-quote-close-btn",
+    ) as HTMLButtonElement;
+    if (textQuoteCloseBtn) {
+      // Remove old listeners by cloning
+      const newCloseBtn = textQuoteCloseBtn.cloneNode(
+        true,
+      ) as HTMLButtonElement;
+      textQuoteCloseBtn.parentNode?.replaceChild(
+        newCloseBtn,
+        textQuoteCloseBtn,
+      );
+
+      newCloseBtn.addEventListener("click", () => {
+        options.onCloseTextQuote();
+      });
+
+      // Re-apply hover effects
+      newCloseBtn.addEventListener("mouseenter", () => {
+        newCloseBtn.style.opacity = "1";
+        newCloseBtn.style.background = "rgba(107, 114, 128, 0.1)";
+      });
+      newCloseBtn.addEventListener("mouseleave", () => {
+        newCloseBtn.style.opacity = "0.7";
+        newCloseBtn.style.background = "transparent";
+      });
+    }
+  } else if (textQuoteSection) {
+    textQuoteSection.style.display = "none";
+  }
+
+  // Update image preview section
+  if (imagesGrid) {
+    imagesGrid.textContent = "";
+
+    if (options.images.length > 0) {
+      options.images.forEach((imageData) => {
+        const previewEl = createImagePreviewElement(
+          doc,
+          imageData,
+          options.onRemoveImage,
+          theme,
+        );
+        imagesGrid.appendChild(previewEl);
+      });
+
+      if (imagePreviewSection) {
+        imagePreviewSection.style.display = "flex";
+      }
+    } else if (imagePreviewSection) {
+      imagePreviewSection.style.display = "none";
+    }
+  }
+
+  // Setup close all button
+  const referenceCloseBtn = unifiedContainer.querySelector(
+    "#chat-reference-close-btn",
+  ) as HTMLButtonElement;
+  if (referenceCloseBtn) {
+    // Remove old listeners by cloning
+    const newCloseBtn = referenceCloseBtn.cloneNode(true) as HTMLButtonElement;
+    referenceCloseBtn.parentNode?.replaceChild(newCloseBtn, referenceCloseBtn);
+
+    newCloseBtn.addEventListener("click", () => {
+      options.onCloseAll();
+    });
+
+    // Re-apply hover effects
+    newCloseBtn.addEventListener("mouseenter", () => {
+      newCloseBtn.style.background = "rgba(107, 114, 128, 0.25)";
+      newCloseBtn.style.color = "#4b5563";
+    });
+    newCloseBtn.addEventListener("mouseleave", () => {
+      newCloseBtn.style.background = "rgba(107, 114, 128, 0.15)";
+      newCloseBtn.style.color = "#6b7280";
+    });
+  }
+
+  // Show/hide entire container based on whether there's any content
+  const hasTextQuote = !!options.textQuote;
+  const hasImages = options.images.length > 0;
+
+  if (hasTextQuote || hasImages) {
+    unifiedContainer.style.display = "flex";
+  } else {
+    unifiedContainer.style.display = "none";
+  }
+}
+
+/**
+ * Update image preview container with current images
+ * @deprecated Use updateUnifiedReferenceDisplay instead
+ */
+export function updateImagePreviewContainer(
+  container: HTMLElement,
+  images: Array<{ id: string; base64: string; mimeType: string }>,
+  onRemove: (imageId: string) => void,
+  theme: { borderColor: string; textMuted: string; inputBg: string },
+): void {
+  // Get current text quote content if exists
+  const textQuoteContent = container.querySelector(
+    "#chat-text-quote-content",
+  ) as HTMLElement;
+  const currentTextQuote = textQuoteContent?.textContent || null;
+
+  updateUnifiedReferenceDisplay(
+    container,
+    {
+      textQuote: currentTextQuote,
+      images,
+      onRemoveImage: onRemove,
+      onCloseTextQuote: () => {
+        // This is handled by the caller
+      },
+      onCloseAll: () => {
+        // This is handled by the caller
+      },
+    },
+    theme,
+  );
 }

@@ -28,6 +28,9 @@ chat-copy-message = 复制消息
 chat-copy-table = 复制
 chat-copy-code = 复制
 chat-quote-label = 引用
+chat-image-label = 图片
+chat-reference-label = 引用
+chat-text-quote-label = 文字引用
 
 # Empty State
 chat-empty-title = 学贵知疑，小疑则小进，大疑则大进。

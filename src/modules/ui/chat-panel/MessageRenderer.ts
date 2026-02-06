@@ -205,15 +205,15 @@ export function createMessageElement(
       ? msg.content.split("[Question]:").pop()?.trim() || msg.content
       : msg.content;
 
+    // Create container for all user content
+    const userContentContainer = createElement(doc, "div", {
+      display: "flex",
+      flexDirection: "column",
+      gap: "10px",
+    });
+
     // If there's selected text, create a styled quote section
     if (msg.selectedText) {
-      // Create container for quote + question
-      const userContentContainer = createElement(doc, "div", {
-        display: "flex",
-        flexDirection: "column",
-        gap: "10px",
-      });
-
       // Create quote card with subtle background
       const quoteCard = createElement(doc, "div", {
         display: "flex",
@@ -268,24 +268,99 @@ export function createMessageElement(
 
       quoteCard.appendChild(quoteHeader);
       quoteCard.appendChild(quoteText);
+      userContentContainer.appendChild(quoteCard);
+    }
 
-      // Question text with slightly larger font
+    // Display images if present
+    if (msg.images && msg.images.length > 0) {
+      // Create image card with similar design to quote card
+      const imageCard = createElement(doc, "div", {
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        padding: "10px 12px",
+        background: "rgba(255, 255, 255, 0.15)",
+        borderRadius: "8px",
+        border: "1px solid rgba(255, 255, 255, 0.2)",
+        marginTop: msg.selectedText ? "8px" : "0",
+      });
+
+      // Image header with icon and label
+      const imageHeader = createElement(doc, "div", {
+        display: "flex",
+        alignItems: "center",
+        gap: "5px",
+        fontSize: "10px",
+        fontWeight: "600",
+        textTransform: "uppercase",
+        letterSpacing: "0.4px",
+        opacity: "0.85",
+      });
+
+      // Image icon
+      const imageIcon = createElement(doc, "span", {
+        fontSize: "12px",
+        lineHeight: "1",
+      });
+      imageIcon.textContent = "🖼️";
+
+      const imageLabel = createElement(doc, "span", {});
+      imageLabel.textContent = getString("chat-image-label");
+
+      imageHeader.appendChild(imageIcon);
+      imageHeader.appendChild(imageLabel);
+      imageCard.appendChild(imageHeader);
+
+      // Images container
+      const imagesContainer = createElement(doc, "div", {
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "6px",
+      });
+
+      for (const image of msg.images) {
+        const imgWrapper = createElement(doc, "div", {
+          width: "80px",
+          height: "80px",
+          borderRadius: "6px",
+          overflow: "hidden",
+          border: "1px solid rgba(255, 255, 255, 0.2)",
+          flexShrink: "0",
+        });
+
+        const img = createElement(doc, "img", {
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
+        }) as HTMLImageElement;
+        img.src = `data:${image.mimeType};base64,${image.base64}`;
+        img.alt = "Attached image";
+
+        imgWrapper.appendChild(img);
+        imagesContainer.appendChild(imgWrapper);
+      }
+
+      imageCard.appendChild(imagesContainer);
+      userContentContainer.appendChild(imageCard);
+    }
+
+    // Question text with slightly larger font
+    if (questionContent) {
       const questionText = createElement(doc, "div", {
         fontSize: "14px",
         lineHeight: "1.5",
+        marginTop:
+          msg.selectedText || (msg.images && msg.images.length > 0)
+            ? "8px"
+            : "0",
       });
       questionText.textContent = questionContent;
-
-      userContentContainer.appendChild(quoteCard);
       userContentContainer.appendChild(questionText);
-
-      content.appendChild(userContentContainer);
-      rawContent = questionContent;
-    } else {
-      // No selected text, just show question
-      content.textContent = questionContent;
-      rawContent = questionContent;
     }
+
+    content.appendChild(userContentContainer);
+    rawContent = questionContent;
   } else if (msg.role === "error") {
     // 错误消息显示为纯文本，带警告图标
     // 尝试解析 JSON 错误消息以获取更友好的显示

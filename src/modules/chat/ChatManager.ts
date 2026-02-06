@@ -232,7 +232,9 @@ export class ChatManager {
     }
 
     // 3. 添加用户问题
-    messageParts.push(`[Question]:\n${content}`);
+    if (content) {
+      messageParts.push(`[Question]:\n${content}`);
+    }
 
     // 组合最终消息内容
     const finalContent = messageParts.join("\n\n");
@@ -245,6 +247,7 @@ export class ChatManager {
       timestamp: Date.now(),
       pdfContext: options.attachPdf,
       selectedText: options.selectedText,
+      images: options.images,
     };
 
     session.messages.push(userMessage);
@@ -268,6 +271,10 @@ export class ChatManager {
     // Log API request info
     ztoolkit.log("[API Request] Sending to provider:", provider.getName());
     ztoolkit.log("[API Request] Message count:", session.messages.length - 1);
+    ztoolkit.log(
+      "[API Request] Has images:",
+      options.images ? options.images.length : 0,
+    );
 
     // 调用 API
     const attemptRequest = async (): Promise<void> => {

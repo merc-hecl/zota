@@ -30,6 +30,7 @@ import {
   setTogglePanelModeFn,
   updatePanelModeButtonIcon,
   updateModelSelectorDisplay,
+  setCurrentContext,
 } from "./ChatPanelEvents";
 import { getGlobalInputText } from "./InputStateManager";
 import {
@@ -39,6 +40,18 @@ import {
   stopStreamingScroll,
   scrollToBottom,
 } from "./AutoScrollManager";
+import {
+  getImages,
+  addImage,
+  removeImage,
+  clearImages,
+  onImagesChange,
+  type ImageData,
+} from "./ImageStateManager";
+import {
+  updateUnifiedReferenceDisplay,
+  updateImagePreviewContainer,
+} from "./ChatPanelBuilder";
 
 // Track scroll managers for cleanup
 const activeScrollManagers = new Set<HTMLElement>();
@@ -212,7 +225,7 @@ export function getChatManager(): ChatManager {
 
 /**
  * Handle text selection from PDF
- * Shows quote box in all active containers
+ * Shows unified reference container in all active containers
  */
 function handleTextSelected(text: string, documentId: number): void {
   // Store selected text and document ID
@@ -228,14 +241,222 @@ function handleTextSelected(text: string, documentId: number): void {
     text.length,
   );
 
-  // Update quote box in sidebar container
-  if (chatContainer) {
-    updateQuoteBoxDisplay(chatContainer, text);
+  // Get current images for the document
+  const currentImages = getImages(documentId);
+  const theme = getCurrentTheme();
+
+  // Create handlers for the unified display
+  const handleRemoveImage = (imageId: string) => {
+    removeImage(documentId, imageId);
+    const newImages = getImages(documentId);
+    // Update unified reference display after removal
+    const currentChatContainer = chatContainer;
+    const currentFloatingContainer = floatingContainer;
+    if (currentChatContainer) {
+      updateUnifiedReferenceDisplay(
+        currentChatContainer,
+        {
+          textQuote: pendingSelectedText,
+          images: newImages,
+          onRemoveImage: handleRemoveImage,
+          onCloseTextQuote: () => {
+            pendingSelectedText = null;
+            // Only close entire container if both text and images are empty
+            if (newImages.length === 0) {
+              updateUnifiedReferenceDisplay(
+                currentChatContainer,
+                {
+                  textQuote: null,
+                  images: [],
+                  onRemoveImage: () => {},
+                  onCloseTextQuote: () => {},
+                  onCloseAll: () => {},
+                },
+                theme,
+              );
+            }
+          },
+          onCloseAll: () => {
+            pendingSelectedText = null;
+            clearImages(documentId);
+            updateUnifiedReferenceDisplay(
+              currentChatContainer,
+              {
+                textQuote: null,
+                images: [],
+                onRemoveImage: () => {},
+                onCloseTextQuote: () => {},
+                onCloseAll: () => {},
+              },
+              theme,
+            );
+          },
+        },
+        theme,
+      );
+    }
+    if (currentFloatingContainer) {
+      updateUnifiedReferenceDisplay(
+        currentFloatingContainer,
+        {
+          textQuote: pendingSelectedText,
+          images: newImages,
+          onRemoveImage: handleRemoveImage,
+          onCloseTextQuote: () => {
+            pendingSelectedText = null;
+            if (newImages.length === 0) {
+              updateUnifiedReferenceDisplay(
+                currentFloatingContainer,
+                {
+                  textQuote: null,
+                  images: [],
+                  onRemoveImage: () => {},
+                  onCloseTextQuote: () => {},
+                  onCloseAll: () => {},
+                },
+                theme,
+              );
+            }
+          },
+          onCloseAll: () => {
+            pendingSelectedText = null;
+            clearImages(documentId);
+            updateUnifiedReferenceDisplay(
+              currentFloatingContainer,
+              {
+                textQuote: null,
+                images: [],
+                onRemoveImage: () => {},
+                onCloseTextQuote: () => {},
+                onCloseAll: () => {},
+              },
+              theme,
+            );
+          },
+        },
+        theme,
+      );
+    }
+  };
+
+  // Update unified reference container in sidebar container
+  const currentChatContainer = chatContainer;
+  if (currentChatContainer) {
+    updateUnifiedReferenceDisplay(
+      currentChatContainer,
+      {
+        textQuote: text,
+        images: currentImages,
+        onRemoveImage: handleRemoveImage,
+        onCloseTextQuote: () => {
+          pendingSelectedText = null;
+          // Always refresh display to hide text quote section
+          // Get current images (may have changed since text was selected)
+          const newImages = getImages(documentId);
+          updateUnifiedReferenceDisplay(
+            currentChatContainer,
+            {
+              textQuote: null,
+              images: newImages,
+              onRemoveImage: handleRemoveImage,
+              onCloseTextQuote: () => {},
+              onCloseAll: () => {
+                pendingSelectedText = null;
+                clearImages(documentId);
+                updateUnifiedReferenceDisplay(
+                  currentChatContainer,
+                  {
+                    textQuote: null,
+                    images: [],
+                    onRemoveImage: () => {},
+                    onCloseTextQuote: () => {},
+                    onCloseAll: () => {},
+                  },
+                  theme,
+                );
+              },
+            },
+            theme,
+          );
+        },
+        onCloseAll: () => {
+          pendingSelectedText = null;
+          clearImages(documentId);
+          updateUnifiedReferenceDisplay(
+            currentChatContainer,
+            {
+              textQuote: null,
+              images: [],
+              onRemoveImage: () => {},
+              onCloseTextQuote: () => {},
+              onCloseAll: () => {},
+            },
+            theme,
+          );
+        },
+      },
+      theme,
+    );
   }
 
-  // Update quote box in floating container
-  if (floatingContainer) {
-    updateQuoteBoxDisplay(floatingContainer, text);
+  // Update unified reference container in floating container
+  const currentFloatingContainer = floatingContainer;
+  if (currentFloatingContainer) {
+    updateUnifiedReferenceDisplay(
+      currentFloatingContainer,
+      {
+        textQuote: text,
+        images: currentImages,
+        onRemoveImage: handleRemoveImage,
+        onCloseTextQuote: () => {
+          pendingSelectedText = null;
+          // Always refresh display to hide text quote section
+          // Get current images (may have changed since text was selected)
+          const newImages = getImages(documentId);
+          updateUnifiedReferenceDisplay(
+            currentFloatingContainer,
+            {
+              textQuote: null,
+              images: newImages,
+              onRemoveImage: handleRemoveImage,
+              onCloseTextQuote: () => {},
+              onCloseAll: () => {
+                pendingSelectedText = null;
+                clearImages(documentId);
+                updateUnifiedReferenceDisplay(
+                  currentFloatingContainer,
+                  {
+                    textQuote: null,
+                    images: [],
+                    onRemoveImage: () => {},
+                    onCloseTextQuote: () => {},
+                    onCloseAll: () => {},
+                  },
+                  theme,
+                );
+              },
+            },
+            theme,
+          );
+        },
+        onCloseAll: () => {
+          pendingSelectedText = null;
+          clearImages(documentId);
+          updateUnifiedReferenceDisplay(
+            currentFloatingContainer,
+            {
+              textQuote: null,
+              images: [],
+              onRemoveImage: () => {},
+              onCloseTextQuote: () => {},
+              onCloseAll: () => {},
+            },
+            theme,
+          );
+        },
+      },
+      theme,
+    );
   }
 }
 
@@ -594,15 +815,109 @@ async function initializeChatContentCommon(
   // Update PDF checkbox visibility
   await context.updatePdfCheckboxVisibility(moduleCurrentItem);
 
-  // Sync quote box state - show if there's pending selected text for current document
+  // Sync unified reference state - show if there's pending selected text or images for current document
   const activeReaderItem = getActiveReaderItem();
   const currentDocId = activeReaderItem?.id ?? null;
-  if (
+  const hasMatchingTextQuote =
     pendingSelectedText &&
     pendingSelectedTextDocumentId !== null &&
-    currentDocId === pendingSelectedTextDocumentId
-  ) {
-    updateQuoteBoxDisplay(container, pendingSelectedText);
+    currentDocId === pendingSelectedTextDocumentId;
+  const currentImages = currentDocId !== null ? getImages(currentDocId) : [];
+
+  if (hasMatchingTextQuote || currentImages.length > 0) {
+    const theme = getCurrentTheme();
+    const handleRemoveImage = (imageId: string) => {
+      if (currentDocId !== null) {
+        removeImage(currentDocId, imageId);
+        const newImages = getImages(currentDocId);
+        // Update unified reference display after removal
+        updateUnifiedReferenceDisplay(
+          container,
+          {
+            textQuote: pendingSelectedText,
+            images: newImages,
+            onRemoveImage: handleRemoveImage,
+            onCloseTextQuote: () => {
+              pendingSelectedText = null;
+              if (newImages.length === 0) {
+                updateUnifiedReferenceDisplay(
+                  container,
+                  {
+                    textQuote: null,
+                    images: [],
+                    onRemoveImage: () => {},
+                    onCloseTextQuote: () => {},
+                    onCloseAll: () => {},
+                  },
+                  theme,
+                );
+              }
+            },
+            onCloseAll: () => {
+              pendingSelectedText = null;
+              if (currentDocId !== null) {
+                clearImages(currentDocId);
+              }
+              updateUnifiedReferenceDisplay(
+                container,
+                {
+                  textQuote: null,
+                  images: [],
+                  onRemoveImage: () => {},
+                  onCloseTextQuote: () => {},
+                  onCloseAll: () => {},
+                },
+                theme,
+              );
+            },
+          },
+          theme,
+        );
+      }
+    };
+
+    updateUnifiedReferenceDisplay(
+      container,
+      {
+        textQuote: hasMatchingTextQuote ? pendingSelectedText : null,
+        images: currentImages,
+        onRemoveImage: handleRemoveImage,
+        onCloseTextQuote: () => {
+          pendingSelectedText = null;
+          if (currentImages.length === 0) {
+            updateUnifiedReferenceDisplay(
+              container,
+              {
+                textQuote: null,
+                images: [],
+                onRemoveImage: () => {},
+                onCloseTextQuote: () => {},
+                onCloseAll: () => {},
+              },
+              theme,
+            );
+          }
+        },
+        onCloseAll: () => {
+          pendingSelectedText = null;
+          if (currentDocId !== null) {
+            clearImages(currentDocId);
+          }
+          updateUnifiedReferenceDisplay(
+            container,
+            {
+              textQuote: null,
+              images: [],
+              onRemoveImage: () => {},
+              onCloseTextQuote: () => {},
+              onCloseAll: () => {},
+            },
+            theme,
+          );
+        },
+      },
+      theme,
+    );
   }
 
   // Load session and render
@@ -682,6 +997,115 @@ async function refreshChatForContainer(container: HTMLElement): Promise<void> {
     }
     messageInput.focus();
   }
+
+  // Sync unified reference display from global state
+  // This ensures the reference bar is consistent across sidebar and floating views
+  const itemId = itemToUse?.id ?? 0;
+  const currentImages = getImages(itemId);
+  const hasTextQuote = !!pendingSelectedText;
+  const hasImages = currentImages.length > 0;
+
+  if (hasTextQuote || hasImages) {
+    const theme = getCurrentTheme();
+    updateUnifiedReferenceDisplay(
+      container,
+      {
+        textQuote: pendingSelectedText,
+        images: currentImages,
+        onRemoveImage: (imageId: string) => {
+          removeImage(itemId, imageId);
+          // Refresh display after removal
+          const newImages = getImages(itemId);
+          const newHasTextQuote = !!pendingSelectedText;
+          if (newHasTextQuote || newImages.length > 0) {
+            updateUnifiedReferenceDisplay(
+              container,
+              {
+                textQuote: pendingSelectedText,
+                images: newImages,
+                onRemoveImage: () => {},
+                onCloseTextQuote: () => {},
+                onCloseAll: () => {},
+              },
+              theme,
+            );
+          } else {
+            updateUnifiedReferenceDisplay(
+              container,
+              {
+                textQuote: null,
+                images: [],
+                onRemoveImage: () => {},
+                onCloseTextQuote: () => {},
+                onCloseAll: () => {},
+              },
+              theme,
+            );
+          }
+        },
+        onCloseTextQuote: () => {
+          pendingSelectedText = null;
+          // Refresh display to hide text quote
+          const newImages = getImages(itemId);
+          if (newImages.length > 0) {
+            updateUnifiedReferenceDisplay(
+              container,
+              {
+                textQuote: null,
+                images: newImages,
+                onRemoveImage: () => {},
+                onCloseTextQuote: () => {},
+                onCloseAll: () => {},
+              },
+              theme,
+            );
+          } else {
+            updateUnifiedReferenceDisplay(
+              container,
+              {
+                textQuote: null,
+                images: [],
+                onRemoveImage: () => {},
+                onCloseTextQuote: () => {},
+                onCloseAll: () => {},
+              },
+              theme,
+            );
+          }
+        },
+        onCloseAll: () => {
+          pendingSelectedText = null;
+          clearImages(itemId);
+          updateUnifiedReferenceDisplay(
+            container,
+            {
+              textQuote: null,
+              images: [],
+              onRemoveImage: () => {},
+              onCloseTextQuote: () => {},
+              onCloseAll: () => {},
+            },
+            theme,
+          );
+        },
+      },
+      theme,
+    );
+  } else {
+    // No references, ensure reference container is hidden
+    const theme = getCurrentTheme();
+    updateUnifiedReferenceDisplay(
+      container,
+      {
+        textQuote: null,
+        images: [],
+        onRemoveImage: () => {},
+        onCloseTextQuote: () => {},
+        onCloseAll: () => {},
+      },
+      theme,
+    );
+  }
 }
 
 /**
@@ -695,7 +1119,7 @@ async function initializeFloatingChatContent(): Promise<void> {
     floatingTabNotifierID = Zotero.Notifier.registerObserver(
       {
         notify: async () => {
-          // Check if document changed - clear quote box if so
+          // Check if document changed - clear unified reference if so
           const activeReaderItem = getActiveReaderItem();
           const currentDocId = activeReaderItem?.id ?? null;
           if (
@@ -707,15 +1131,37 @@ async function initializeFloatingChatContent(): Promise<void> {
               pendingSelectedTextDocumentId,
               "to",
               currentDocId,
-              "- clearing quote box (floating)",
+              "- clearing unified reference (floating)",
             );
             pendingSelectedText = null;
             pendingSelectedTextDocumentId = null;
+            // Clear unified reference display in both containers
+            const theme = getCurrentTheme();
             if (floatingContainer) {
-              updateQuoteBoxDisplay(floatingContainer, null);
+              updateUnifiedReferenceDisplay(
+                floatingContainer,
+                {
+                  textQuote: null,
+                  images: [],
+                  onRemoveImage: () => {},
+                  onCloseTextQuote: () => {},
+                  onCloseAll: () => {},
+                },
+                theme,
+              );
             }
             if (chatContainer) {
-              updateQuoteBoxDisplay(chatContainer, null);
+              updateUnifiedReferenceDisplay(
+                chatContainer,
+                {
+                  textQuote: null,
+                  images: [],
+                  onRemoveImage: () => {},
+                  onCloseTextQuote: () => {},
+                  onCloseAll: () => {},
+                },
+                theme,
+              );
             }
           }
           if (floatingContainer) {
@@ -835,7 +1281,7 @@ function showSidebarPanel(): void {
       {
         notify: () => {
           updateContainerSize();
-          // Check if document changed - clear quote box if so
+          // Check if document changed - clear unified reference if so
           const activeReaderItem = getActiveReaderItem();
           const currentDocId = activeReaderItem?.id ?? null;
           if (
@@ -847,12 +1293,24 @@ function showSidebarPanel(): void {
               pendingSelectedTextDocumentId,
               "to",
               currentDocId,
-              "- clearing quote box",
+              "- clearing unified reference",
             );
             pendingSelectedText = null;
             pendingSelectedTextDocumentId = null;
+            // Clear unified reference display
+            const theme = getCurrentTheme();
             if (chatContainer) {
-              updateQuoteBoxDisplay(chatContainer, null);
+              updateUnifiedReferenceDisplay(
+                chatContainer,
+                {
+                  textQuote: null,
+                  images: [],
+                  onRemoveImage: () => {},
+                  onCloseTextQuote: () => {},
+                  onCloseAll: () => {},
+                },
+                theme,
+              );
             }
           }
           if (chatContainer?.style.display !== "none") {
@@ -1336,7 +1794,8 @@ export function unregisterToolbarButton(): void {
 function createContext(container: HTMLElement): ChatPanelContext {
   const manager = getChatManager();
 
-  return {
+  // Create context object that will be returned
+  const context: ChatPanelContext = {
     container: container,
     chatManager: manager,
     getCurrentItem: () => {
@@ -1368,12 +1827,83 @@ function createContext(container: HTMLElement): ChatPanelContext {
       if (cancelled) {
         isQuoteCancelled = true;
       }
-      // Update quote box in all containers
+      // Update unified reference display in all containers
+      const itemId = moduleCurrentItem?.id ?? 0;
+      const currentImages = getImages(itemId);
+      const theme = getCurrentTheme();
+
+      // Create handlers for the unified display
+      const handleRemoveImage = (imageId: string) => {
+        removeImage(itemId, imageId);
+        const newImages = getImages(itemId);
+        const hasTextQuote = !!pendingSelectedText;
+
+        // Only close entire container if both text and images are empty
+        if (chatContainer) {
+          updateUnifiedReferenceDisplay(
+            chatContainer,
+            {
+              textQuote: pendingSelectedText,
+              images: newImages,
+              onRemoveImage: handleRemoveImage,
+              onCloseTextQuote: () => context.clearAttachments(true),
+              onCloseAll: () => {
+                context.clearAttachments(true);
+                context.clearImages();
+              },
+            },
+            theme,
+          );
+        }
+        if (floatingContainer) {
+          updateUnifiedReferenceDisplay(
+            floatingContainer,
+            {
+              textQuote: pendingSelectedText,
+              images: newImages,
+              onRemoveImage: handleRemoveImage,
+              onCloseTextQuote: () => context.clearAttachments(true),
+              onCloseAll: () => {
+                context.clearAttachments(true);
+                context.clearImages();
+              },
+            },
+            theme,
+          );
+        }
+      };
+
       if (chatContainer) {
-        updateQuoteBoxDisplay(chatContainer, null);
+        updateUnifiedReferenceDisplay(
+          chatContainer,
+          {
+            textQuote: null,
+            images: currentImages,
+            onRemoveImage: handleRemoveImage,
+            onCloseTextQuote: () => context.clearAttachments(true),
+            onCloseAll: () => {
+              context.clearAttachments(true);
+              context.clearImages();
+            },
+          },
+          theme,
+        );
       }
       if (floatingContainer) {
-        updateQuoteBoxDisplay(floatingContainer, null);
+        updateUnifiedReferenceDisplay(
+          floatingContainer,
+          {
+            textQuote: null,
+            images: currentImages,
+            onRemoveImage: handleRemoveImage,
+            onCloseTextQuote: () => context.clearAttachments(true),
+            onCloseAll: () => {
+              context.clearAttachments(true);
+              context.clearImages();
+            },
+          },
+          theme,
+        );
       }
     },
     updateAttachmentsPreview: () => {
@@ -1447,7 +1977,334 @@ function createContext(container: HTMLElement): ChatPanelContext {
         }
       }
     },
+    // Image handling methods
+    getImages: () => {
+      const itemId = moduleCurrentItem?.id ?? 0;
+      return getImages(itemId);
+    },
+    addImage: async (file: File) => {
+      const itemId = moduleCurrentItem?.id ?? 0;
+      await addImage(itemId, file);
+      // Get updated images after adding
+      const updatedImages = getImages(itemId);
+      const theme = getCurrentTheme();
+
+      // Create handlers for the unified display
+      const handleRemoveImage = (imageId: string) => {
+        removeImage(itemId, imageId);
+        const newImages = getImages(itemId);
+        // Update unified reference display after removal
+        if (chatContainer) {
+          updateUnifiedReferenceDisplay(
+            chatContainer,
+            {
+              textQuote: pendingSelectedText,
+              images: newImages,
+              onRemoveImage: handleRemoveImage,
+              onCloseTextQuote: () => context.clearAttachments(true),
+              onCloseAll: () => {
+                context.clearAttachments(true);
+                context.clearImages();
+              },
+            },
+            theme,
+          );
+        }
+        if (floatingContainer) {
+          updateUnifiedReferenceDisplay(
+            floatingContainer,
+            {
+              textQuote: pendingSelectedText,
+              images: newImages,
+              onRemoveImage: handleRemoveImage,
+              onCloseTextQuote: () => context.clearAttachments(true),
+              onCloseAll: () => {
+                context.clearAttachments(true);
+                context.clearImages();
+              },
+            },
+            theme,
+          );
+        }
+      };
+
+      // Update unified reference display in all containers
+      if (chatContainer) {
+        updateUnifiedReferenceDisplay(
+          chatContainer,
+          {
+            textQuote: pendingSelectedText,
+            images: updatedImages,
+            onRemoveImage: handleRemoveImage,
+            onCloseTextQuote: () => context.clearAttachments(true),
+            onCloseAll: () => {
+              context.clearAttachments(true);
+              context.clearImages();
+            },
+          },
+          theme,
+        );
+      }
+      if (floatingContainer) {
+        updateUnifiedReferenceDisplay(
+          floatingContainer,
+          {
+            textQuote: pendingSelectedText,
+            images: updatedImages,
+            onRemoveImage: handleRemoveImage,
+            onCloseTextQuote: () => context.clearAttachments(true),
+            onCloseAll: () => {
+              context.clearAttachments(true);
+              context.clearImages();
+            },
+          },
+          theme,
+        );
+      }
+    },
+    removeImage: (imageId: string) => {
+      const itemId = moduleCurrentItem?.id ?? 0;
+      removeImage(itemId, imageId);
+      // Get updated images after removal
+      const updatedImages = getImages(itemId);
+      const theme = getCurrentTheme();
+
+      // Create handlers for the unified display
+      const handleRemoveImage = (id: string) => {
+        removeImage(itemId, id);
+        const newImages = getImages(itemId);
+        // Update unified reference display after removal
+        if (chatContainer) {
+          updateUnifiedReferenceDisplay(
+            chatContainer,
+            {
+              textQuote: pendingSelectedText,
+              images: newImages,
+              onRemoveImage: handleRemoveImage,
+              onCloseTextQuote: () => context.clearAttachments(true),
+              onCloseAll: () => {
+                context.clearAttachments(true);
+                context.clearImages();
+              },
+            },
+            theme,
+          );
+        }
+        if (floatingContainer) {
+          updateUnifiedReferenceDisplay(
+            floatingContainer,
+            {
+              textQuote: pendingSelectedText,
+              images: newImages,
+              onRemoveImage: handleRemoveImage,
+              onCloseTextQuote: () => context.clearAttachments(true),
+              onCloseAll: () => {
+                context.clearAttachments(true);
+                context.clearImages();
+              },
+            },
+            theme,
+          );
+        }
+      };
+
+      // Update unified reference display in all containers
+      if (chatContainer) {
+        updateUnifiedReferenceDisplay(
+          chatContainer,
+          {
+            textQuote: pendingSelectedText,
+            images: updatedImages,
+            onRemoveImage: handleRemoveImage,
+            onCloseTextQuote: () => context.clearAttachments(true),
+            onCloseAll: () => {
+              context.clearAttachments(true);
+              context.clearImages();
+            },
+          },
+          theme,
+        );
+      }
+      if (floatingContainer) {
+        updateUnifiedReferenceDisplay(
+          floatingContainer,
+          {
+            textQuote: pendingSelectedText,
+            images: updatedImages,
+            onRemoveImage: handleRemoveImage,
+            onCloseTextQuote: () => context.clearAttachments(true),
+            onCloseAll: () => {
+              context.clearAttachments(true);
+              context.clearImages();
+            },
+          },
+          theme,
+        );
+      }
+    },
+    clearImages: () => {
+      const itemId = moduleCurrentItem?.id ?? 0;
+      clearImages(itemId);
+      // Update unified reference display after clearing images
+      const theme = getCurrentTheme();
+      const emptyImages: Array<{
+        id: string;
+        base64: string;
+        mimeType: string;
+      }> = [];
+
+      const handleRemoveImage = (imageId: string) => {
+        removeImage(itemId, imageId);
+        const newImages = getImages(itemId);
+        if (chatContainer) {
+          updateUnifiedReferenceDisplay(
+            chatContainer,
+            {
+              textQuote: pendingSelectedText,
+              images: newImages,
+              onRemoveImage: handleRemoveImage,
+              onCloseTextQuote: () => context.clearAttachments(true),
+              onCloseAll: () => {
+                context.clearAttachments(true);
+                context.clearImages();
+              },
+            },
+            theme,
+          );
+        }
+        if (floatingContainer) {
+          updateUnifiedReferenceDisplay(
+            floatingContainer,
+            {
+              textQuote: pendingSelectedText,
+              images: newImages,
+              onRemoveImage: handleRemoveImage,
+              onCloseTextQuote: () => context.clearAttachments(true),
+              onCloseAll: () => {
+                context.clearAttachments(true);
+                context.clearImages();
+              },
+            },
+            theme,
+          );
+        }
+      };
+
+      if (chatContainer) {
+        updateUnifiedReferenceDisplay(
+          chatContainer,
+          {
+            textQuote: pendingSelectedText,
+            images: emptyImages,
+            onRemoveImage: handleRemoveImage,
+            onCloseTextQuote: () => context.clearAttachments(true),
+            onCloseAll: () => {
+              context.clearAttachments(true);
+              context.clearImages();
+            },
+          },
+          theme,
+        );
+      }
+      if (floatingContainer) {
+        updateUnifiedReferenceDisplay(
+          floatingContainer,
+          {
+            textQuote: pendingSelectedText,
+            images: emptyImages,
+            onRemoveImage: handleRemoveImage,
+            onCloseTextQuote: () => context.clearAttachments(true),
+            onCloseAll: () => {
+              context.clearAttachments(true);
+              context.clearImages();
+            },
+          },
+          theme,
+        );
+      }
+    },
+    updateImagePreview: () => {
+      const itemId = moduleCurrentItem?.id ?? 0;
+      const currentImages = getImages(itemId);
+      const theme = getCurrentTheme();
+
+      // Create a stable remove handler
+      const handleRemove = (imageId: string) => {
+        removeImage(itemId, imageId);
+        const newImages = getImages(itemId);
+        if (chatContainer) {
+          updateUnifiedReferenceDisplay(
+            chatContainer,
+            {
+              textQuote: pendingSelectedText,
+              images: newImages,
+              onRemoveImage: handleRemove,
+              onCloseTextQuote: () => context.clearAttachments(true),
+              onCloseAll: () => {
+                context.clearAttachments(true);
+                context.clearImages();
+              },
+            },
+            theme,
+          );
+        }
+        if (floatingContainer) {
+          updateUnifiedReferenceDisplay(
+            floatingContainer,
+            {
+              textQuote: pendingSelectedText,
+              images: newImages,
+              onRemoveImage: handleRemove,
+              onCloseTextQuote: () => context.clearAttachments(true),
+              onCloseAll: () => {
+                context.clearAttachments(true);
+                context.clearImages();
+              },
+            },
+            theme,
+          );
+        }
+      };
+
+      if (chatContainer) {
+        updateUnifiedReferenceDisplay(
+          chatContainer,
+          {
+            textQuote: pendingSelectedText,
+            images: currentImages,
+            onRemoveImage: handleRemove,
+            onCloseTextQuote: () => context.clearAttachments(true),
+            onCloseAll: () => {
+              context.clearAttachments(true);
+              context.clearImages();
+            },
+          },
+          theme,
+        );
+      }
+      if (floatingContainer) {
+        updateUnifiedReferenceDisplay(
+          floatingContainer,
+          {
+            textQuote: pendingSelectedText,
+            images: currentImages,
+            onRemoveImage: handleRemove,
+            onCloseTextQuote: () => context.clearAttachments(true),
+            onCloseAll: () => {
+              context.clearAttachments(true);
+              context.clearImages();
+            },
+          },
+          theme,
+        );
+      }
+    },
   };
+
+  // Set the current context for event handlers
+  setCurrentContext(context);
+
+  return context;
 }
 
 /**
@@ -1523,6 +2380,20 @@ export function unregisterAll(): void {
   // Clear attachment state
   pendingSelectedText = null;
   moduleCurrentItem = null;
+}
+
+/**
+ * Get the chat container element
+ */
+export function getChatContainer(): HTMLElement | null {
+  return chatContainer;
+}
+
+/**
+ * Get the floating container element
+ */
+export function getFloatingContainer(): HTMLElement | null {
+  return floatingContainer;
 }
 
 /**

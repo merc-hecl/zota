@@ -2,6 +2,13 @@
  * Chat Types - 聊天相关类型定义
  */
 
+// Image data attached to a message
+export interface MessageImage {
+  id: string;
+  base64: string;
+  mimeType: string;
+}
+
 // 聊天消息
 export interface ChatMessage {
   id: string;
@@ -10,6 +17,7 @@ export interface ChatMessage {
   timestamp: number;
   pdfContext?: boolean; // 是否包含PDF上下文
   selectedText?: string; // 选中的PDF文本
+  images?: MessageImage[]; // Attached images
 }
 
 // 聊天会话
@@ -72,6 +80,7 @@ export interface StreamCallbacks {
 export interface SendMessageOptions {
   attachPdf?: boolean;
   selectedText?: string;
+  images?: Array<{ id: string; base64: string; mimeType: string }>;
 }
 
 // 存储的会话元数据

@@ -5,7 +5,11 @@
 import { config } from "../../../../package.json";
 import type { ChatPanelContext, AttachmentState, SessionInfo } from "./types";
 import { chatColors } from "../../../utils/colors";
-import { createElement, copyToClipboard } from "./ChatPanelBuilder";
+import {
+  createElement,
+  copyToClipboard,
+  updateUnifiedReferenceDisplay,
+} from "./ChatPanelBuilder";
 import { getCurrentTheme } from "./ChatPanelTheme";
 import {
   createHistoryDropdownState,
@@ -23,6 +27,8 @@ import {
   getIsGloballyStreaming,
   getIsSendingMessage,
   setIsSendingMessage,
+  getChatContainer,
+  getFloatingContainer,
 } from "./ChatPanelManager";
 import { startStreamingScroll } from "./AutoScrollManager";
 import { getNoteExportService } from "../../chat";
@@ -34,6 +40,7 @@ import {
   navigateHistoryDown,
   resetHistoryNavigation,
 } from "./InputStateManager";
+import { clearImages, getImages, removeImage } from "./ImageStateManager";
 
 // Import getActiveReaderItem from the manager module to avoid circular dependency
 // This is set by ChatPanelManager during initialization
@@ -42,8 +49,10 @@ let getActiveReaderItemFn: (() => Zotero.Item | null) | null = null;
 // Toggle panel mode function reference (set by ChatPanelManager)
 let togglePanelModeFn: (() => void) | null = null;
 
-// State to track if a message is being sent (prevents duplicate sends)
-let isSending = false;
+// Note: We use the global isSendingMessage state from ChatPanelManager
+// instead of a local variable to ensure proper state synchronization
+// Use setIsSendingMessage(true/false) to set the state
+// Use getIsSendingMessage() to read the state
 
 /**
  * Set the getActiveReaderItem function reference
@@ -59,6 +68,138 @@ export function setActiveReaderItemFn(fn: () => Zotero.Item | null): void {
  */
 export function setTogglePanelModeFn(fn: () => void): void {
   togglePanelModeFn = fn;
+}
+
+/**
+ * Update unified reference display for a specific item in all containers
+ */
+function updateUnifiedReferenceForItem(
+  itemId: number,
+  textQuote?: string | null,
+  explicitContext?: ChatPanelContext,
+): void {
+  const images = getImages(itemId);
+
+  // Get text quote from state if not provided
+  // This ensures we always use the correct state, not stale DOM content
+  let effectiveTextQuote = textQuote;
+  if (effectiveTextQuote === undefined) {
+    // Use explicit context if provided, otherwise try to get from containers
+    const ctx =
+      explicitContext ||
+      getContextForContainer(getChatContainer()) ||
+      getContextForContainer(getFloatingContainer());
+    const attachmentState = ctx?.getAttachmentState();
+    effectiveTextQuote = attachmentState?.pendingSelectedText || null;
+  }
+
+  const chatContainer = getChatContainer();
+  const floatingContainer = getFloatingContainer();
+  const theme = getCurrentTheme();
+
+  ztoolkit.log(
+    "[updateUnifiedReferenceForItem] chatContainer:",
+    chatContainer ? "exists" : "null",
+    "floatingContainer:",
+    floatingContainer ? "exists" : "null",
+  );
+
+  // Create handlers
+  const handleRemoveImage = (imageId: string) => {
+    removeImage(itemId, imageId);
+    // Refresh display using current state (not DOM)
+    updateUnifiedReferenceForItem(itemId);
+  };
+
+  const handleCloseTextQuote = () => {
+    // Clear text quote but keep images
+    const context =
+      getContextForContainer(chatContainer) ||
+      getContextForContainer(floatingContainer);
+    if (context) {
+      context.clearAttachments(true);
+    }
+    // Refresh display - state will be fetched from getAttachmentState
+    updateUnifiedReferenceForItem(itemId);
+  };
+
+  const handleCloseAll = () => {
+    // Clear both text and images
+    const context =
+      getContextForContainer(chatContainer) ||
+      getContextForContainer(floatingContainer);
+    if (context) {
+      context.clearAttachments(true);
+      context.clearImages();
+    }
+    // Refresh display
+    updateUnifiedReferenceForItem(itemId);
+  };
+
+  if (chatContainer) {
+    updateUnifiedReferenceDisplay(
+      chatContainer,
+      {
+        textQuote: effectiveTextQuote,
+        images,
+        onRemoveImage: handleRemoveImage,
+        onCloseTextQuote: handleCloseTextQuote,
+        onCloseAll: handleCloseAll,
+      },
+      theme,
+    );
+  }
+  if (floatingContainer) {
+    updateUnifiedReferenceDisplay(
+      floatingContainer,
+      {
+        textQuote: effectiveTextQuote,
+        images,
+        onRemoveImage: handleRemoveImage,
+        onCloseTextQuote: handleCloseTextQuote,
+        onCloseAll: handleCloseAll,
+      },
+      theme,
+    );
+  }
+}
+
+/**
+ * Helper to get current text quote from a container
+ */
+function getCurrentTextQuoteFromContainer(
+  container: HTMLElement | null,
+): string | null {
+  if (!container) return null;
+  const textQuoteContent = container.querySelector(
+    "#chat-text-quote-content",
+  ) as HTMLElement;
+  return textQuoteContent?.textContent || null;
+}
+
+/**
+ * Helper to get context for a container
+ * Note: This is a simplified version - the actual context is managed by ChatPanelManager
+ */
+let currentContext: ChatPanelContext | null = null;
+
+export function setCurrentContext(context: ChatPanelContext | null): void {
+  currentContext = context;
+}
+
+function getContextForContainer(
+  _container: HTMLElement | null,
+): ChatPanelContext | null {
+  return currentContext;
+}
+
+/**
+ * Update image preview for a specific item in all containers
+ * @deprecated Use updateUnifiedReferenceForItem instead
+ */
+function updateImagePreviewForItem(itemId: number): void {
+  // State will be fetched from getAttachmentState inside updateUnifiedReferenceForItem
+  updateUnifiedReferenceForItem(itemId);
 }
 
 /**
@@ -132,20 +273,10 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   const closeBtn = container.querySelector(
     "#chat-close-btn",
   ) as HTMLButtonElement;
-  const quoteCloseBtn = container.querySelector(
-    "#chat-quote-close-btn",
-  ) as HTMLButtonElement;
-
   // History dropdown state
   const historyState = createHistoryDropdownState();
 
-  // Quote box close button - clear selected text
-  quoteCloseBtn?.addEventListener("click", () => {
-    ztoolkit.log("Quote close button clicked");
-    // Pass true to indicate user manually cancelled the quote
-    context.clearAttachments(true);
-    updateQuoteBoxDisplay(container, null);
-  });
+  // Reference close buttons are handled by updateUnifiedReferenceDisplay
 
   // Initialize send button state based on global streaming or sending state
   if (sendButton) {
@@ -169,6 +300,105 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       messageInput.style.height =
         Math.min(messageInput.scrollHeight, 140) + "px";
     }
+  }
+
+  // Initialize unified reference display
+  const itemId = context.getCurrentItem()?.id ?? 0;
+  // State will be fetched from getAttachmentState inside updateUnifiedReferenceForItem
+  updateUnifiedReferenceForItem(itemId);
+
+  // Handle paste events for images
+  messageInput?.addEventListener("paste", async (e: ClipboardEvent) => {
+    const clipboardData = e.clipboardData;
+    if (!clipboardData) return;
+
+    // Check if clipboard contains images
+    const hasImages = Array.from(clipboardData.items).some((item) =>
+      item.type.startsWith("image/"),
+    );
+
+    if (hasImages) {
+      e.preventDefault();
+
+      // Extract and add images
+      for (let i = 0; i < clipboardData.items.length; i++) {
+        const item = clipboardData.items[i];
+        if (item.type.startsWith("image/")) {
+          const blob = item.getAsFile();
+          if (blob) {
+            await context.addImage(blob);
+          }
+        }
+      }
+      // Update unified reference display after adding images
+      const currentItemId = context.getCurrentItem()?.id ?? 0;
+      // Pass context explicitly to ensure correct state is fetched
+      updateUnifiedReferenceForItem(currentItemId, undefined, context);
+    }
+  });
+
+  // Handle drag and drop events for images
+  const inputWrapper = container.querySelector(
+    "#chat-input-wrapper",
+  ) as HTMLElement;
+
+  if (inputWrapper) {
+    // Store original border style
+    const originalBorder = inputWrapper.style.border;
+    const originalBackground = inputWrapper.style.background;
+
+    // Drag enter - show visual feedback
+    inputWrapper.addEventListener("dragenter", (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      inputWrapper.style.border = "2px dashed #10b981";
+      inputWrapper.style.background = "rgba(16, 185, 129, 0.05)";
+    });
+
+    // Drag over - allow drop
+    inputWrapper.addEventListener("dragover", (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    // Drag leave - remove visual feedback
+    inputWrapper.addEventListener("dragleave", (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // Check if we're actually leaving the wrapper (not entering a child)
+      const rect = inputWrapper.getBoundingClientRect();
+      const x = e.clientX;
+      const y = e.clientY;
+      if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+        inputWrapper.style.border = originalBorder;
+        inputWrapper.style.background = originalBackground;
+      }
+    });
+
+    // Drop - handle dropped files
+    inputWrapper.addEventListener("drop", async (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Remove visual feedback
+      inputWrapper.style.border = originalBorder;
+      inputWrapper.style.background = originalBackground;
+
+      const files = e.dataTransfer?.files;
+      if (!files || files.length === 0) return;
+
+      // Process dropped image files
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith("image/")) {
+          await context.addImage(file);
+        }
+      }
+      // Update unified reference display after dropping images
+      const dropItemId = context.getCurrentItem()?.id ?? 0;
+      // Pass context explicitly to ensure correct state is fetched
+      updateUnifiedReferenceForItem(dropItemId, undefined, context);
+    });
   }
 
   // Send button
@@ -255,7 +485,7 @@ export function setupEventHandlers(context: ChatPanelContext): void {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       // Block Enter key while sending or AI is responding
-      if (isSending || getIsGloballyStreaming()) {
+      if (getIsSendingMessage() || getIsGloballyStreaming()) {
         ztoolkit.log(
           "Enter key blocked - message is being sent or AI is responding",
         );
@@ -345,9 +575,13 @@ export function setupEventHandlers(context: ChatPanelContext): void {
     // This preserves all historical sessions
     await chatManager.createNewSession(item!.id);
 
-    // Clear attachments
+    // Clear attachments (text quote)
     context.clearAttachments();
-    context.updateAttachmentsPreview();
+
+    // Clear images
+    context.clearImages();
+
+    // Unified reference display is updated by clearAttachments and clearImages
 
     if (attachPdfCheckbox) {
       attachPdfCheckbox.checked = false;
@@ -708,26 +942,75 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 }
 
 /**
- * Update quote box display with selected text
+ * Update unified reference display with text quote and images
+ * This is the main function to update the unified reference container
  */
 export function updateQuoteBoxDisplay(
   container: HTMLElement,
   text: string | null,
 ): void {
-  const quoteBox = container.querySelector("#chat-quote-box") as HTMLElement;
-  const quoteContent = container.querySelector(
-    "#chat-quote-content",
-  ) as HTMLElement;
+  // Get current images from ImageStateManager
+  const images = getImages(getCurrentItemIdFromContainer(container));
 
-  if (!quoteBox || !quoteContent) return;
+  updateUnifiedReferenceDisplay(
+    container,
+    {
+      textQuote: text,
+      images,
+      onRemoveImage: (imageId: string) => {
+        removeImage(getCurrentItemIdFromContainer(container), imageId);
+        // Refresh display after removal
+        const currentText = getCurrentTextQuoteFromContainer(container);
+        updateQuoteBoxDisplay(container, currentText);
+      },
+      onCloseTextQuote: () => {
+        // Close text quote only - images remain
+        // The actual clearing is handled by the caller through context.clearAttachments
+        // Just update the display here
+        const imagesAfter = getImages(getCurrentItemIdFromContainer(container));
+        if (imagesAfter.length === 0) {
+          // No images left, close entire container
+          updateUnifiedReferenceDisplay(
+            container,
+            {
+              textQuote: null,
+              images: [],
+              onRemoveImage: () => {},
+              onCloseTextQuote: () => {},
+              onCloseAll: () => {},
+            },
+            getCurrentTheme(),
+          );
+        }
+      },
+      onCloseAll: () => {
+        // Close entire reference container
+        updateUnifiedReferenceDisplay(
+          container,
+          {
+            textQuote: null,
+            images: [],
+            onRemoveImage: () => {},
+            onCloseTextQuote: () => {},
+            onCloseAll: () => {},
+          },
+          getCurrentTheme(),
+        );
+      },
+    },
+    getCurrentTheme(),
+  );
+}
 
-  if (text) {
-    quoteContent.textContent = text;
-    quoteBox.style.display = "flex";
-  } else {
-    quoteBox.style.display = "none";
-    quoteContent.textContent = "";
-  }
+/**
+ * Helper to get current item ID from a container
+ */
+function getCurrentItemIdFromContainer(container: HTMLElement | null): number {
+  if (!container) return 0;
+  // Try to get from the container's data attribute or context
+  // This is a simplified version - the actual implementation may vary
+  const context = getContextForContainer(container);
+  return context?.getCurrentItem()?.id ?? 0;
 }
 
 /**
@@ -781,10 +1064,9 @@ async function sendMessage(
   _attachmentsPreview: HTMLElement | null,
 ): Promise<void> {
   // Prevent duplicate sends or sending while AI is responding
-  if (isSending || getIsGloballyStreaming()) return;
+  if (getIsSendingMessage() || getIsGloballyStreaming()) return;
 
-  const content = messageInput?.value?.trim();
-  if (!content) return;
+  const content = messageInput?.value?.trim() || "";
 
   const { chatManager, container } = context;
 
@@ -792,13 +1074,27 @@ async function sendMessage(
   const activeReaderItem = getActiveReaderItem();
 
   // Use current item or fall back to active reader
-  let item = context.getCurrentItem();
-  if (!item) {
-    item = activeReaderItem;
-    if (item) {
-      context.setCurrentItem(item);
-    }
+  const item = context.getCurrentItem();
+
+  // Determine target item first (needed for getting correct images)
+  let targetItem = item;
+  if (attachPdfCheckbox?.checked && activeReaderItem) {
+    targetItem = activeReaderItem;
   }
+
+  // Always set current item to ensure context is correct
+  if (targetItem) {
+    context.setCurrentItem(targetItem);
+  } else if (!context.getCurrentItem()) {
+    // Fallback to global chat if no item is set
+    context.setCurrentItem({ id: 0 } as Zotero.Item);
+  }
+
+  // Get images after setting the correct current item
+  const images = context.getImages();
+
+  // Allow sending if there's content or images
+  if (!content && images.length === 0) return;
 
   // Check provider authentication/readiness
   const providerManager = getProviderManager();
@@ -810,7 +1106,7 @@ async function sendMessage(
   }
 
   // Set sending state and disable send button
-  isSending = true;
+  setIsSendingMessage(true);
   if (sendButton) {
     sendButton.disabled = true;
     sendButton.style.opacity = "0.5";
@@ -832,7 +1128,9 @@ async function sendMessage(
   // Reset history navigation
   resetHistoryNavigation();
   // Add to input history
-  addToInputHistory(content);
+  if (content) {
+    addToInputHistory(content);
+  }
 
   context.clearAttachments();
   context.updateAttachmentsPreview();
@@ -857,21 +1155,22 @@ async function sendMessage(
     selectedText: selectedText || undefined,
   };
 
+  // Get the item ID for clearing images (targetItem is already set above)
+  const currentItemId = targetItem?.id ?? 0;
+
+  // Clear images immediately when user sends message (before waiting for response)
+  ztoolkit.log("[SendMessage] Clearing images for item:", currentItemId);
+  clearImages(currentItemId);
+  ztoolkit.log(
+    "[SendMessage] Images after clear:",
+    getImages(currentItemId).length,
+  );
+  // Update unified reference display in both containers immediately
+  // Pass null to explicitly clear the display (not fetch from state)
+  updateUnifiedReferenceForItem(currentItemId, null);
+  ztoolkit.log("[SendMessage] Unified reference display updated");
+
   try {
-    // Determine target item: use active reader if attaching PDF, otherwise use chat context
-    let targetItem = item;
-    if (shouldAttachPdf && activeReaderItem) {
-      targetItem = activeReaderItem;
-    }
-
-    // Always set current item to ensure context is correct
-    if (targetItem) {
-      context.setCurrentItem(targetItem);
-    } else if (!context.getCurrentItem()) {
-      // Fallback to global chat if no item is set
-      context.setCurrentItem({ id: 0 } as Zotero.Item);
-    }
-
     // Start auto-scroll for streaming
     const chatHistory = container.querySelector("#chat-history") as HTMLElement;
     if (chatHistory) {
@@ -879,15 +1178,26 @@ async function sendMessage(
     }
 
     // Send message (unified API handles both global and item-bound chat)
-    await chatManager.sendMessage(content, {
-      item: targetItem,
-      attachPdf: shouldAttachPdf,
-      ...attachmentOptions,
-    });
+    // Note: This is a fire-and-forget operation, we don't await it
+    // because we want to reset isSending immediately after starting the request
+    chatManager
+      .sendMessage(content, {
+        item: targetItem,
+        attachPdf: shouldAttachPdf,
+        images: images.length > 0 ? images : undefined,
+        ...attachmentOptions,
+      })
+      .catch((error) => {
+        ztoolkit.log("Error in sendMessage:", error);
+      });
+
+    // Reset sending state immediately after starting the request
+    // The actual completion is handled by onMessageComplete callback
+    setIsSendingMessage(false);
   } catch (error) {
     ztoolkit.log("Error in sendMessage:", error);
     // Re-enable send button on error
-    isSending = false;
+    setIsSendingMessage(false);
     if (sendButton) {
       sendButton.disabled = false;
       sendButton.style.opacity = "1";

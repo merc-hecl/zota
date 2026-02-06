@@ -131,11 +131,37 @@ export abstract class BaseProvider implements AIProvider {
 
   /**
    * Format messages for OpenAI-compatible API
+   * Supports text and image content (Vision API)
    */
   protected formatOpenAIMessages(messages: ChatMessage[]): OpenAIMessage[] {
     const filtered = this.filterMessages(messages);
 
     return filtered.map((msg) => {
+      // If message has images, use array content format for Vision API
+      if (msg.images && msg.images.length > 0) {
+        const content: OpenAIMessageContent[] = [];
+
+        // Add text content if present
+        if (msg.content && msg.content.trim()) {
+          content.push({ type: "text", text: msg.content });
+        }
+
+        // Add images
+        for (const image of msg.images) {
+          content.push({
+            type: "image_url",
+            image_url: {
+              url: `data:${image.mimeType};base64,${image.base64}`,
+            },
+          });
+        }
+
+        return {
+          role: msg.role as "user" | "assistant" | "system",
+          content,
+        };
+      }
+
       // Plain text message
       return {
         role: msg.role as "user" | "assistant" | "system",

@@ -50,6 +50,13 @@ export interface SessionInfo {
   sessionTitle?: string; // AI生成的会话标题
 }
 
+// Image data for input preview
+export interface InputImage {
+  id: string;
+  base64: string;
+  mimeType: string;
+}
+
 // Attachment state for pending uploads
 export interface AttachmentState {
   pendingSelectedText: string | null;
@@ -70,6 +77,12 @@ export interface ChatPanelContext {
   updatePdfCheckboxVisibility: (item: Zotero.Item | null) => Promise<void>;
   renderMessages: (messages: ChatMessage[]) => void;
   appendError: (errorMessage: string) => void;
+  // Image handling
+  getImages: () => InputImage[];
+  addImage: (file: File) => Promise<void>;
+  removeImage: (imageId: string) => void;
+  clearImages: () => void;
+  updateImagePreview: () => void;
 }
 
 // HTML namespace for XHTML environment
