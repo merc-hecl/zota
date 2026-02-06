@@ -1,6 +1,6 @@
 /**
- * ChatManager - 聊天会话管理核心类
- * 支持一个文档多个会话的管理
+ * ChatManager - Core chat session management class
+ * Supports multiple sessions per document
  */
 
 import type {
@@ -16,13 +16,13 @@ import { getProviderManager } from "../providers";
 import { getString } from "../../utils/locale";
 
 export class ChatManager {
-  // 内存缓存：itemId -> 当前活动会话
+  // In-memory cache: itemId -> current active session
   private activeSessions: Map<number, ChatSession> = new Map();
   private activeItemId: number | null = null;
   private storageService: StorageService;
   private pdfExtractor: PdfExtractor;
 
-  // UI回调
+  // UI callbacks
   private onMessageUpdate?: (itemId: number, messages: ChatMessage[]) => void;
   private onStreamingUpdate?: (itemId: number, content: string) => void;
   private onError?: (error: Error) => void;
@@ -94,7 +94,7 @@ export class ChatManager {
   }
 
   /**
-   * 显示错误消息到聊天界面
+   * Show error message in chat interface
    */
   async showErrorMessage(content: string, itemId: number = 0): Promise<void> {
     const session = await this.getOrCreateSession(itemId);
@@ -110,9 +110,9 @@ export class ChatManager {
   }
 
   /**
-   * 发送消息（统一方法，支持全局聊天和绑定 Item 的聊天）
-   * @param content 消息内容
-   * @param options 选项，包含可选的 item（为 null 或 item.id === 0 时为全局聊天）
+   * Send message (unified method, supports both global chat and item-bound chat)
+   * @param content Message content
+   * @param options Options, including optional item (global chat when null or item.id === 0)
    */
   async sendMessage(
     content: string,
@@ -129,10 +129,10 @@ export class ChatManager {
       isGlobalChat,
     );
 
-    // 获取或创建会话
+    // Get or create session
     const session = await this.getOrCreateSession(itemId);
 
-    // 获取活动的 AI 提供商
+    // Get active AI provider
     const provider = this.getActiveProvider();
     ztoolkit.log(
       "[ChatManager] provider:",
@@ -163,13 +163,13 @@ export class ChatManager {
       hasSelectedText: !!options.selectedText,
     });
 
-    // 构建最终消息内容的各个部分
+    // Build final message content parts
     const messageParts: string[] = [];
     let pdfWasAttached = false;
 
-    // 1. 处理 PDF 内容（仅在勾选附加 PDF 且会话中尚未附加时）
+    // 1. Process PDF content (only when attach PDF is checked and not already in session)
     if (!isGlobalChat && options.attachPdf && item) {
-      // 检查当前会话是否已经附加了 PDF 内容
+      // Check if PDF content is already attached to current session
       const isPdfAlreadyInContext = session.pdfAttached && session.pdfContent;
 
       if (!isPdfAlreadyInContext) {
@@ -182,7 +182,7 @@ export class ChatManager {
             : "No PDF found",
         );
 
-        // 优先尝试文本提取
+        // Prioritize text extraction
         const pdfText = await this.pdfExtractor.extractPdfText(item);
         if (pdfText) {
           session.pdfContent = pdfText;
@@ -193,7 +193,7 @@ export class ChatManager {
             pdfText.length,
           );
 
-          // 获取 PDF 最大字符数配置（默认 50000，-1 表示无限制）
+          // Get PDF max chars config (default 50000, -1 means unlimited)
           const providerManager = getProviderManager();
           const activeProviderId = providerManager.getActiveProviderId();
           const providerConfig = providerManager.getProviderConfig(
@@ -201,7 +201,7 @@ export class ChatManager {
           ) as ApiKeyProviderConfig | null;
           const pdfMaxChars = providerConfig?.pdfMaxChars ?? 50000;
 
-          // 根据配置截断或完整上传
+          // Truncate or upload full content based on config
           const truncatedText =
             pdfMaxChars > 0 ? pdfText.substring(0, pdfMaxChars) : pdfText;
 
@@ -223,7 +223,7 @@ export class ChatManager {
       }
     }
 
-    // 2. 处理选中文本
+    // 2. Process selected text
     if (options.selectedText) {
       const prefix = isGlobalChat
         ? "[Selected text]"
@@ -231,15 +231,15 @@ export class ChatManager {
       messageParts.push(`${prefix}:\n"${options.selectedText}"`);
     }
 
-    // 3. 添加用户问题
+    // 3. Add user question
     if (content) {
       messageParts.push(`[Question]:\n${content}`);
     }
 
-    // 组合最终消息内容
+    // Combine final message content
     const finalContent = messageParts.join("\n\n");
 
-    // 创建用户消息
+    // Create user message
     const userMessage: ChatMessage = {
       id: this.generateId(),
       role: "user",
@@ -253,11 +253,11 @@ export class ChatManager {
     session.messages.push(userMessage);
     session.updatedAt = Date.now();
 
-    // 保存会话以确保用户消息被持久化
+    // Save session to persist user message
     await this.storageService.saveSession(session);
     this.onMessageUpdate?.(itemId, session.messages);
 
-    // 创建 AI 消息占位
+    // Create AI message placeholder
     const assistantMessage: ChatMessage = {
       id: this.generateId(),
       role: "assistant",
@@ -276,7 +276,7 @@ export class ChatManager {
       options.images ? options.images.length : 0,
     );
 
-    // 调用 API
+    // Call API
     const attemptRequest = async (): Promise<void> => {
       return new Promise((resolve) => {
         const callbacks: StreamCallbacks = {
@@ -289,7 +289,7 @@ export class ChatManager {
             assistantMessage.timestamp = Date.now();
             session.updatedAt = Date.now();
 
-            // 如果是第一轮对话且没有标题，生成AI标题
+            // Generate AI title for first round of conversation if no title exists
             const validMessages = session.messages.filter(
               (msg) => msg.content && msg.content.trim() !== "",
             );
@@ -309,7 +309,7 @@ export class ChatManager {
           onError: async (error: Error) => {
             ztoolkit.log("[API Error]", error.message);
 
-            // 显示错误消息
+            // Show error message
             session.messages.pop();
 
             const errorMessage: ChatMessage = {
@@ -335,30 +335,30 @@ export class ChatManager {
   }
 
   /**
-   * 获取或创建会话（支持全局聊天 itemId=0）
-   * 如果存在活动会话则返回，否则创建新会话
+   * Get or create session (supports global chat with itemId=0)
+   * Returns active session if exists, otherwise creates new session
    */
   async getOrCreateSession(itemId: number): Promise<ChatSession> {
-    // 先检查内存缓存
+    // Check memory cache first
     if (this.activeSessions.has(itemId)) {
       return this.activeSessions.get(itemId)!;
     }
 
-    // 尝试从存储加载活动会话
+    // Try to load active session from storage
     const activeSession = await this.storageService.getActiveSession(itemId);
     if (activeSession) {
       this.activeSessions.set(itemId, activeSession);
       return activeSession;
     }
 
-    // 创建新会话
+    // Create new session
     const newSession = await this.storageService.createNewSession(itemId);
     this.activeSessions.set(itemId, newSession);
     return newSession;
   }
 
   /**
-   * 创建新会话（用于新建聊天按钮）
+   * Create new session (for new chat button)
    */
   async createNewSession(itemId: number): Promise<ChatSession> {
     const newSession = await this.storageService.createNewSession(itemId);
@@ -367,7 +367,7 @@ export class ChatManager {
   }
 
   /**
-   * 切换到指定会话
+   * Switch to specified session
    */
   async switchSession(
     itemId: number,
@@ -384,7 +384,7 @@ export class ChatManager {
   }
 
   /**
-   * 获取文档的所有会话
+   * Get all sessions for a document
    */
   async getSessionsForItem(itemId: number): Promise<
     Array<{
@@ -410,40 +410,40 @@ export class ChatManager {
   }
 
   /**
-   * 清空当前活动会话（创建新会话，保留历史）
+   * Clear current active session (create new session, preserve history)
    */
   async clearCurrentSession(itemId: number): Promise<ChatSession> {
-    // 创建新会话作为当前活动会话
+    // Create new session as current active session
     const newSession = await this.createNewSession(itemId);
     this.onMessageUpdate?.(itemId, newSession.messages);
     return newSession;
   }
 
   /**
-   * 删除特定会话
+   * Delete specific session
    */
   async deleteSession(itemId: number, sessionId: string): Promise<void> {
     await this.storageService.deleteSession(itemId, sessionId);
 
-    // 如果删除的是当前活动会话，切换到其他会话或创建新会话
+    // If deleted session was active, switch to another or create new
     const currentSession = this.activeSessions.get(itemId);
     if (currentSession && currentSession.id === sessionId) {
-      // 尝试获取该文档的其他会话
+      // Try to get other sessions for this document
       const remainingSessions = await this.getSessionsForItem(itemId);
       const nonEmptySessions = remainingSessions.filter((s) => !s.isEmpty);
 
       if (nonEmptySessions.length > 0) {
-        // 切换到最新的非空会话
+        // Switch to latest non-empty session
         await this.switchSession(itemId, nonEmptySessions[0].sessionId);
       } else {
-        // 创建新会话
+        // Create new session
         await this.createNewSession(itemId);
       }
     }
   }
 
   /**
-   * 清空文档的所有会话（完全删除）
+   * Clear all sessions for a document (completely delete)
    */
   async clearAllSessionsForItem(itemId: number): Promise<void> {
     await this.storageService.deleteAllSessionsForItem(itemId);
@@ -451,28 +451,28 @@ export class ChatManager {
   }
 
   /**
-   * 检查是否有PDF附件
+   * Check if item has PDF attachment
    */
   async hasPdfAttachment(item: Zotero.Item): Promise<boolean> {
     return this.pdfExtractor.hasPdfAttachment(item);
   }
 
   /**
-   * 获取选中的PDF文本
+   * Get selected PDF text
    */
   getSelectedText(): string | null {
     return this.pdfExtractor.getSelectedTextFromReader();
   }
 
   /**
-   * 获取PDF提取器
+   * Get PDF extractor
    */
   getPdfExtractor(): PdfExtractor {
     return this.pdfExtractor;
   }
 
   /**
-   * 生成唯一ID
+   * Generate unique ID
    */
   private generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -494,8 +494,8 @@ export class ChatManager {
     "Respond with ONLY the title, nothing else.";
 
   /**
-   * 生成会话标题
-   * 基于第一轮对话内容使用AI生成简短标题
+   * Generate session title
+   * Uses AI to generate a short title based on first round of conversation
    */
   private async generateSessionTitle(
     session: ChatSession,
@@ -505,7 +505,7 @@ export class ChatManager {
       const provider = this.getActiveProvider();
       if (!provider || !provider.isReady()) return;
 
-      // 获取第一轮对话内容
+      // Get first round of conversation content
       const validMessages = session.messages.filter(
         (msg) => msg.content && msg.content.trim() !== "",
       );
@@ -518,7 +518,7 @@ export class ChatManager {
 
       if (!firstUserMessage || !firstAssistantMessage) return;
 
-      // 提取用户的纯问题内容（去掉PDF内容等前缀）
+      // Extract user's pure question content (remove PDF content prefixes)
       const userContent = firstUserMessage.content;
       const questionMatch = userContent.match(/\[Question\]:\s*(.+)/s);
       let userQuestion = questionMatch
@@ -528,7 +528,7 @@ export class ChatManager {
             .replace(/\[Selected[^\]]*\]:\s*/g, "")
             .trim();
 
-      // 去掉开头的 "[Selected]:" 等标记
+      // Remove leading markers like "[Selected]:"
       userQuestion = userQuestion.replace(/^\[[^\]]*\]:\s*/, "").trim();
 
       if (!userQuestion) return;
@@ -620,7 +620,7 @@ export class ChatManager {
   }
 
   /**
-   * 获取会话及其标题
+   * Get session with its title
    */
   async getSessionWithTitle(
     itemId: number,
@@ -630,18 +630,18 @@ export class ChatManager {
   }
 
   /**
-   * 加载指定item的会话到当前（用于会话切换）
-   * @deprecated 使用 switchSession 替代
+   * Load session for specified item to current (for session switching)
+   * @deprecated Use switchSession instead
    */
   async loadSessionForItem(itemId: number): Promise<ChatSession | null> {
     return this.getOrCreateSession(itemId);
   }
 
   /**
-   * 销毁
+   * Destroy
    */
   async destroy(): Promise<void> {
-    // 保存所有活动会话
+    // Save all active sessions
     for (const session of this.activeSessions.values()) {
       await this.storageService.saveSession(session);
     }

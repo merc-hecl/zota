@@ -137,7 +137,7 @@ export function createMessageElement(
     { class: `chat-message ${msg.role}-message` },
   );
 
-  // 根据角色设置气泡样式
+  // Set bubble style based on role
   let bubbleStyle: Record<string, string>;
   if (msg.role === "user") {
     bubbleStyle = {
@@ -362,11 +362,11 @@ export function createMessageElement(
     content.appendChild(userContentContainer);
     rawContent = questionContent;
   } else if (msg.role === "error") {
-    // 错误消息显示为纯文本，带警告图标
-    // 尝试解析 JSON 错误消息以获取更友好的显示
+    // Error messages display as plain text with warning icon
+    // Try to parse JSON error message for friendlier display
     let errorDisplay = msg.content;
     try {
-      // 尝试从 "API Error: 403 - {json}" 格式中提取错误信息
+      // Try to extract error info from "API Error: 403 - {json}" format
       const jsonMatch = msg.content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const errorJson = JSON.parse(jsonMatch[0]);
@@ -375,7 +375,7 @@ export function createMessageElement(
         }
       }
     } catch {
-      // 解析失败，使用原始内容
+      // Parse failed, use original content
     }
     content.textContent = `⚠️ ${errorDisplay}`;
     rawContent = errorDisplay;

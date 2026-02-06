@@ -1,23 +1,23 @@
 /**
- * PdfExtractor - PDF内容提取工具
+ * PdfExtractor - PDF content extraction utility
  */
 
 export class PdfExtractor {
-  // 存储当前划选的文本
+  // Stores currently selected text
   private currentSelectedText: string | null = null;
-  // 是否已注册事件监听
+  // Whether event listener is registered
   private isEventListenerRegistered: boolean = false;
-  // 当前文档ID，用于文档隔离
+  // Current document ID for document isolation
   private currentDocumentId: number | null = null;
-  // 文本选择回调函数
+  // Text selection callback function
   private onTextSelectedCallback:
     | ((text: string, documentId: number) => void)
     | null = null;
-  // 上次处理的文本，用于去重
+  // Last processed text for deduplication
   private lastProcessedText: string | null = null;
-  // 上次处理的时间戳，用于去重
+  // Last processed timestamp for deduplication
   private lastProcessedTime: number = 0;
-  // 去重时间窗口（毫秒）
+  // Deduplication time window (milliseconds)
   private static DEDUPLICATION_WINDOW = 100;
 
   constructor() {
@@ -41,8 +41,8 @@ export class PdfExtractor {
   }
 
   /**
-   * 注册划选文字监听事件
-   * 参考 zotero-pdf-translate 的实现方式
+   * Register text selection listener
+   * Reference: zotero-pdf-translate implementation approach
    */
   private registerSelectionListener(): void {
     if (this.isEventListenerRegistered) return;
@@ -98,7 +98,7 @@ export class PdfExtractor {
             }
           }
         },
-        // 使用一个唯一的标识符
+        // Use a unique identifier
         "zota-pdf-extractor",
       );
       this.isEventListenerRegistered = true;
@@ -112,11 +112,11 @@ export class PdfExtractor {
   }
 
   /**
-   * 获取当前划选的PDF文本
-   * 获取后会清空存储的文本，避免重复发送
+   * Get currently selected PDF text
+   * Clears stored text after retrieval to avoid duplicate sending
    */
   getSelectedTextFromReader(): string | null {
-    // 确保事件监听已注册
+    // Ensure event listener is registered
     if (!this.isEventListenerRegistered) {
       this.registerSelectionListener();
     }
@@ -127,7 +127,7 @@ export class PdfExtractor {
         "[PdfExtractor] Getting selected text:",
         text.substring(0, 50),
       );
-      // 获取后清空，避免重复发送
+      // Clear after retrieval to avoid duplicate sending
       this.currentSelectedText = null;
       return text;
     }
@@ -135,8 +135,8 @@ export class PdfExtractor {
   }
 
   /**
-   * 查找Item的PDF附件
-   * 统一的PDF附件查找逻辑，避免重复代码
+   * Find PDF attachment for an item
+   * Unified PDF attachment lookup logic to avoid code duplication
    */
   private async findPdfAttachment(
     item: Zotero.Item,
@@ -162,7 +162,7 @@ export class PdfExtractor {
   }
 
   /**
-   * 获取Item的PDF附件文本
+   * Extract text from item's PDF attachment
    */
   async extractPdfText(item: Zotero.Item): Promise<string | null> {
     try {
@@ -182,7 +182,7 @@ export class PdfExtractor {
   }
 
   /**
-   * 检查是否有PDF附件
+   * Check if item has PDF attachment
    */
   async hasPdfAttachment(item: Zotero.Item): Promise<boolean> {
     try {
@@ -195,7 +195,7 @@ export class PdfExtractor {
   }
 
   /**
-   * 获取PDF附件信息
+   * Get PDF attachment information
    */
   async getPdfInfo(
     item: Zotero.Item,
@@ -219,7 +219,7 @@ export class PdfExtractor {
   }
 
   /**
-   * ArrayBuffer转Base64
+   * Convert ArrayBuffer to Base64
    */
   private arrayBufferToBase64(buffer: Uint8Array): string {
     let binary = "";

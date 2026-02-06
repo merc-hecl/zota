@@ -1,5 +1,5 @@
 /**
- * Chat Types - 聊天相关类型定义
+ * Chat Types - Type definitions for chat functionality
  */
 
 // Image data attached to a message
@@ -9,37 +9,37 @@ export interface MessageImage {
   mimeType: string;
 }
 
-// 聊天消息
+// Chat message
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "system" | "error";
   content: string;
   timestamp: number;
-  pdfContext?: boolean; // 是否包含PDF上下文
-  selectedText?: string; // 选中的PDF文本
+  pdfContext?: boolean; // Whether PDF context is included
+  selectedText?: string; // Selected PDF text
   images?: MessageImage[]; // Attached images
 }
 
-// 聊天会话
+// Chat session
 export interface ChatSession {
   id: string;
-  itemId: number; // 关联的Zotero Item ID
+  itemId: number; // Associated Zotero Item ID
   messages: ChatMessage[];
   pdfAttached: boolean;
   pdfContent?: string;
   createdAt: number;
   updatedAt: number;
-  title?: string; // 会话标题，可选
+  title?: string; // Session title, optional
 }
 
-// 文档的会话列表（一个文档可以有多个会话）
+// Document sessions list (one document can have multiple sessions)
 export interface DocumentSessions {
   itemId: number;
   sessions: ChatSession[];
-  activeSessionId: string | null; // 当前活动的会话ID
+  activeSessionId: string | null; // Currently active session ID
 }
 
-// API配置
+// API configuration
 export interface ApiConfig {
   baseUrl: string;
   apiKey: string;
@@ -51,13 +51,13 @@ export interface ApiConfig {
   providerType?: string; // Type of provider for format selection
 }
 
-// OpenAI API消息格式
+// OpenAI API message format
 export interface OpenAIMessage {
   role: "user" | "assistant" | "system";
   content: string | OpenAIMessageContent[];
 }
 
-// OpenAI消息内容 (Vision API and File API)
+// OpenAI message content (Vision API and File API)
 export type OpenAIMessageContent =
   | { type: "text"; text: string }
   | {
@@ -69,28 +69,28 @@ export type OpenAIMessageContent =
       source: { type: "base64"; media_type: string; data: string };
     };
 
-// 流式响应回调
+// Stream response callbacks
 export interface StreamCallbacks {
   onChunk: (chunk: string) => void;
   onComplete: (fullContent: string) => void;
   onError: (error: Error) => void;
 }
 
-// 发送消息选项
+// Send message options
 export interface SendMessageOptions {
   attachPdf?: boolean;
   selectedText?: string;
   images?: Array<{ id: string; base64: string; mimeType: string }>;
 }
 
-// 存储的会话元数据
+// Stored session metadata
 export interface StoredSessionMeta {
   itemId: number;
   itemName: string;
   messageCount: number;
   lastMessagePreview: string;
   lastUpdated: number;
-  sessionId: string; // 会话唯一ID
-  sessionTitle?: string; // 会话标题
-  isEmpty: boolean; // 是否为空会话（无消息）
+  sessionId: string; // Unique session ID
+  sessionTitle?: string; // Session title
+  isEmpty: boolean; // Whether session is empty (no messages)
 }

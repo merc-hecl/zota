@@ -720,7 +720,7 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         // Refresh the dropdown to reflect the deletion
         await refreshHistoryDropdown();
       },
-      // documentName - 显示在顶部的PDF文档名
+      // documentName - PDF document name displayed at top
       documentName,
       // onExport callback - export session as note
       async (session: SessionInfo) => {

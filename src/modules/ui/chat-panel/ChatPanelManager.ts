@@ -1243,8 +1243,8 @@ function showSidebarPanel(): void {
       }
     });
 
-    // 延迟重新检测主题，因为启动时窗口可能还没完全应用暗黑模式
-    // 使用多次检测确保主题正确应用
+    // Delay re-detecting theme because window may not have fully applied dark mode at startup
+    // Use multiple checks to ensure theme is correctly applied
     const reapplyTheme = () => {
       updateCurrentTheme();
       if (chatContainer) {
@@ -1254,7 +1254,7 @@ function showSidebarPanel(): void {
         applyThemeToContainer(floatingContainer);
       }
     };
-    // 多次延迟检测，确保在窗口完全加载后正确应用主题
+    // Multiple delayed checks to ensure theme is correctly applied after window fully loads
     setTimeout(reapplyTheme, 0);
     setTimeout(reapplyTheme, 100);
     setTimeout(reapplyTheme, 500);

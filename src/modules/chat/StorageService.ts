@@ -1,9 +1,9 @@
 /**
- * StorageService - 对话历史持久化
+ * StorageService - Conversation history persistence
  *
- * 使用Zotero Profile目录下的JSON文件存储对话历史
- * 使用索引文件缓存元数据，避免频繁读取所有session文件
- * 支持一个文档多个会话的管理
+ * Uses JSON files in Zotero Profile directory to store conversation history
+ * Uses index file to cache metadata, avoiding frequent reads of all session files
+ * Supports multiple sessions per document
  */
 
 import type {
@@ -18,29 +18,29 @@ export class StorageService {
   private indexCache: StoredSessionMeta[] | null = null;
 
   constructor() {
-    // 存储路径: Zotero Profile/zota/conversations/
+    // Storage path: Zotero Profile/zota/conversations/
     this.storagePath = "";
   }
 
   /**
-   * 初始化存储目录
+   * Initialize storage directory
    */
   async init(): Promise<void> {
     if (this.initialized) return;
 
     try {
-      // 获取Zotero数据目录
+      // Get Zotero data directory
       const dataDir = Zotero.DataDirectory.dir;
       this.storagePath = PathUtils.join(dataDir, "zota", "conversations");
 
-      // 确保目录存在
+      // Ensure directory exists
       if (!(await IOUtils.exists(this.storagePath))) {
         await IOUtils.makeDirectory(this.storagePath, {
           createAncestors: true,
         });
       }
 
-      // 加载或重建索引
+      // Load or rebuild index
       await this.loadOrRebuildIndex();
 
       this.initialized = true;
@@ -52,21 +52,21 @@ export class StorageService {
   }
 
   /**
-   * 获取索引文件路径
+   * Get index file path
    */
   private getIndexPath(): string {
     return PathUtils.join(this.storagePath, "_index.json");
   }
 
   /**
-   * 获取文档会话列表文件路径
+   * Get document sessions file path
    */
   private getDocumentSessionsPath(itemId: number): string {
     return PathUtils.join(this.storagePath, `${itemId}.json`);
   }
 
   /**
-   * 加载或重建索引
+   * Load or rebuild index
    */
   private async loadOrRebuildIndex(): Promise<void> {
     const indexPath = this.getIndexPath();
@@ -83,28 +83,28 @@ export class StorageService {
       ztoolkit.log("Index file invalid, rebuilding...");
     }
 
-    // 重建索引
+    // Rebuild index
     await this.rebuildIndex();
   }
 
   /**
-   * 重建索引（从所有session文件）
-   * 使用并行读取提升性能
+   * Rebuild index (from all session files)
+   * Uses parallel reads for better performance
    */
   private async rebuildIndex(): Promise<void> {
     const children = await IOUtils.getChildren(this.storagePath);
 
-    // 过滤出session文件（排除索引文件）
+    // Filter session files (exclude index file)
     const sessionFiles = children.filter(
       (f) => f.endsWith(".json") && !f.endsWith("_index.json"),
     );
 
-    // 并行读取所有session文件
+    // Read all session files in parallel
     const metaPromises = sessionFiles.map(async (filePath) => {
       try {
         const data = (await IOUtils.readJSON(filePath)) as DocumentSessions;
         if (data.sessions && Array.isArray(data.sessions)) {
-          // 为每个会话创建元数据
+          // Create metadata for each session
           const metas: StoredSessionMeta[] = [];
           for (const session of data.sessions) {
             const meta = await this.buildSessionMeta(session, data.itemId);
@@ -114,7 +114,7 @@ export class StorageService {
         }
         return null;
       } catch {
-        // 忽略无效的JSON文件
+        // Ignore invalid JSON files
         return null;
       }
     });
@@ -131,7 +131,7 @@ export class StorageService {
   }
 
   /**
-   * 保存索引
+   * Save index
    */
   private async saveIndex(): Promise<void> {
     if (!this.indexCache) return;
@@ -140,13 +140,13 @@ export class StorageService {
   }
 
   /**
-   * 构建session元数据
+   * Build session metadata
    */
   private async buildSessionMeta(
     session: ChatSession,
     itemId: number,
   ): Promise<StoredSessionMeta> {
-    // 获取item名称
+    // Get item name
     let itemName = "Global Chat";
     if (itemId !== 0) {
       try {
@@ -174,7 +174,7 @@ export class StorageService {
       }
     }
 
-    // 获取最后一条消息预览
+    // Get last message preview
     let lastMessagePreview = "";
     const validMessages =
       session.messages?.filter(
@@ -187,15 +187,15 @@ export class StorageService {
         last.content.substring(0, 50) + (last.content.length > 50 ? "..." : "");
     }
 
-    // 判断是否为空会话
+    // Check if session is empty
     const isEmpty = validMessages.length === 0;
 
-    // 如果没有标题但有消息，使用第一条用户消息的前20个字符作为临时标题
+    // If no title but has messages, use first 25 chars of first user message as temp title
     let sessionTitle = session.title;
     if (!sessionTitle && validMessages.length > 0) {
       const firstUserMessage = validMessages.find((msg) => msg.role === "user");
       if (firstUserMessage) {
-        // 提取用户问题的纯文本部分（去掉[PDF Content]等标记）
+        // Extract user's pure question text (remove markers like [PDF Content])
         const content = firstUserMessage.content;
         const questionMatch = content.match(/\[Question\]:\s*(.+)/s);
         const questionText = questionMatch ? questionMatch[1].trim() : content;
@@ -218,7 +218,7 @@ export class StorageService {
   }
 
   /**
-   * 更新索引中的单个条目
+   * Update single entry in index
    */
   private async updateIndexEntry(
     session: ChatSession,
@@ -230,7 +230,7 @@ export class StorageService {
 
     const meta = await this.buildSessionMeta(session, itemId);
 
-    // 查找并更新或添加
+    // Find and update or add
     const existingIndex = this.indexCache.findIndex(
       (m) => m.sessionId === session.id,
     );
@@ -240,14 +240,14 @@ export class StorageService {
       this.indexCache.push(meta);
     }
 
-    // 按更新时间排序
+    // Sort by update time
     this.indexCache.sort((a, b) => b.lastUpdated - a.lastUpdated);
 
     await this.saveIndex();
   }
 
   /**
-   * 从索引中删除条目
+   * Remove entry from index
    */
   private async removeIndexEntry(sessionId: string): Promise<void> {
     if (!this.indexCache) return;
@@ -257,7 +257,7 @@ export class StorageService {
   }
 
   /**
-   * 加载文档的所有会话
+   * Load all sessions for a document
    */
   async loadDocumentSessions(itemId: number): Promise<DocumentSessions | null> {
     await this.init();
@@ -268,7 +268,7 @@ export class StorageService {
       if (await IOUtils.exists(filePath)) {
         const data = (await IOUtils.readJSON(filePath)) as DocumentSessions;
 
-        // 过滤掉空内容的消息（修复历史数据问题）
+        // Filter out empty content messages (fix historical data issues)
         if (data.sessions) {
           for (const session of data.sessions) {
             if (session.messages) {
@@ -291,7 +291,7 @@ export class StorageService {
   }
 
   /**
-   * 保存文档的所有会话
+   * Save all sessions for a document
    */
   async saveDocumentSessions(
     documentSessions: DocumentSessions,
@@ -303,7 +303,7 @@ export class StorageService {
 
       await IOUtils.writeJSON(filePath, documentSessions);
 
-      // 更新索引
+      // Update index
       for (const session of documentSessions.sessions) {
         await this.updateIndexEntry(session, documentSessions.itemId);
       }
@@ -316,24 +316,24 @@ export class StorageService {
   }
 
   /**
-   * 保存单个会话（自动创建或更新文档会话列表）
+   * Save single session (auto creates or updates document sessions list)
    */
   async saveSession(session: ChatSession): Promise<void> {
     await this.init();
 
     try {
-      // 加载现有文档会话
+      // Load existing document sessions
       let docSessions = await this.loadDocumentSessions(session.itemId);
 
       if (!docSessions) {
-        // 创建新的文档会话列表
+        // Create new document sessions list
         docSessions = {
           itemId: session.itemId,
           sessions: [session],
           activeSessionId: session.id,
         };
       } else {
-        // 查找并更新现有会话，或添加新会话
+        // Find and update existing session, or add new session
         const existingIndex = docSessions.sessions.findIndex(
           (s) => s.id === session.id,
         );
@@ -356,7 +356,7 @@ export class StorageService {
   }
 
   /**
-   * 加载特定会话
+   * Load specific session
    */
   async loadSession(
     itemId: number,
@@ -369,7 +369,7 @@ export class StorageService {
       if (docSessions && docSessions.sessions) {
         const session = docSessions.sessions.find((s) => s.id === sessionId);
         if (session) {
-          // 过滤空消息
+          // Filter empty messages
           if (session.messages) {
             session.messages = session.messages.filter(
               (msg) => msg.content && msg.content.trim() !== "",
@@ -386,16 +386,16 @@ export class StorageService {
   }
 
   /**
-   * 获取文档的活动会话
+   * Get active session for a document
    */
   async getActiveSession(itemId: number): Promise<ChatSession | null> {
     const docSessions = await this.loadDocumentSessions(itemId);
     if (docSessions && docSessions.activeSessionId) {
       return this.loadSession(itemId, docSessions.activeSessionId);
     }
-    // 如果没有活动会话，返回第一个非空会话
+    // If no active session, return first non-empty session
     if (docSessions && docSessions.sessions.length > 0) {
-      // 找到第一个有消息的会话
+      // Find first session with messages
       for (const session of docSessions.sessions) {
         const validMessages =
           session.messages?.filter(
@@ -410,7 +410,7 @@ export class StorageService {
   }
 
   /**
-   * 设置文档的活动会话
+   * Set active session for a document
    */
   async setActiveSession(itemId: number, sessionId: string): Promise<void> {
     const docSessions = await this.loadDocumentSessions(itemId);
@@ -421,7 +421,7 @@ export class StorageService {
   }
 
   /**
-   * 删除特定会话
+   * Delete specific session
    */
   async deleteSession(itemId: number, sessionId: string): Promise<void> {
     await this.init();
@@ -429,18 +429,18 @@ export class StorageService {
     try {
       const docSessions = await this.loadDocumentSessions(itemId);
       if (docSessions) {
-        // 从会话列表中移除
+        // Remove from session list
         docSessions.sessions = docSessions.sessions.filter(
           (s) => s.id !== sessionId,
         );
 
-        // 如果删除的是活动会话，重置活动会话
+        // If deleted session was active, reset active session
         if (docSessions.activeSessionId === sessionId) {
           docSessions.activeSessionId =
             docSessions.sessions.length > 0 ? docSessions.sessions[0].id : null;
         }
 
-        // 如果会话列表为空，删除整个文件
+        // If session list is empty, delete entire file
         if (docSessions.sessions.length === 0) {
           const filePath = this.getDocumentSessionsPath(itemId);
           if (await IOUtils.exists(filePath)) {
@@ -450,7 +450,7 @@ export class StorageService {
           await this.saveDocumentSessions(docSessions);
         }
 
-        // 更新索引
+        // Update index
         await this.removeIndexEntry(sessionId);
 
         ztoolkit.log("Session deleted:", sessionId);
@@ -462,7 +462,7 @@ export class StorageService {
   }
 
   /**
-   * 删除文档的所有会话
+   * Delete all sessions for a document
    */
   async deleteAllSessionsForItem(itemId: number): Promise<void> {
     await this.init();
@@ -470,12 +470,12 @@ export class StorageService {
     try {
       const docSessions = await this.loadDocumentSessions(itemId);
       if (docSessions) {
-        // 从索引中移除所有会话
+        // Remove all sessions from index
         for (const session of docSessions.sessions) {
           await this.removeIndexEntry(session.id);
         }
 
-        // 删除文件
+        // Delete file
         const filePath = this.getDocumentSessionsPath(itemId);
         if (await IOUtils.exists(filePath)) {
           await IOUtils.remove(filePath);
@@ -490,7 +490,7 @@ export class StorageService {
   }
 
   /**
-   * 列出所有会话（直接返回缓存的索引，过滤掉空会话）
+   * List all sessions (returns cached index directly, filters empty sessions)
    */
   async listSessions(
     itemId?: number,
@@ -500,23 +500,23 @@ export class StorageService {
 
     let result = [...(this.indexCache || [])];
 
-    // 如果指定了itemId，只返回该文档的会话
+    // If itemId specified, only return sessions for that document
     if (itemId !== undefined) {
       result = result.filter((m) => m.itemId === itemId);
     }
 
-    // 默认过滤掉空会话
+    // Filter out empty sessions by default
     if (!includeEmpty) {
       result = result.filter((m) => !m.isEmpty);
     }
 
-    // 按更新时间排序
+    // Sort by update time
     result.sort((a, b) => b.lastUpdated - a.lastUpdated);
     return result;
   }
 
   /**
-   * 创建新会话
+   * Create new session
    */
   async createNewSession(itemId: number): Promise<ChatSession> {
     await this.init();
@@ -530,14 +530,14 @@ export class StorageService {
       updatedAt: Date.now(),
     };
 
-    // 保存新会话
+    // Save new session
     await this.saveSession(newSession);
 
     return newSession;
   }
 
   /**
-   * 清空所有会话
+   * Clear all sessions
    */
   async clearAll(): Promise<void> {
     await this.init();
@@ -551,7 +551,7 @@ export class StorageService {
         }
       }
 
-      // 清空索引缓存
+      // Clear index cache
       this.indexCache = [];
 
       ztoolkit.log("All sessions cleared");
@@ -562,7 +562,7 @@ export class StorageService {
   }
 
   /**
-   * 导出会话为JSON字符串
+   * Export session as JSON string
    */
   async exportSession(
     itemId: number,
@@ -576,7 +576,7 @@ export class StorageService {
   }
 
   /**
-   * 导入会话
+   * Import session
    */
   async importSession(
     jsonString: string,
@@ -585,11 +585,11 @@ export class StorageService {
     try {
       const session = JSON.parse(jsonString) as ChatSession;
       if (session.messages) {
-        // 如果指定了itemId，更新会话的itemId
+        // If itemId specified, update session's itemId
         if (itemId !== undefined) {
           session.itemId = itemId;
         }
-        // 生成新ID以避免冲突
+        // Generate new ID to avoid conflicts
         session.id = this.generateId();
         session.createdAt = Date.now();
         session.updatedAt = Date.now();
@@ -604,7 +604,7 @@ export class StorageService {
   }
 
   /**
-   * 生成唯一ID
+   * Generate unique ID
    */
   private generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
