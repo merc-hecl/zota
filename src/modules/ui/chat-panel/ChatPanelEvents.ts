@@ -194,15 +194,6 @@ function getContextForContainer(
 }
 
 /**
- * Update image preview for a specific item in all containers
- * @deprecated Use updateUnifiedReferenceForItem instead
- */
-function updateImagePreviewForItem(itemId: number): void {
-  // State will be fetched from getAttachmentState inside updateUnifiedReferenceForItem
-  updateUnifiedReferenceForItem(itemId);
-}
-
-/**
  * Update panel mode button icon based on current mode
  */
 export function updatePanelModeButtonIcon(

@@ -1248,36 +1248,3 @@ export function updateUnifiedReferenceDisplay(
     unifiedContainer.style.display = "none";
   }
 }
-
-/**
- * Update image preview container with current images
- * @deprecated Use updateUnifiedReferenceDisplay instead
- */
-export function updateImagePreviewContainer(
-  container: HTMLElement,
-  images: Array<{ id: string; base64: string; mimeType: string }>,
-  onRemove: (imageId: string) => void,
-  theme: { borderColor: string; textMuted: string; inputBg: string },
-): void {
-  // Get current text quote content if exists
-  const textQuoteContent = container.querySelector(
-    "#chat-text-quote-content",
-  ) as HTMLElement;
-  const currentTextQuote = textQuoteContent?.textContent || null;
-
-  updateUnifiedReferenceDisplay(
-    container,
-    {
-      textQuote: currentTextQuote,
-      images,
-      onRemoveImage: onRemove,
-      onCloseTextQuote: () => {
-        // This is handled by the caller
-      },
-      onCloseAll: () => {
-        // This is handled by the caller
-      },
-    },
-    theme,
-  );
-}

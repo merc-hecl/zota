@@ -48,10 +48,7 @@ import {
   onImagesChange,
   type ImageData,
 } from "./ImageStateManager";
-import {
-  updateUnifiedReferenceDisplay,
-  updateImagePreviewContainer,
-} from "./ChatPanelBuilder";
+import { updateUnifiedReferenceDisplay } from "./ChatPanelBuilder";
 
 // Track scroll managers for cleanup
 const activeScrollManagers = new Set<HTMLElement>();
