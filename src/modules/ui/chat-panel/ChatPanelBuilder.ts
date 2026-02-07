@@ -7,6 +7,7 @@ import { getString } from "../../../utils/locale";
 import { chatColors } from "../../../utils/colors";
 import type { ThemeColors } from "./types";
 import { HTML_NS, SVG_NS } from "./types";
+import { getCurrentTheme } from "./ChatPanelTheme";
 
 /**
  * Helper to create an element with styles (using proper HTML namespace for XHTML)
@@ -367,7 +368,7 @@ export function createChatContainer(
       display: "none",
       flexDirection: "column",
       padding: "12px 16px",
-      background: "rgba(107, 114, 128, 0.08)", // Neutral gray tint
+      background: theme.referenceBg,
       borderTop: `1px solid ${theme.borderColor}`,
       borderBottom: `1px solid ${theme.borderColor}`,
       position: "relative",
@@ -394,13 +395,13 @@ export function createChatContainer(
     marginBottom: "10px",
   });
 
-  // Reference label with icon - using neutral gray color
+  // Reference label with icon - using theme color
   const referenceLabel = createElement(doc, "div", {
     display: "flex",
     alignItems: "center",
     gap: "6px",
     fontSize: "11px",
-    color: "#6b7280", // Neutral gray color
+    color: theme.referenceLabelColor,
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: "0.3px",
@@ -409,7 +410,7 @@ export function createChatContainer(
   // Reference icon
   const referenceIcon = createElement(doc, "span", {
     fontSize: "14px",
-    color: "#6b7280",
+    color: theme.referenceLabelColor,
     fontWeight: "bold",
     lineHeight: "1",
   });
@@ -428,7 +429,7 @@ export function createChatContainer(
     {
       width: "20px",
       height: "20px",
-      background: "rgba(107, 114, 128, 0.15)",
+      background: theme.referenceCloseBtnBg,
       border: "none",
       borderRadius: "50%",
       cursor: "pointer",
@@ -437,7 +438,7 @@ export function createChatContainer(
       justifyContent: "center",
       padding: "0",
       fontSize: "12px",
-      color: "#6b7280",
+      color: theme.referenceCloseBtnColor,
       transition: "all 0.2s ease",
     },
     { id: "chat-reference-close-btn", title: "Remove all references" },
@@ -446,12 +447,12 @@ export function createChatContainer(
 
   // Hover effect for close button
   referenceCloseBtn.addEventListener("mouseenter", () => {
-    referenceCloseBtn.style.background = "rgba(107, 114, 128, 0.25)";
-    referenceCloseBtn.style.color = "#4b5563";
+    referenceCloseBtn.style.background = theme.referenceCloseBtnHoverBg;
+    referenceCloseBtn.style.color = theme.referenceCloseBtnHoverColor;
   });
   referenceCloseBtn.addEventListener("mouseleave", () => {
-    referenceCloseBtn.style.background = "rgba(107, 114, 128, 0.15)";
-    referenceCloseBtn.style.color = "#6b7280";
+    referenceCloseBtn.style.background = theme.referenceCloseBtnBg;
+    referenceCloseBtn.style.color = theme.referenceCloseBtnColor;
   });
 
   unifiedHeader.appendChild(referenceLabel);
@@ -479,7 +480,7 @@ export function createChatContainer(
 
   const textQuoteLabel = createElement(doc, "span", {
     fontSize: "10px",
-    color: "#6b7280",
+    color: theme.referenceLabelColor,
     fontWeight: "500",
     textTransform: "uppercase",
     letterSpacing: "0.2px",
@@ -502,7 +503,7 @@ export function createChatContainer(
       justifyContent: "center",
       padding: "0",
       fontSize: "10px",
-      color: "#6b7280",
+      color: theme.referenceCloseBtnColor,
       opacity: "0.7",
       transition: "all 0.2s ease",
     },
@@ -512,7 +513,7 @@ export function createChatContainer(
 
   textQuoteCloseBtn.addEventListener("mouseenter", () => {
     textQuoteCloseBtn.style.opacity = "1";
-    textQuoteCloseBtn.style.background = "rgba(107, 114, 128, 0.1)";
+    textQuoteCloseBtn.style.background = theme.referenceCloseBtnBg;
   });
   textQuoteCloseBtn.addEventListener("mouseleave", () => {
     textQuoteCloseBtn.style.opacity = "0.7";
@@ -542,6 +543,9 @@ export function createChatContainer(
       border: `1px solid ${theme.borderColor}`,
       boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
       fontStyle: "italic",
+      userSelect: "text",
+      webkitUserSelect: "text",
+      cursor: "text",
     },
     { id: "chat-text-quote-content" },
   );
@@ -570,7 +574,7 @@ export function createChatContainer(
 
   const imagePreviewLabel = createElement(doc, "span", {
     fontSize: "10px",
-    color: "#6b7280",
+    color: theme.referenceLabelColor,
     fontWeight: "500",
     textTransform: "uppercase",
     letterSpacing: "0.2px",
@@ -662,7 +666,7 @@ export function createChatContainer(
       width: "32px",
       height: "32px",
       background: "transparent",
-      color: "#1a1a1a",
+      color: theme.sendButtonColor,
       border: "none",
       borderRadius: "0",
       cursor: "pointer",
@@ -726,25 +730,29 @@ export function createChatContainer(
   );
   sendIcon.appendChild(planeBody);
 
-  // Center fold line - starts from tail center
+  // Center fold line - starts from tail center, uses currentColor for dark mode support
   const foldLine = doc.createElementNS(SVG_NS, "path");
   foldLine.setAttribute("d", "M7.5 12L13 12");
-  foldLine.setAttribute("stroke", "#fff");
+  foldLine.setAttribute("stroke", "currentColor");
   foldLine.setAttribute("stroke-width", "1.2");
   foldLine.setAttribute("stroke-linecap", "round");
   foldLine.setAttribute("fill", "none");
+  foldLine.setAttribute("opacity", "0.8");
   sendIcon.appendChild(foldLine);
 
   sendButton.appendChild(sendIcon);
 
   // Hover effect via event listeners
+  // Use getCurrentTheme() to ensure we always get the latest theme
   sendButton.addEventListener("mouseenter", () => {
-    sendButton.style.color = "#333333";
+    const currentTheme = getCurrentTheme();
+    sendButton.style.color = currentTheme.sendButtonHoverColor;
     sendButton.style.transform = "translateY(-1px) scale(1.1)";
   });
 
   sendButton.addEventListener("mouseleave", () => {
-    sendButton.style.color = "#1a1a1a";
+    const currentTheme = getCurrentTheme();
+    sendButton.style.color = currentTheme.sendButtonColor;
     sendButton.style.transform = "translateY(0) scale(1)";
   });
 
@@ -1131,7 +1139,15 @@ export function updateUnifiedReferenceDisplay(
     onCloseTextQuote: () => void;
     onCloseAll: () => void;
   },
-  theme: { borderColor: string; textMuted: string; inputBg: string },
+  theme: {
+    borderColor: string;
+    textMuted: string;
+    inputBg: string;
+    referenceCloseBtnBg: string;
+    referenceCloseBtnHoverBg: string;
+    referenceCloseBtnColor: string;
+    referenceCloseBtnHoverColor: string;
+  },
 ): void {
   const unifiedContainer = container.querySelector(
     "#chat-unified-reference-container",
@@ -1180,7 +1196,7 @@ export function updateUnifiedReferenceDisplay(
       // Re-apply hover effects
       newCloseBtn.addEventListener("mouseenter", () => {
         newCloseBtn.style.opacity = "1";
-        newCloseBtn.style.background = "rgba(107, 114, 128, 0.1)";
+        newCloseBtn.style.background = theme.referenceCloseBtnBg;
       });
       newCloseBtn.addEventListener("mouseleave", () => {
         newCloseBtn.style.opacity = "0.7";
@@ -1229,12 +1245,12 @@ export function updateUnifiedReferenceDisplay(
 
     // Re-apply hover effects
     newCloseBtn.addEventListener("mouseenter", () => {
-      newCloseBtn.style.background = "rgba(107, 114, 128, 0.25)";
-      newCloseBtn.style.color = "#4b5563";
+      newCloseBtn.style.background = theme.referenceCloseBtnHoverBg;
+      newCloseBtn.style.color = theme.referenceCloseBtnHoverColor;
     });
     newCloseBtn.addEventListener("mouseleave", () => {
-      newCloseBtn.style.background = "rgba(107, 114, 128, 0.15)";
-      newCloseBtn.style.color = "#6b7280";
+      newCloseBtn.style.background = theme.referenceCloseBtnBg;
+      newCloseBtn.style.color = theme.referenceCloseBtnColor;
     });
   }
 

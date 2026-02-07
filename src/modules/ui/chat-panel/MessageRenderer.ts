@@ -141,8 +141,8 @@ export function createMessageElement(
   let bubbleStyle: Record<string, string>;
   if (msg.role === "user") {
     bubbleStyle = {
-      background: chatColors.userBubble,
-      color: chatColors.userBubbleText,
+      background: theme.userBubbleBg,
+      color: theme.textPrimary,
       borderBottomRightRadius: "4px",
     };
   } else if (msg.role === "error") {
@@ -214,15 +214,15 @@ export function createMessageElement(
 
     // If there's selected text, create a styled quote section
     if (msg.selectedText) {
-      // Create quote card with subtle background
+      // Create quote card with subtle background (adapts to user bubble color)
       const quoteCard = createElement(doc, "div", {
         display: "flex",
         flexDirection: "column",
         gap: "6px",
         padding: "10px 12px",
-        background: "rgba(255, 255, 255, 0.15)",
+        background: "rgba(255, 255, 255, 0.12)",
         borderRadius: "8px",
-        border: "1px solid rgba(255, 255, 255, 0.2)",
+        border: "1px solid rgba(255, 255, 255, 0.18)",
       });
 
       // Quote header with icon and label
@@ -279,9 +279,9 @@ export function createMessageElement(
         flexDirection: "column",
         gap: "6px",
         padding: "10px 12px",
-        background: "rgba(255, 255, 255, 0.15)",
+        background: "rgba(255, 255, 255, 0.12)",
         borderRadius: "8px",
-        border: "1px solid rgba(255, 255, 255, 0.2)",
+        border: "1px solid rgba(255, 255, 255, 0.18)",
         marginTop: msg.selectedText ? "8px" : "0",
       });
 

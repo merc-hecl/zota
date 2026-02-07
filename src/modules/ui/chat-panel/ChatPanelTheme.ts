@@ -31,35 +31,72 @@ export const lightTheme: ThemeColors = {
   scrollbarThumb: "#c1c1c1",
   scrollbarThumbHover: "#a1a1a1",
   copyBtnBg: "rgba(0,0,0,0.1)",
+  // Reference section colors
+  referenceLabelColor: "#6b7280",
+  referenceBg: "rgba(107, 114, 128, 0.08)",
+  referenceCloseBtnBg: "rgba(107, 114, 128, 0.15)",
+  referenceCloseBtnHoverBg: "rgba(107, 114, 128, 0.25)",
+  referenceCloseBtnColor: "#6b7280",
+  referenceCloseBtnHoverColor: "#4b5563",
+  // Send button colors
+  sendButtonColor: "#1a1a1a",
+  sendButtonHoverColor: "#333333",
 };
 
-// Dark theme colors - Minimal Neutral Theme
+// Dark theme colors - Modern Dark Theme (GitHub Dark inspired)
 export const darkTheme: ThemeColors = {
-  containerBg: "#1a202c",
-  chatHistoryBg: "#1a202c",
-  toolbarBg: "#2d3748",
-  inputAreaBg: "#2d3748",
-  inputBg: "#4a5568",
-  userBubbleBg: "#4b5563",
-  assistantBubbleBg: "#2d3748",
-  attachmentPreviewBg: "#2d3748",
-  buttonBg: "#4a5568",
-  buttonHoverBg: "#718096",
-  dropdownBg: "#2d3748",
-  dropdownItemHoverBg: "#4a5568",
-  borderColor: "#4a5568",
-  inputBorderColor: "#718096",
-  inputFocusBorderColor: "#9ca3af",
-  textPrimary: "#e2e8f0",
-  textSecondary: "#cbd5e0",
-  textMuted: "#a0aec0",
-  inlineCodeBg: "#2d3748",
-  inlineCodeColor: "#ff79c6",
-  codeBlockBg: "#0d1117",
-  codeBlockColor: "#d4d4d4",
-  scrollbarThumb: "#4a5568",
-  scrollbarThumbHover: "#718096",
-  copyBtnBg: "rgba(255,255,255,0.1)",
+  // Base backgrounds - layered from dark to lighter
+  containerBg: "#0d1117", // Main background (darkest)
+  chatHistoryBg: "#0d1117", // Chat area background
+  toolbarBg: "#161b22", // Toolbar (slightly lighter)
+  inputAreaBg: "#161b22", // Input area
+  inputBg: "#21262d", // Input field background
+
+  // Message bubbles
+  userBubbleBg: "#30363d", // User message - subtle gray (not blue)
+  assistantBubbleBg: "#21262d", // Assistant message - subtle card bg
+
+  // Components
+  attachmentPreviewBg: "#161b22",
+  buttonBg: "#21262d",
+  buttonHoverBg: "#30363d",
+  dropdownBg: "#161b22",
+  dropdownItemHoverBg: "#21262d",
+
+  // Borders - subtle but visible
+  borderColor: "#30363d",
+  inputBorderColor: "#30363d",
+  inputFocusBorderColor: "#58a6ff",
+
+  // Text colors - good contrast hierarchy
+  textPrimary: "#f0f6fc", // Primary text (almost white)
+  textSecondary: "#c9d1d9", // Secondary text
+  textMuted: "#8b949e", // Muted/placeholder text
+
+  // Code
+  inlineCodeBg: "#343942",
+  inlineCodeColor: "#ff7b72",
+  codeBlockBg: "#161b22",
+  codeBlockColor: "#c9d1d9",
+
+  // Scrollbar
+  scrollbarThumb: "#30363d",
+  scrollbarThumbHover: "#484f58",
+
+  // Copy button
+  copyBtnBg: "rgba(240,246,252,0.1)",
+
+  // Reference section colors - cohesive with the theme
+  referenceLabelColor: "#8b949e",
+  referenceBg: "rgba(48, 54, 61, 0.6)",
+  referenceCloseBtnBg: "rgba(139, 148, 158, 0.15)",
+  referenceCloseBtnHoverBg: "rgba(139, 148, 158, 0.25)",
+  referenceCloseBtnColor: "#8b949e",
+  referenceCloseBtnHoverColor: "#f0f6fc",
+
+  // Send button colors - inverted from light mode
+  sendButtonColor: "#e5e7eb",
+  sendButtonHoverColor: "#ffffff",
 };
 
 // Current theme state
@@ -208,11 +245,46 @@ export function applyThemeToContainer(container: HTMLElement): void {
       el.style.borderColor = theme.borderColor;
     });
 
+  // Update user message bubbles
+  container
+    .querySelectorAll(".user-message .chat-bubble")
+    .forEach((bubble: Element) => {
+      const el = bubble as HTMLElement;
+      el.style.background = theme.userBubbleBg;
+      el.style.color = theme.textPrimary;
+    });
+
   // Update copy buttons
   container.querySelectorAll(".copy-btn").forEach((btn: Element) => {
     const el = btn as HTMLElement;
     el.style.background = theme.copyBtnBg;
   });
+
+  // Update send button
+  const sendButton = container.querySelector(
+    "#chat-send-button",
+  ) as HTMLElement;
+  if (sendButton) {
+    sendButton.style.color = theme.sendButtonColor;
+  }
+
+  // Update reference section
+  const unifiedReferenceContainer = container.querySelector(
+    "#chat-unified-reference-container",
+  ) as HTMLElement;
+  if (unifiedReferenceContainer) {
+    unifiedReferenceContainer.style.background = theme.referenceBg;
+  }
+
+  // Update text quote content
+  const textQuoteContent = container.querySelector(
+    "#chat-text-quote-content",
+  ) as HTMLElement;
+  if (textQuoteContent) {
+    textQuoteContent.style.background = theme.inputBg;
+    textQuoteContent.style.borderColor = theme.borderColor;
+    textQuoteContent.style.color = theme.textPrimary;
+  }
 }
 
 /**

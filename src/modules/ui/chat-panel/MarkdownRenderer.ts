@@ -530,10 +530,13 @@ export function renderInlineTokens(
 
       case "code_inline": {
         const codeInline = doc.createElementNS(HTML_NS, "code") as HTMLElement;
-        codeInline.style.background = chatColors.codeInlineBg;
+        const dark = isDarkMode();
+        codeInline.style.background = dark ? "#343942" : "#f0f0f0";
+        codeInline.style.color = dark ? "#ffa657" : "#e83e8c";
         codeInline.style.padding = "2px 6px";
-        codeInline.style.borderRadius = "3px";
-        codeInline.style.fontFamily = "monospace";
+        codeInline.style.borderRadius = "4px";
+        codeInline.style.fontFamily =
+          '"SF Mono", "Fira Code", Consolas, monospace';
         codeInline.style.fontSize = "0.9em";
         codeInline.textContent = token.content;
         current.appendChild(codeInline);
@@ -979,21 +982,29 @@ function addCodeCopyButton(
   codeWrapper: HTMLElement,
   codeContent: string,
 ): void {
+  // Detect dark mode
+  const dark = isDarkMode();
+
   // Create copy button
   const copyBtn = doc.createElementNS(HTML_NS, "button") as HTMLButtonElement;
   copyBtn.style.position = "absolute";
   copyBtn.style.top = "4px";
   copyBtn.style.right = "4px";
   copyBtn.style.padding = "4px 8px";
-  copyBtn.style.background = "rgba(255, 255, 255, 0.9)";
-  copyBtn.style.border = "1px solid #ddd";
+  copyBtn.style.background = dark
+    ? "rgba(48, 54, 61, 0.9)"
+    : "rgba(255, 255, 255, 0.9)";
+  copyBtn.style.border = dark ? "1px solid #484f58" : "1px solid #ddd";
+  copyBtn.style.color = dark ? "#c9d1d9" : "#24292e";
   copyBtn.style.borderRadius = "4px";
   copyBtn.style.cursor = "pointer";
   copyBtn.style.fontSize = "11px";
   copyBtn.style.opacity = "0";
   copyBtn.style.transition = "opacity 0.2s ease";
   copyBtn.style.zIndex = "10";
-  copyBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+  copyBtn.style.boxShadow = dark
+    ? "0 1px 3px rgba(0,0,0,0.3)"
+    : "0 1px 3px rgba(0,0,0,0.1)";
   copyBtn.textContent = getString("chat-copy-code");
 
   // Show button on hover
@@ -1033,21 +1044,29 @@ function addTableCopyButton(
   tableWrapper: HTMLElement,
   table: HTMLElement,
 ): void {
+  // Detect dark mode
+  const dark = isDarkMode();
+
   // Create copy button
   const copyBtn = doc.createElementNS(HTML_NS, "button") as HTMLButtonElement;
   copyBtn.style.position = "absolute";
   copyBtn.style.top = "4px";
   copyBtn.style.right = "4px";
   copyBtn.style.padding = "4px 8px";
-  copyBtn.style.background = "rgba(255, 255, 255, 0.9)";
-  copyBtn.style.border = "1px solid #ddd";
+  copyBtn.style.background = dark
+    ? "rgba(48, 54, 61, 0.9)"
+    : "rgba(255, 255, 255, 0.9)";
+  copyBtn.style.border = dark ? "1px solid #484f58" : "1px solid #ddd";
+  copyBtn.style.color = dark ? "#c9d1d9" : "#24292e";
   copyBtn.style.borderRadius = "4px";
   copyBtn.style.cursor = "pointer";
   copyBtn.style.fontSize = "11px";
   copyBtn.style.opacity = "0";
   copyBtn.style.transition = "opacity 0.2s ease";
   copyBtn.style.zIndex = "10";
-  copyBtn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.1)";
+  copyBtn.style.boxShadow = dark
+    ? "0 1px 3px rgba(0,0,0,0.3)"
+    : "0 1px 3px rgba(0,0,0,0.1)";
   copyBtn.textContent = getString("chat-copy-table");
 
   // Show button on hover

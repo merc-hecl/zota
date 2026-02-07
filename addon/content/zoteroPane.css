@@ -596,11 +596,6 @@
   transition: all 0.2s;
 }
 
-.send-button:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
 .send-button:active {
   transform: translateY(0);
 }
@@ -651,131 +646,321 @@
   }
 }
 
-/* Dark Mode Support */
+/* Dark Mode Support - Modern Dark Theme (GitHub Dark inspired) */
 @media (prefers-color-scheme: dark) {
+  /* Base container backgrounds */
   .chat-container {
-    background: #1e1e1e;
+    background: #0d1117;
   }
 
   .chat-history {
-    background: #1e1e1e;
+    background: #0d1117;
   }
 
+  /* Scrollbar styling */
+  .chat-history::-webkit-scrollbar-thumb {
+    background: #30363d;
+  }
+
+  .chat-history::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+  }
+
+  /* Empty state */
   .empty-state {
-    color: #888;
+    color: #8b949e;
   }
 
   .empty-text {
-    color: #aaa;
+    color: #c9d1d9;
   }
 
+  /* Message bubbles */
   .assistant-bubble {
-    background: #2d2d2d;
-    color: #e0e0e0;
-    border-color: #444;
+    background: #21262d;
+    color: #f0f6fc;
+    border-color: #30363d;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   }
 
   .user-bubble {
-    background: #4b5563;
-    color: #e5e7eb;
-    border: 1px solid #6b7280;
+    background: #30363d;
+    color: #f0f6fc;
+    border: 1px solid #484f58;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   }
 
   .error-bubble {
     background: #3d2020;
-    color: #ff8a80;
+    color: #ff7b72;
     border-color: #5c2323;
   }
 
+  /* Toolbar */
   .chat-toolbar {
-    background: #252525;
-    border-color: #444;
+    background: #161b22;
+    border-color: #30363d;
   }
 
   .toolbar-option {
-    color: #ccc;
+    color: #c9d1d9;
+  }
+
+  .pdf-status {
+    color: #8b949e;
   }
 
   .toolbar-btn {
-    background: #333;
-    border-color: #555;
-    color: #fff;
+    background: #21262d;
+    border-color: #30363d;
+    color: #f0f6fc;
   }
 
   .toolbar-btn:hover {
-    background: #444;
-    border-color: #666;
+    background: #30363d;
+    border-color: #484f58;
   }
 
+  /* Attachments preview */
   .attachments-preview {
-    background: #252525;
-    border-color: #444;
+    background: #161b22;
+    border-color: #30363d;
   }
 
   .attachment-tag {
-    background: #333;
-    border-color: #555;
-    color: #ccc;
+    background: #21262d;
+    border-color: #30363d;
+    color: #c9d1d9;
   }
 
+  .selection-tag {
+    background: #341a00;
+    border-color: #633c00;
+  }
+
+  .image-tag {
+    background: #0d2818;
+    border-color: #1b4d2e;
+  }
+
+  .file-tag {
+    background: #0d1b2a;
+    border-color: #1d3d5c;
+  }
+
+  /* Input area */
   .input-area {
-    background: #252525;
-    border-color: #444;
+    background: #161b22;
+    border-color: #30363d;
   }
 
   .message-input {
-    background: #333;
-    border-color: #555;
-    color: #e0e0e0;
+    background: #21262d;
+    border-color: #30363d;
+    color: #f0f6fc;
   }
 
   .message-input:focus {
-    border-color: #2d5a87;
+    border-color: #58a6ff;
+    box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
   }
 
+  .message-input::placeholder {
+    color: #8b949e;
+  }
+
+  /* Send button - inverted colors from light mode
+     Note: Hover styles are controlled by JS to ensure consistency across sidebar and floating views
+  */
+  .send-button {
+    background: transparent;
+    color: #e5e7eb;
+  }
+
+  /* Markdown elements */
   .inline-code {
-    background: #333;
-    color: #ff79c6;
+    background: #343942;
+    color: #ffa657;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", "Fira Code", Consolas, monospace;
+    font-size: 12px;
   }
 
+  .code-block {
+    background: #161b22;
+    color: #c9d1d9;
+  }
+
+  .code-block code {
+    background: none;
+    color: inherit;
+  }
+
+  .code-lang {
+    background: rgba(240, 246, 252, 0.1);
+    color: #8b949e;
+  }
+
+  .md-link {
+    color: #58a6ff;
+  }
+
+  .md-hr {
+    border-color: #30363d;
+  }
+
+  .quote-block {
+    border-left-color: #58a6ff;
+    color: #8b949e;
+  }
+
+  /* Tables */
   .md-table th {
-    background: #333;
+    background: #21262d;
+    color: #f0f6fc;
   }
 
   .md-table tr:nth-child(even) {
-    background: #2a2a2a;
+    background: #161b22;
   }
 
   .md-table th,
   .md-table td {
-    border-color: #444;
+    border-color: #30363d;
+    color: #c9d1d9;
   }
 
+  /* Copy button */
   .copy-btn {
-    background: rgba(45, 45, 45, 0.9);
-    border-color: #555;
-    color: #ccc;
+    background: rgba(240, 246, 252, 0.1);
+    border-color: #30363d;
+    color: #c9d1d9;
   }
 
   .copy-btn:hover {
-    background: #333;
+    background: rgba(240, 246, 252, 0.15);
+    border-color: #484f58;
+  }
+
+  /* User bar (if present) */
+  .user-bar {
+    background: linear-gradient(135deg, #1f6feb 0%, #1158c7 100%);
   }
 
   /* Dark mode empty state */
   .chat-empty-title {
-    background: linear-gradient(135deg, #5a9fd4 0%, #7bb3e0 100%);
+    background: linear-gradient(135deg, #58a6ff 0%, #79c0ff 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .chat-empty-tips {
-    background: #2d3748;
-    border-color: #4a5568;
+    background: #21262d;
+    border-color: #30363d;
+    color: #c9d1d9;
   }
 
   .chat-empty-tips:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    background: #30363d;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Quote display in empty state */
+  .chat-quote-container {
+    background: transparent;
+  }
+
+  .chat-quote-text {
+    color: #f0f6fc;
+  }
+
+  .chat-quote-subtitle {
+    color: #8b949e;
+  }
+
+  .chat-quote-mark {
+    color: rgba(88, 166, 255, 0.2);
+  }
+
+  .chat-quote-container:hover .chat-quote-text {
+    color: #58a6ff;
+  }
+
+  .chat-quote-container:hover .chat-quote-subtitle {
+    color: #79c0ff;
+  }
+
+  .chat-quote-container:hover .chat-quote-mark {
+    color: rgba(88, 166, 255, 0.4) !important;
+  }
+
+  /* Reference section dark mode */
+  #chat-unified-reference-container {
+    background: rgba(48, 54, 61, 0.6) !important;
+    border-color: #30363d !important;
+  }
+
+  #chat-text-quote-content {
+    background: #21262d !important;
+    border-color: #30363d !important;
+    color: #f0f6fc !important;
+  }
+
+  #chat-images-grid {
+    background: #21262d !important;
+    border-color: #30363d !important;
+  }
+
+  /* Model selector */
+  #chat-model-selector-btn {
+    background: #21262d !important;
+    border-color: #30363d !important;
+    color: #c9d1d9 !important;
+  }
+
+  #chat-model-dropdown {
+    background: #161b22 !important;
+    border-color: #30363d !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  /* History dropdown */
+  #chat-history-dropdown {
+    background: #161b22 !important;
+    border-color: #30363d !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Drag bar for floating window */
+  #chat-drag-bar {
+    background: #161b22 !important;
+    border-color: #30363d !important;
+  }
+
+  #chat-close-btn {
+    color: #8b949e !important;
+  }
+
+  #chat-close-btn:hover {
+    background: #30363d !important;
+    color: #f0f6fc !important;
+  }
+
+  /* Timestamp */
+  .chat-timestamp {
+    color: #8b949e !important;
+  }
+
+  /* Typing indicator */
+  .typing-indicator span {
+    background: #8b949e;
+  }
+
+  /* KaTeX dark mode */
+  .katex {
+    color: #f0f6fc;
   }
 }
 

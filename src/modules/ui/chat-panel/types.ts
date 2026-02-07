@@ -36,6 +36,16 @@ export interface ThemeColors {
   scrollbarThumb: string;
   scrollbarThumbHover: string;
   copyBtnBg: string;
+  // Reference section colors
+  referenceLabelColor: string;
+  referenceBg: string;
+  referenceCloseBtnBg: string;
+  referenceCloseBtnHoverBg: string;
+  referenceCloseBtnColor: string;
+  referenceCloseBtnHoverColor: string;
+  // Send button colors
+  sendButtonColor: string;
+  sendButtonHoverColor: string;
 }
 
 // Session info for history dropdown
