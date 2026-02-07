@@ -1284,6 +1284,7 @@ function populateModelDropdown(
 
   for (const provider of providers) {
     // Provider section header - show "Model List" instead of provider name
+    // Sticky header that stays visible when scrolling
     const sectionHeader = createElement(doc, "div", {
       padding: "8px 12px",
       fontSize: "11px",
@@ -1293,6 +1294,9 @@ function populateModelDropdown(
       borderBottom: `1px solid ${theme.borderColor}`,
       textTransform: "uppercase",
       letterSpacing: "0.5px",
+      position: "sticky",
+      top: "0",
+      zIndex: "1",
     });
     sectionHeader.textContent = getString("chat-model-list-title");
     dropdown.appendChild(sectionHeader);
