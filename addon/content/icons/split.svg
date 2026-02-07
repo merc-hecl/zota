@@ -1,11 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="24" height="24" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    .icon-stroke { stroke: #333; }
-    @media (prefers-color-scheme: dark) {
-      .icon-stroke { stroke: #e0e0e0; }
-    }
-  </style>
-  <path d="M19 10V7C19 5.89543 19.8954 5 21 5H41C42.1046 5 43 5.89543 43 7V29C43 30.1046 42.1046 31 41 31H37" class="icon-stroke" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="5" y="18" width="24" height="24" rx="2" fill="none" class="icon-stroke" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<?xml version="1.0" encoding="utf-8"?>
+
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square-arrow-out-up-right-icon lucide-square-arrow-out-up-right">
+  <path d="M21 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6"/>
+  <path d="m21 3-9 9"/>
+  <path d="M15 3h6v6"/>
 </svg>

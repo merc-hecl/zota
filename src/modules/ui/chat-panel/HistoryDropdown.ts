@@ -2,6 +2,7 @@
  * HistoryDropdown - Chat history dropdown component with pagination
  */
 
+import { config } from "../../../../package.json";
 import { getString } from "../../../utils/locale";
 import { chatColors } from "../../../utils/colors";
 import type { ThemeColors, SessionInfo } from "./types";
@@ -45,45 +46,59 @@ export function createSessionItem(
     paddingRight: "8px",
   });
 
-  // Export button
+  // Export button - use theme-aware background
   const exportBtn = createElement(doc, "button", {
     width: "24px",
     height: "24px",
-    background: "rgba(255, 255, 255, 0.9)",
+    background: theme.buttonBg,
     border: `1px solid ${theme.borderColor}`,
     borderRadius: "4px",
     cursor: "pointer",
     display: "none",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "12px",
-    color: theme.textMuted,
     padding: "0",
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
     flexShrink: "0",
   });
-  exportBtn.innerHTML = "&#128190;"; // 💾 软盘图标
   exportBtn.title = getString("chat-export-note");
 
-  // Delete button
+  // Export icon
+  const exportIcon = createElement(doc, "img", {
+    width: "14px",
+    height: "14px",
+    opacity: "0.7",
+  });
+  (exportIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/note-export.svg`;
+  exportBtn.appendChild(exportIcon);
+
+  // Delete button - use theme-aware background
   const deleteBtn = createElement(doc, "button", {
     width: "24px",
     height: "24px",
-    background: "rgba(255, 255, 255, 0.9)",
+    background: theme.buttonBg,
     border: `1px solid ${theme.borderColor}`,
     borderRadius: "4px",
     cursor: "pointer",
     display: "none",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "14px",
-    color: theme.textMuted,
     padding: "0",
     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
     flexShrink: "0",
   });
-  deleteBtn.textContent = "×";
   deleteBtn.title = getString("chat-delete");
+
+  // Delete icon
+  const deleteIcon = createElement(doc, "img", {
+    width: "14px",
+    height: "14px",
+    opacity: "0.7",
+  });
+  (deleteIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/history-delete.svg`;
+  deleteBtn.appendChild(deleteIcon);
 
   buttonArea.appendChild(exportBtn);
   buttonArea.appendChild(deleteBtn);
@@ -199,13 +214,15 @@ export function createSessionItem(
   // Export button hover
   exportBtn.addEventListener("mouseenter", () => {
     exportBtn.style.background = "rgba(0, 128, 0, 0.1)";
-    exportBtn.style.color = "#2e7d32";
     exportBtn.style.borderColor = "#2e7d32";
+    const icon = exportBtn.querySelector("img");
+    if (icon) icon.style.opacity = "1";
   });
   exportBtn.addEventListener("mouseleave", () => {
-    exportBtn.style.background = "rgba(255, 255, 255, 0.9)";
-    exportBtn.style.color = theme.textMuted;
+    exportBtn.style.background = theme.buttonBg;
     exportBtn.style.borderColor = theme.borderColor;
+    const icon = exportBtn.querySelector("img");
+    if (icon) icon.style.opacity = "0.7";
   });
 
   // Export button click with visual feedback
@@ -213,8 +230,7 @@ export function createSessionItem(
     e.stopPropagation();
 
     // Show loading state
-    const originalIcon = exportBtn.innerHTML;
-    exportBtn.innerHTML = "&#8230;"; // ... loading
+    exportBtn.textContent = "...";
     exportBtn.style.cursor = "wait";
     exportBtn.setAttribute("disabled", "true");
 
@@ -223,33 +239,47 @@ export function createSessionItem(
       await onExport?.(session);
 
       // Show success checkmark
-      exportBtn.innerHTML = "&#10003;"; // ✓ checkmark
+      exportBtn.textContent = "✓";
       exportBtn.style.color = "#2e7d32";
       exportBtn.style.borderColor = "#2e7d32";
       exportBtn.style.background = "rgba(0, 128, 0, 0.15)";
 
       // Restore original icon after delay
       setTimeout(() => {
-        exportBtn.innerHTML = originalIcon;
-        exportBtn.style.color = theme.textMuted;
+        exportBtn.textContent = "";
+        const newIcon = createElement(doc, "img", {
+          width: "14px",
+          height: "14px",
+          opacity: "0.7",
+        });
+        (newIcon as HTMLImageElement).src =
+          `chrome://${config.addonRef}/content/icons/note-export.svg`;
+        exportBtn.appendChild(newIcon);
         exportBtn.style.borderColor = theme.borderColor;
-        exportBtn.style.background = "rgba(255, 255, 255, 0.9)";
+        exportBtn.style.background = theme.buttonBg;
         exportBtn.style.cursor = "pointer";
         exportBtn.removeAttribute("disabled");
       }, 600);
     } catch {
       // Show error state
-      exportBtn.innerHTML = "&#10007;"; // ✗ error
+      exportBtn.textContent = "✗";
       exportBtn.style.color = "#e53935";
       exportBtn.style.borderColor = "#e53935";
       exportBtn.style.background = "rgba(255, 0, 0, 0.15)";
 
       // Restore original icon after delay
       setTimeout(() => {
-        exportBtn.innerHTML = originalIcon;
-        exportBtn.style.color = theme.textMuted;
+        exportBtn.textContent = "";
+        const newIcon = createElement(doc, "img", {
+          width: "14px",
+          height: "14px",
+          opacity: "0.7",
+        });
+        (newIcon as HTMLImageElement).src =
+          `chrome://${config.addonRef}/content/icons/note-export.svg`;
+        exportBtn.appendChild(newIcon);
         exportBtn.style.borderColor = theme.borderColor;
-        exportBtn.style.background = "rgba(255, 255, 255, 0.9)";
+        exportBtn.style.background = theme.buttonBg;
         exportBtn.style.cursor = "pointer";
         exportBtn.removeAttribute("disabled");
       }, 600);
@@ -259,13 +289,15 @@ export function createSessionItem(
   // Delete button hover
   deleteBtn.addEventListener("mouseenter", () => {
     deleteBtn.style.background = "rgba(255, 0, 0, 0.1)";
-    deleteBtn.style.color = "#e53935";
     deleteBtn.style.borderColor = "#e53935";
+    const icon = deleteBtn.querySelector("img");
+    if (icon) icon.style.opacity = "1";
   });
   deleteBtn.addEventListener("mouseleave", () => {
-    deleteBtn.style.background = "rgba(255, 255, 255, 0.9)";
-    deleteBtn.style.color = theme.textMuted;
+    deleteBtn.style.background = theme.buttonBg;
     deleteBtn.style.borderColor = theme.borderColor;
+    const icon = deleteBtn.querySelector("img");
+    if (icon) icon.style.opacity = "0.7";
   });
 
   // Delete button click

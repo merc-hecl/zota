@@ -5,10 +5,11 @@
 import MarkdownIt from "markdown-it";
 import hljs from "highlight.js";
 import katex from "katex";
+import { config } from "../../../../package.json";
 import { chatColors } from "../../../utils/colors";
 import { HTML_NS } from "./types";
 import { isDarkMode } from "./ChatPanelTheme";
-import { copyToClipboard } from "./ChatPanelBuilder";
+import { copyToClipboard, createElement } from "./ChatPanelBuilder";
 import { getString } from "../../../utils/locale";
 
 // Initialize markdown-it with XHTML output
@@ -425,9 +426,11 @@ export function buildDOMFromTokens(
 
       case "th_open": {
         const th = doc.createElementNS(HTML_NS, "th") as HTMLElement;
+        const dark = isDarkMode();
         th.style.border = `1px solid ${chatColors.tableBorder}`;
         th.style.padding = "8px";
-        th.style.background = chatColors.tableBg;
+        th.style.background = dark ? "#2d333b" : chatColors.tableBg;
+        th.style.color = dark ? "#c9d1d9" : "#24292e";
         th.style.fontWeight = "bold";
         th.style.textAlign = "left";
         parent.appendChild(th);
@@ -990,22 +993,35 @@ function addCodeCopyButton(
   copyBtn.style.position = "absolute";
   copyBtn.style.top = "4px";
   copyBtn.style.right = "4px";
-  copyBtn.style.padding = "4px 8px";
+  copyBtn.style.width = "28px";
+  copyBtn.style.height = "28px";
   copyBtn.style.background = dark
     ? "rgba(48, 54, 61, 0.9)"
     : "rgba(255, 255, 255, 0.9)";
   copyBtn.style.border = dark ? "1px solid #484f58" : "1px solid #ddd";
-  copyBtn.style.color = dark ? "#c9d1d9" : "#24292e";
   copyBtn.style.borderRadius = "4px";
   copyBtn.style.cursor = "pointer";
-  copyBtn.style.fontSize = "11px";
+  copyBtn.style.display = "flex";
+  copyBtn.style.alignItems = "center";
+  copyBtn.style.justifyContent = "center";
+  copyBtn.style.padding = "0";
   copyBtn.style.opacity = "0";
   copyBtn.style.transition = "opacity 0.2s ease";
   copyBtn.style.zIndex = "10";
   copyBtn.style.boxShadow = dark
     ? "0 1px 3px rgba(0,0,0,0.3)"
     : "0 1px 3px rgba(0,0,0,0.1)";
-  copyBtn.textContent = getString("chat-copy-code");
+  copyBtn.title = getString("chat-copy-code");
+
+  // Copy icon
+  const copyIcon = createElement(doc, "img", {
+    width: "14px",
+    height: "14px",
+    opacity: "0.8",
+  });
+  (copyIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/copy.svg`;
+  copyBtn.appendChild(copyIcon);
 
   // Show button on hover
   codeWrapper.addEventListener("mouseenter", () => {
@@ -1020,15 +1036,28 @@ function addCodeCopyButton(
     e.stopPropagation();
     copyToClipboard(codeContent);
 
-    // Show success feedback
-    copyBtn.textContent = "✓";
-    copyBtn.style.fontWeight = "600";
+    // Show success feedback - replace with copy-check icon
+    copyBtn.textContent = "";
+    const checkIcon = createElement(doc, "img", {
+      width: "14px",
+      height: "14px",
+    });
+    (checkIcon as HTMLImageElement).src =
+      `chrome://${config.addonRef}/content/icons/copy-check.svg`;
+    copyBtn.appendChild(checkIcon);
 
     setTimeout(() => {
       copyBtn.style.opacity = "0";
       setTimeout(() => {
-        copyBtn.textContent = getString("chat-copy-code");
-        copyBtn.style.fontWeight = "normal";
+        copyBtn.textContent = "";
+        const newCopyIcon = createElement(doc, "img", {
+          width: "14px",
+          height: "14px",
+          opacity: "0.8",
+        });
+        (newCopyIcon as HTMLImageElement).src =
+          `chrome://${config.addonRef}/content/icons/copy.svg`;
+        copyBtn.appendChild(newCopyIcon);
       }, 200);
     }, 800);
   });
@@ -1052,22 +1081,35 @@ function addTableCopyButton(
   copyBtn.style.position = "absolute";
   copyBtn.style.top = "4px";
   copyBtn.style.right = "4px";
-  copyBtn.style.padding = "4px 8px";
+  copyBtn.style.width = "28px";
+  copyBtn.style.height = "28px";
   copyBtn.style.background = dark
     ? "rgba(48, 54, 61, 0.9)"
     : "rgba(255, 255, 255, 0.9)";
   copyBtn.style.border = dark ? "1px solid #484f58" : "1px solid #ddd";
-  copyBtn.style.color = dark ? "#c9d1d9" : "#24292e";
   copyBtn.style.borderRadius = "4px";
   copyBtn.style.cursor = "pointer";
-  copyBtn.style.fontSize = "11px";
+  copyBtn.style.display = "flex";
+  copyBtn.style.alignItems = "center";
+  copyBtn.style.justifyContent = "center";
+  copyBtn.style.padding = "0";
   copyBtn.style.opacity = "0";
   copyBtn.style.transition = "opacity 0.2s ease";
   copyBtn.style.zIndex = "10";
   copyBtn.style.boxShadow = dark
     ? "0 1px 3px rgba(0,0,0,0.3)"
     : "0 1px 3px rgba(0,0,0,0.1)";
-  copyBtn.textContent = getString("chat-copy-table");
+  copyBtn.title = getString("chat-copy-table");
+
+  // Copy icon
+  const copyIcon = createElement(doc, "img", {
+    width: "14px",
+    height: "14px",
+    opacity: "0.8",
+  });
+  (copyIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/copy.svg`;
+  copyBtn.appendChild(copyIcon);
 
   // Show button on hover
   tableWrapper.addEventListener("mouseenter", () => {
@@ -1083,15 +1125,28 @@ function addTableCopyButton(
     const tableContent = extractTableContent(table);
     copyToClipboard(tableContent);
 
-    // Show success feedback
-    copyBtn.textContent = "✓";
-    copyBtn.style.fontWeight = "600";
+    // Show success feedback - replace with copy-check icon
+    copyBtn.textContent = "";
+    const checkIcon = createElement(doc, "img", {
+      width: "14px",
+      height: "14px",
+    });
+    (checkIcon as HTMLImageElement).src =
+      `chrome://${config.addonRef}/content/icons/copy-check.svg`;
+    copyBtn.appendChild(checkIcon);
 
     setTimeout(() => {
       copyBtn.style.opacity = "0";
       setTimeout(() => {
-        copyBtn.textContent = getString("chat-copy-table");
-        copyBtn.style.fontWeight = "normal";
+        copyBtn.textContent = "";
+        const newCopyIcon = createElement(doc, "img", {
+          width: "14px",
+          height: "14px",
+          opacity: "0.8",
+        });
+        (newCopyIcon as HTMLImageElement).src =
+          `chrome://${config.addonRef}/content/icons/copy.svg`;
+        copyBtn.appendChild(newCopyIcon);
       }, 200);
     }, 800);
   });

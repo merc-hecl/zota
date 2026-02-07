@@ -2,6 +2,7 @@
  * MessageRenderer - Create and manage message bubble elements
  */
 
+import { config } from "../../../../package.json";
 import type { ChatMessage } from "../../chat";
 import { chatColors } from "../../../utils/colors";
 import type { ThemeColors } from "./types";
@@ -48,34 +49,13 @@ function createCopyButton(doc: Document, content: string): HTMLElement {
     { class: "chat-copy-btn", title: getString("chat-copy-message") },
   );
 
-  // Copy icon SVG
-  const copyIcon = doc.createElementNS(SVG_NS, "svg");
-  copyIcon.setAttribute("width", "14");
-  copyIcon.setAttribute("height", "14");
-  copyIcon.setAttribute("viewBox", "0 0 24 24");
-  copyIcon.setAttribute("fill", "none");
-  copyIcon.setAttribute("stroke", "currentColor");
-  copyIcon.setAttribute("stroke-width", "2");
-  copyIcon.setAttribute("stroke-linecap", "round");
-  copyIcon.setAttribute("stroke-linejoin", "round");
-
-  // Copy icon paths
-  const rect = doc.createElementNS(SVG_NS, "rect");
-  rect.setAttribute("x", "9");
-  rect.setAttribute("y", "9");
-  rect.setAttribute("width", "13");
-  rect.setAttribute("height", "13");
-  rect.setAttribute("rx", "2");
-  rect.setAttribute("ry", "2");
-
-  const path = doc.createElementNS(SVG_NS, "path");
-  path.setAttribute(
-    "d",
-    "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1",
-  );
-
-  copyIcon.appendChild(rect);
-  copyIcon.appendChild(path);
+  // Copy icon
+  const copyIcon = createElement(doc, "img", {
+    width: "14px",
+    height: "14px",
+  });
+  (copyIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/copy.svg`;
   copyBtn.appendChild(copyIcon);
 
   // Hover effect
@@ -91,11 +71,16 @@ function createCopyButton(doc: Document, content: string): HTMLElement {
     e.stopPropagation();
     copyToClipboard(content);
 
-    // Replace SVG with checkmark text
-    copyBtn.textContent = "✓";
+    // Replace with copy-check icon
+    copyBtn.textContent = "";
+    const checkIcon = createElement(doc, "img", {
+      width: "14px",
+      height: "14px",
+    });
+    (checkIcon as HTMLImageElement).src =
+      `chrome://${config.addonRef}/content/icons/copy-check.svg`;
+    copyBtn.appendChild(checkIcon);
     copyBtn.style.opacity = "1";
-    copyBtn.style.fontSize = "12px";
-    copyBtn.style.fontWeight = "600";
 
     // Revert after 0.8 seconds
     setTimeout(() => {
@@ -106,7 +91,13 @@ function createCopyButton(doc: Document, content: string): HTMLElement {
       setTimeout(() => {
         // Restore copy icon
         copyBtn.textContent = "";
-        copyBtn.appendChild(copyIcon);
+        const newCopyIcon = createElement(doc, "img", {
+          width: "14px",
+          height: "14px",
+        });
+        (newCopyIcon as HTMLImageElement).src =
+          `chrome://${config.addonRef}/content/icons/copy.svg`;
+        copyBtn.appendChild(newCopyIcon);
         copyBtn.style.opacity = "0.6";
         copyBtn.style.transition = "opacity 0.2s ease";
       }, 150);

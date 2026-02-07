@@ -103,12 +103,20 @@ export function createChatContainer(
       alignItems: "center",
       justifyContent: "center",
       padding: "0",
-      fontSize: "14px",
       color: theme.textMuted,
     },
     { id: "chat-close-btn", title: getString("chat-close") },
   );
-  closeBtn.textContent = "✕";
+
+  // Close icon
+  const closeIcon = createElement(doc, "img", {
+    width: "14px",
+    height: "14px",
+    opacity: "0.7",
+  });
+  (closeIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/close.svg`;
+  closeBtn.appendChild(closeIcon);
 
   dragBar.appendChild(dragTitle);
   dragBar.appendChild(closeBtn);
@@ -655,7 +663,7 @@ export function createChatContainer(
     },
   ) as HTMLTextAreaElement;
 
-  // Send button - paper plane shaped button
+  // Send button
   const sendButton = createElement(
     doc,
     "button",
@@ -666,7 +674,6 @@ export function createChatContainer(
       width: "32px",
       height: "32px",
       background: "transparent",
-      color: theme.sendButtonColor,
       border: "none",
       borderRadius: "0",
       cursor: "pointer",
@@ -681,79 +688,27 @@ export function createChatContainer(
     { id: "chat-send-button" },
   );
 
-  // Paper plane SVG icon - larger size, fold line from tail center
-  const sendIcon = doc.createElementNS(SVG_NS, "svg");
-  sendIcon.setAttribute("width", "25");
-  sendIcon.setAttribute("height", "40");
-  sendIcon.setAttribute("viewBox", "0 0 24 24");
-  sendIcon.setAttribute("fill", "currentColor");
-  sendIcon.style.display = "block";
-  sendIcon.style.marginTop = "18px";
-  sendIcon.style.marginRight = "0px";
-
-  // 3 speed lines behind plane - horizontally aligned with plane center
-  const speedLineTop = doc.createElementNS(SVG_NS, "rect");
-  speedLineTop.setAttribute("x", "0");
-  speedLineTop.setAttribute("y", "8");
-  speedLineTop.setAttribute("width", "3");
-  speedLineTop.setAttribute("height", "1.5");
-  speedLineTop.setAttribute("rx", "0.75");
-  speedLineTop.setAttribute("fill", "currentColor");
-  speedLineTop.setAttribute("opacity", "0.5");
-  sendIcon.appendChild(speedLineTop);
-
-  const speedLineMiddle = doc.createElementNS(SVG_NS, "rect");
-  speedLineMiddle.setAttribute("x", "2");
-  speedLineMiddle.setAttribute("y", "11");
-  speedLineMiddle.setAttribute("width", "3");
-  speedLineMiddle.setAttribute("height", "1.5");
-  speedLineMiddle.setAttribute("rx", "0.75");
-  speedLineMiddle.setAttribute("fill", "currentColor");
-  speedLineMiddle.setAttribute("opacity", "0.7");
-  sendIcon.appendChild(speedLineMiddle);
-
-  const speedLineBottom = doc.createElementNS(SVG_NS, "rect");
-  speedLineBottom.setAttribute("x", "0");
-  speedLineBottom.setAttribute("y", "14");
-  speedLineBottom.setAttribute("width", "3");
-  speedLineBottom.setAttribute("height", "1.5");
-  speedLineBottom.setAttribute("rx", "0.75");
-  speedLineBottom.setAttribute("fill", "currentColor");
-  speedLineBottom.setAttribute("opacity", "0.5");
-  sendIcon.appendChild(speedLineBottom);
-
-  // Main plane body - all rounded corners, pointing right
-  const planeBody = doc.createElementNS(SVG_NS, "path");
-  planeBody.setAttribute(
-    "d",
-    "M21.5 12C21.5 12.3 21.3 12.6 21 12.7L6.5 17.5C6 17.7 5.5 17.3 5.7 16.8L7.5 12L5.7 7.2C5.5 6.7 6 6.3 6.5 6.5L21 11.3C21.3 11.4 21.5 11.7 21.5 12Z",
-  );
-  sendIcon.appendChild(planeBody);
-
-  // Center fold line - starts from tail center, uses currentColor for dark mode support
-  const foldLine = doc.createElementNS(SVG_NS, "path");
-  foldLine.setAttribute("d", "M7.5 12L13 12");
-  foldLine.setAttribute("stroke", "currentColor");
-  foldLine.setAttribute("stroke-width", "1.2");
-  foldLine.setAttribute("stroke-linecap", "round");
-  foldLine.setAttribute("fill", "none");
-  foldLine.setAttribute("opacity", "0.8");
-  sendIcon.appendChild(foldLine);
-
+  // Send icon
+  const sendIcon = createElement(doc, "img", {
+    width: "20px",
+    height: "20px",
+    opacity: "0.8",
+  });
+  (sendIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/send.svg`;
   sendButton.appendChild(sendIcon);
 
   // Hover effect via event listeners
-  // Use getCurrentTheme() to ensure we always get the latest theme
   sendButton.addEventListener("mouseenter", () => {
-    const currentTheme = getCurrentTheme();
-    sendButton.style.color = currentTheme.sendButtonHoverColor;
     sendButton.style.transform = "translateY(-1px) scale(1.1)";
+    const icon = sendButton.querySelector("img");
+    if (icon) icon.style.opacity = "1";
   });
 
   sendButton.addEventListener("mouseleave", () => {
-    const currentTheme = getCurrentTheme();
-    sendButton.style.color = currentTheme.sendButtonColor;
     sendButton.style.transform = "translateY(0) scale(1)";
+    const icon = sendButton.querySelector("img");
+    if (icon) icon.style.opacity = "0.8";
   });
 
   sendButton.addEventListener("mousedown", () => {
@@ -904,12 +859,15 @@ export function createChatContainer(
   );
   pinBtn.title = getString("chat-pin");
 
-  // Pin icon (text)
-  const pinIcon = createElement(doc, "span", {
-    fontSize: "16px",
+  // Pin icon
+  const pinIcon = createElement(doc, "img", {
+    width: "16px",
+    height: "16px",
     opacity: "0.6",
   });
-  pinIcon.textContent = "📌";
+  (pinIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/pin.svg`;
+  pinIcon.id = "chat-pin-icon";
   pinBtn.appendChild(pinIcon);
 
   // Panel mode toggle button (sidebar/floating)

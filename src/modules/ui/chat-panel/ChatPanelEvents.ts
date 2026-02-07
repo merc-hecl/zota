@@ -906,17 +906,13 @@ export function setupEventHandlers(context: ChatPanelContext): void {
     button.title = getString(isPinned ? "chat-unpin" : "chat-pin");
 
     // Update pin icon
-    const pinIcon = button.querySelector("span") as HTMLElement;
+    const pinIcon = button.querySelector("#chat-pin-icon") as HTMLImageElement;
     if (pinIcon) {
-      if (isPinned) {
-        // Pinned state: solid color
-        pinIcon.style.textDecoration = "none";
-        pinIcon.style.opacity = "1";
-      } else {
-        // Unpinned state: lighter color or with strikethrough
-        pinIcon.style.textDecoration = "none";
-        pinIcon.style.opacity = "0.6";
-      }
+      // Switch between pin and pin-off icons based on state
+      pinIcon.src = isPinned
+        ? `chrome://${config.addonRef}/content/icons/pin.svg`
+        : `chrome://${config.addonRef}/content/icons/pin-off.svg`;
+      pinIcon.style.opacity = isPinned ? "1" : "0.6";
     }
   }
 

@@ -49,3 +49,4 @@ Go to `Settings` → `Zota` to:
 - [Zotero Plugin Template](https://github.com/windingwind/zotero-plugin-template) - This project used the Zotero Plugin Template.
 - [paper-chat-for-zotero](https://github.com/syt2/paper-chat-for-zotero) - This project was forked from paper-chat-for-zotero
 - [Kimi-K2.5](https://github.com/MoonshotAI/Kimi-K2.5) - This project was entirely developed using the Kimi-k2.5 model.
+- [lucide](https://github.com/lucide-icons/lucide) - The icon used in this project is from lucide.
