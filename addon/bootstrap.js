@@ -7,9 +7,6 @@
 
 var chromeHandle;
 
-// 导入需要的模块
-const { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-
 function install(data, reason) {}
 
 async function startup({ id, version, resourceURI, rootURI }, reason) {
@@ -58,6 +55,4 @@ async function shutdown({ id, version, resourceURI, rootURI }, reason) {
   }
 }
 
-async function uninstall(data, reason) {
-  // 插件卸载时不删除设置缓存，保留用户配置
-}
+async function uninstall(data, reason) {}

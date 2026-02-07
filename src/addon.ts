@@ -7,6 +7,7 @@ class Addon {
   public data: {
     alive: boolean;
     config: typeof config;
+    // Env type, see build.js
     env: "development" | "production";
     initialized?: boolean;
     ztoolkit: ZToolkit;
@@ -18,7 +19,10 @@ class Addon {
     };
     dialog?: DialogHelper;
   };
+  // Lifecycle hooks
   public hooks: typeof hooks;
+  // APIs
+  public api: object;
 
   constructor() {
     this.data = {
@@ -29,6 +33,7 @@ class Addon {
       ztoolkit: createZToolkit(),
     };
     this.hooks = hooks;
+    this.api = {};
   }
 }
 

@@ -43,13 +43,6 @@ export default defineConfig({
     waitForPlugin: `() => Zotero.${pkg.config.addonInstance}.data.initialized`,
   },
 
-  release: {
-    bumpp: {
-      commit: "chore(publish): release V%s",
-      tag: "V%s",
-    },
-  },
-
   // If you need to see a more detailed log, uncomment the following line:
   // logLevel: "trace",
 });
