@@ -57,4 +57,31 @@ pref-model-exists = Model already exists
 pref-generic-provider-title = AI Provider
 pref-generic-provider-desc = Configure your OpenAI-compatible API endpoint settings
 
+# Endpoint Management
+pref-add-endpoint = + Add Endpoint
+pref-delete-endpoint = - Delete Current Endpoint
+pref-enter-base-url = Enter API endpoint URL:
+pref-endpoint-exists = This endpoint already exists
+pref-endpoint-added = Endpoint added, please enter API key
+pref-delete-endpoint-confirm = Are you sure you want to delete the endpoint "{ $endpoint }"?
+pref-endpoint-deleted = Endpoint deleted
+
+# API Key Management
+pref-add-apikey = + Add API Key
+pref-delete-apikey = - Delete Current API Key
+pref-edit-apikey = ✎ Edit Current API Key
+pref-enter-apikey = Enter API key:
+pref-enter-apikey-name = Enter API key name (optional, leave empty to show masked key):
+pref-edit-apikey = Edit API key:
+pref-edit-apikey-name = Edit API key name (optional, leave empty to show masked key):
+pref-apikey-exists = This API key already exists
+pref-delete-apikey-confirm = Are you sure you want to delete the API key "{ $key }"?
+pref-apikey-deleted = API key deleted
+pref-apikey-edited = API key edited
+
+# Endpoint Edit
+pref-edit-endpoint = ✎ Edit Current Endpoint
+pref-edit-base-url = Edit endpoint URL:
+pref-endpoint-edited = Endpoint edited
+
 

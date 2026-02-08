@@ -57,4 +57,31 @@ pref-model-exists = 该模型已存在
 pref-generic-provider-title = AI 服务提供商
 pref-generic-provider-desc = 配置您的 OpenAI 兼容 API 端点设置
 
+# Endpoint Management
+pref-add-endpoint = + 新增接口地址
+pref-delete-endpoint = - 删除当前接口地址
+pref-enter-base-url = 请输入接口地址:
+pref-endpoint-exists = 该接口地址已存在
+pref-endpoint-added = 接口地址已添加，请输入 API 密钥
+pref-delete-endpoint-confirm = 确定要删除接口地址 "{ $endpoint }" 吗？
+pref-endpoint-deleted = 接口地址已删除
+
+# API Key Management
+pref-add-apikey = + 新增 API 密钥
+pref-delete-apikey = - 删除当前 API 密钥
+pref-edit-apikey = ✎ 修改当前 API 密钥
+pref-enter-apikey = 请输入 API 密钥:
+pref-enter-apikey-name = 请输入 API 密钥名称（可选，留空则显示掩码）:
+pref-edit-apikey = 修改 API 密钥:
+pref-edit-apikey-name = 修改 API 密钥名称（可选，留空则显示掩码）:
+pref-apikey-exists = 该 API 密钥已存在
+pref-delete-apikey-confirm = 确定要删除 API 密钥 "{ $key }" 吗？
+pref-apikey-deleted = API 密钥已删除
+pref-apikey-edited = API 密钥已修改
+
+# Endpoint Edit
+pref-edit-endpoint = ✎ 修改当前接口地址
+pref-edit-base-url = 修改接口地址:
+pref-endpoint-edited = 接口地址已修改
+
 

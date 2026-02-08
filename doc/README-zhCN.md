@@ -49,3 +49,4 @@
 - [Zotero Plugin Template](https://github.com/windingwind/zotero-plugin-template) - 本项目使用了 Zotero Plugin Template。
 - [paper-chat-for-zotero](https://github.com/syt2/paper-chat-for-zotero) - 本项目是 paper-chat-for-zotero 的一个分支。
 - [Kimi-K2.5](https://github.com/MoonshotAI/Kimi-K2.5) - 本项目完全使用 Kimi-K2.5 模型进行开发。
+- [lucide](https://lucide.dev) - 本项目使用了 lucide 图标库。

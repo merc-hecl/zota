@@ -20,38 +20,46 @@
         style="margin-bottom: 12px; opacity: 0.7"
       ></label>
 
-      <!-- API Key -->
-      <hbox align="center" style="margin-bottom: 8px">
-        <label
-          for="pref-provider-apikey"
-          data-l10n-id="pref-api-key"
-          style="width: 70px; text-align: right"
-        ></label>
-        <html:input
-          type="password"
-          id="pref-provider-apikey"
-          style="flex: 1; margin-left: 8px; min-width: 150px"
-        ></html:input>
-        <button
-          id="pref-toggle-apikey"
-          data-l10n-id="pref-show-key"
-          style="margin-left: 8px; text-align: center"
-          pack="center"
-        ></button>
-      </hbox>
-
-      <!-- Base URL -->
+      <!-- Base URL (Endpoint) Dropdown -->
       <hbox align="center" style="margin-bottom: 8px">
         <label
           for="pref-provider-baseurl"
           data-l10n-id="pref-base-url"
           style="width: 70px; text-align: right"
         ></label>
-        <html:input
-          type="text"
+        <menulist
           id="pref-provider-baseurl"
           style="flex: 1; margin-left: 8px; min-width: 150px"
-        ></html:input>
+          editable="true"
+        >
+          <menupopup id="pref-provider-baseurl-popup">
+            <!-- Endpoints populated by JS -->
+          </menupopup>
+        </menulist>
+      </hbox>
+
+      <!-- API Key Dropdown -->
+      <hbox align="center" style="margin-bottom: 8px">
+        <label
+          for="pref-provider-apikey"
+          data-l10n-id="pref-api-key"
+          style="width: 70px; text-align: right"
+        ></label>
+        <menulist
+          id="pref-provider-apikey"
+          style="flex: 1; margin-left: 8px; min-width: 150px"
+          editable="true"
+        >
+          <menupopup id="pref-provider-apikey-popup">
+            <!-- API keys populated by JS -->
+          </menupopup>
+        </menulist>
+        <button
+          id="pref-toggle-apikey"
+          data-l10n-id="pref-show-key"
+          style="margin-left: 8px; text-align: center"
+          pack="center"
+        ></button>
       </hbox>
 
       <!-- Model Selection -->

@@ -208,7 +208,25 @@ export class ProviderManager {
         ...updates,
       } as ProviderConfig;
       this.saveToPrefs();
-      this.initializeProviders();
+
+      // Update existing provider instance if it exists
+      const existingProvider = this.providers.get(providerId);
+      if (existingProvider) {
+        existingProvider.updateConfig(this.configs[index]);
+      }
+
+      // Create provider if it's enabled and either doesn't exist or was just enabled
+      if (this.configs[index].enabled) {
+        if (!existingProvider) {
+          const provider = this.createProvider(this.configs[index]);
+          if (provider) {
+            this.providers.set(providerId, provider);
+          }
+        }
+      } else if (existingProvider) {
+        // Remove provider if it's now disabled
+        this.providers.delete(providerId);
+      }
     }
   }
 

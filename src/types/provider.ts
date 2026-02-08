@@ -45,6 +45,25 @@ export interface BaseProviderConfig {
 }
 
 /**
+ * API key entry with value
+ */
+export interface ApiKeyEntry {
+  key: string;
+  name?: string;
+}
+
+/**
+ * Endpoint configuration with multiple API keys and models
+ */
+export interface EndpointConfig {
+  baseUrl: string;
+  apiKeys: ApiKeyEntry[];
+  currentApiKeyIndex: number;
+  availableModels?: string[];
+  defaultModel?: string;
+}
+
+/**
  * Configuration for API key-based providers
  */
 export interface ApiKeyProviderConfig extends BaseProviderConfig {
@@ -58,6 +77,10 @@ export interface ApiKeyProviderConfig extends BaseProviderConfig {
   temperature?: number;
   systemPrompt?: string;
   pdfMaxChars?: number;
+  // Support multiple endpoints with their API keys
+  endpoints?: EndpointConfig[];
+  // Persist current endpoint selection
+  currentEndpointIndex?: number;
 }
 
 /**
