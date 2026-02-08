@@ -11,7 +11,7 @@ export default defineConfig({
     pkg.version.includes("-") ? "update-beta.json" : "update.json"
   }`,
   xpiDownloadLink:
-    "https://github.com/{{owner}}/{{repo}}/releases/download/v{{version}}/{{xpiName}}.xpi",
+    "https://github.com/{{owner}}/{{repo}}/releases/download/V{{version}}/{{xpiName}}.xpi",
 
   build: {
     assets: ["addon/**/*.*"],
@@ -41,6 +41,13 @@ export default defineConfig({
 
   test: {
     waitForPlugin: `() => Zotero.${pkg.config.addonInstance}.data.initialized`,
+  },
+
+  release: {
+    bumpp: {
+      commit: "chore(publish): release V%s",
+      tag: "V%s",
+    },
   },
 
   // If you need to see a more detailed log, uncomment the following line:
