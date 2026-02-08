@@ -402,14 +402,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       );
       return;
     }
-    // Disable send button immediately when clicked
-    if (sendButton) {
-      sendButton.disabled = true;
-      sendButton.style.opacity = "0.5";
-      sendButton.style.cursor = "not-allowed";
-    }
-    // Set global sending state
-    setIsSendingMessage(true);
     ztoolkit.log("[Send] attachPdfCheckbox element:", attachPdfCheckbox);
     ztoolkit.log(
       "[Send] attachPdfCheckbox.checked:",
@@ -1166,7 +1158,7 @@ async function sendMessage(
 
     // Send message (unified API handles both global and item-bound chat)
     // Note: This is a fire-and-forget operation, we don't await it
-    // because we want to reset isSending immediately after starting the request
+    // The sending state will be reset by onMessageComplete or onError callback
     chatManager
       .sendMessage(content, {
         item: targetItem,
@@ -1177,10 +1169,6 @@ async function sendMessage(
       .catch((error) => {
         ztoolkit.log("Error in sendMessage:", error);
       });
-
-    // Reset sending state immediately after starting the request
-    // The actual completion is handled by onMessageComplete callback
-    setIsSendingMessage(false);
   } catch (error) {
     ztoolkit.log("Error in sendMessage:", error);
     // Re-enable send button on error

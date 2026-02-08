@@ -74,10 +74,37 @@ export function getIsSendingMessage(): boolean {
 }
 
 /**
+ * Update send button state in all active containers
+ */
+function updateSendButtonStateInAllContainers(): void {
+  const containers: HTMLElement[] = [];
+  if (chatContainer?.isConnected) {
+    containers.push(chatContainer);
+  }
+  if (floatingContainer?.isConnected) {
+    containers.push(floatingContainer);
+  }
+
+  const shouldDisable = isGloballyStreaming || isSendingMessage;
+
+  containers.forEach((container) => {
+    const sendButton = container.querySelector(
+      "#chat-send-button",
+    ) as HTMLButtonElement;
+    if (sendButton) {
+      sendButton.disabled = shouldDisable;
+      sendButton.style.opacity = shouldDisable ? "0.5" : "1";
+      sendButton.style.cursor = shouldDisable ? "not-allowed" : "pointer";
+    }
+  });
+}
+
+/**
  * Set the sending message state
  */
 export function setIsSendingMessage(value: boolean): void {
   isSendingMessage = value;
+  updateSendButtonStateInAllContainers();
 }
 
 // Panel display mode: 'sidebar' or 'floating'
@@ -1484,16 +1511,9 @@ function setupChatManagerCallbacks(
         containers.forEach((cont) => {
           updateStreamingContent(cont, content);
           scrollDuringStreaming(cont);
-          // Disable send button while streaming
-          const sendButton = cont.querySelector(
-            "#chat-send-button",
-          ) as HTMLButtonElement;
-          if (sendButton) {
-            sendButton.disabled = true;
-            sendButton.style.opacity = "0.5";
-            sendButton.style.cursor = "not-allowed";
-          }
         });
+        // Update send button state in all containers
+        updateSendButtonStateInAllContainers();
       }
     },
     onError: (error) => {
@@ -1509,16 +1529,9 @@ function setupChatManagerCallbacks(
         if (chatHistory) {
           stopStreamingScroll(chatHistory);
         }
-        // Re-enable send button
-        const sendButton = cont.querySelector(
-          "#chat-send-button",
-        ) as HTMLButtonElement;
-        if (sendButton) {
-          sendButton.disabled = false;
-          sendButton.style.opacity = "1";
-          sendButton.style.cursor = "pointer";
-        }
       });
+      // Update send button state in all containers
+      updateSendButtonStateInAllContainers();
     },
     onPdfAttached: () => {
       // Update all active containers
@@ -1546,16 +1559,9 @@ function setupChatManagerCallbacks(
         if (chatHistory) {
           stopStreamingScroll(chatHistory);
         }
-        // Re-enable send button
-        const sendButton = cont.querySelector(
-          "#chat-send-button",
-        ) as HTMLButtonElement;
-        if (sendButton) {
-          sendButton.disabled = false;
-          sendButton.style.opacity = "1";
-          sendButton.style.cursor = "pointer";
-        }
       });
+      // Update send button state in all containers
+      updateSendButtonStateInAllContainers();
       // Re-render messages to show copy button and timestamp for completed message
       if (moduleCurrentItem) {
         const session = await manager.getOrCreateSession(moduleCurrentItem.id);

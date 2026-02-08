@@ -86,6 +86,7 @@ export type FluentMessageId =
   | 'pref-provider-enabled'
   | 'pref-provider-not-ready'
   | 'pref-providers'
+  | 'pref-refresh-failed'
   | 'pref-refresh-models'
   | 'pref-show-key'
   | 'pref-system-prompt'
