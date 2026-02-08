@@ -1,6 +1,6 @@
 <h1><img src="../addon/content/icons/favicon.svg" width="32" height="32" style="vertical-align: middle;"> Zota</h1>
 
-[![Zotero](https://img.shields.io/badge/Zotero-7-green?style=flat-square&logo=zotero&logoColor=CC2936)](https://www.zotero.org) [![Using Zotero Plugin Template](https://img.shields.io/badge/Using-Zotero%20Plugin%20Template-blue?style=flat-square&logo=github)](https://github.com/windingwind/zotero-plugin-template) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg?style=flat-square)](https://www.gnu.org/licenses/agpl-3.0)
+[![Zotero](https://img.shields.io/badge/Zotero-7+-green?style=flat-square&logo=zotero&logoColor=CC2936)](https://www.zotero.org) [![Using Zotero Plugin Template](https://img.shields.io/badge/Using-Zotero%20Plugin%20Template-blue?style=flat-square&logo=github)](https://github.com/windingwind/zotero-plugin-template) [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg?style=flat-square)](https://www.gnu.org/licenses/agpl-3.0)
 
 **在 Zotero 中直接与 AI 讨论 PDF 文档。**
 
@@ -8,11 +8,28 @@
 
 ## 截图
 
-|                    边栏窗口                    |                   浮动窗口                   |
-| :--------------------------------------------: | :------------------------------------------: |
-| ![边栏](screenshots/screenshot_sidebar_zh.png) | ![浮动](screenshots/screenshot_float_zh.png) |
+|              边栏窗口               |             浮动窗口              |
+| :---------------------------------: | :-------------------------------: |
+| ![边栏](screenshots/sidebar_zh.png) | ![浮动](screenshots/float_zh.png) |
 
 ## 特性
+
+### 版本 0.0.4 (2026-02-08)
+
+- 主分支现在 **兼容 Zotero 7+**，之前的 Zotero 7 版本代码在分支 [zotero7](https://github.com/merc-hecl/zota/tree/zotero7) 中。
+
+- 支持图片上传功能：现在可以从**剪贴板**或**拖拽图片**到聊天面板与支持图片输入的 AI 模型进行讨论。
+  ![image-upload](screenshots/upload_image_zh.png)
+
+- 支持**多供应商**和**多 API Key**：现在可以配置多个 API 端点和密钥（每个密钥可以设置一个昵称），可以在不同供应商之间切换。
+  ![multi-endpoint](screenshots/multiendpoint_zh.png) ![multi-apikey](screenshots/multiapikey_zh.png)
+
+- **浮动窗口**: 现在浮动窗口的大小和位置在关闭后应该会被记住。
+- **Bug**: 浮动窗口中的置顶按钮在 Zotero 8 中不起作用。
+
+- 更多详情请查看 [发布说明](https://github.com/merc-hecl/zota/releases/tag/V0.0.4)
+
+### 版本 0.0.1 ~ 0.0.3 (2026-02-05)
 
 - **无供应商锁定**: 使用你自己的 OpenAI-Compatible API 端点
 - **PDF 上下文**: 附加 PDF 内容或者划选段落获得上下文感知回复
