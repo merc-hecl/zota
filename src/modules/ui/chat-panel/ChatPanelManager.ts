@@ -49,62 +49,245 @@ import {
   type ImageData,
 } from "./ImageStateManager";
 import { updateUnifiedReferenceDisplay } from "./ChatPanelBuilder";
+import {
+  setSessionStreamingState,
+  setSessionSendingState,
+  resetSessionState,
+  setActiveSessionId,
+  getSessionStreamingState,
+  registerView,
+  unregisterView,
+  setViewSession,
+  getViewState,
+} from "./StreamingStateManager";
 
 // Track scroll managers for cleanup
 const activeScrollManagers = new Set<HTMLElement>();
 
-// Global streaming state to track across view switches
-let isGloballyStreaming = false;
-
-// Global sending state to track if user has sent a message but not yet received response
-let isSendingMessage = false;
+// View IDs for sidebar and floating
+const SIDEBAR_VIEW_ID = "sidebar";
+const FLOATING_VIEW_ID = "floating";
 
 /**
- * Check if AI is currently streaming a response
+ * Get view ID for a container
  */
-export function getIsGloballyStreaming(): boolean {
-  return isGloballyStreaming;
+function getViewIdForContainer(container: HTMLElement): string | null {
+  const containerId = container.id;
+  const sidebarContainerId = `${config.addonRef}-chat-container`;
+
+  // Check if it's the sidebar container
+  const isSidebar =
+    containerId === sidebarContainerId || container === chatContainer;
+  if (isSidebar) {
+    return SIDEBAR_VIEW_ID;
+  }
+
+  // Floating container check: either by reference or by window URL
+  const isFloatingWindow =
+    container.ownerDocument?.defaultView?.location.href.includes(
+      "chatWindow.xhtml",
+    );
+  const isFloatingRef = container === floatingContainer;
+
+  const isFloating = isFloatingWindow || isFloatingRef;
+  if (isFloating) {
+    return FLOATING_VIEW_ID;
+  }
+
+  // Fallback: try to match by checking if container is in main window
+  const mainWindow = Zotero.getMainWindow();
+  if (mainWindow && mainWindow.document.contains(container)) {
+    return SIDEBAR_VIEW_ID;
+  }
+
+  return null;
 }
 
 /**
- * Check if a message is being sent (user clicked send but response not started)
+ * Get the current active session info for a container
  */
-export function getIsSendingMessage(): boolean {
-  return isSendingMessage;
+function getContainerSessionInfo(
+  container: HTMLElement,
+): { itemId: number; sessionId: string } | null {
+  const viewId = getViewIdForContainer(container);
+  if (!viewId) return null;
+
+  const view = getViewState(viewId);
+  if (!view) return null;
+
+  return {
+    itemId: view.currentItemId,
+    sessionId: view.currentSessionId,
+  };
+}
+
+/**
+ * Set the active session for a container (used when switching sessions)
+ */
+export function setContainerActiveSession(
+  container: HTMLElement,
+  itemId: number,
+  sessionId: string,
+): void {
+  const viewId = getViewIdForContainer(container);
+  if (!viewId) {
+    ztoolkit.log(
+      "[setContainerActiveSession] Could not identify container type",
+      "containerId:",
+      container.id,
+    );
+    return;
+  }
+
+  setViewSession(viewId, itemId, sessionId);
+  ztoolkit.log(
+    "[setContainerActiveSession] Updated view",
+    viewId,
+    "to session:",
+    sessionId,
+  );
+}
+
+/**
+ * Update send button state for a specific container based on its active session
+ */
+export function updateSendButtonStateForContainer(
+  container: HTMLElement,
+): void {
+  const sessionInfo = getContainerSessionInfo(container);
+  const sendButton = container.querySelector(
+    "#chat-send-button",
+  ) as HTMLButtonElement;
+
+  if (!sendButton) {
+    ztoolkit.log("[updateSendButtonStateForContainer] Send button not found");
+    return;
+  }
+
+  if (!sessionInfo || !sessionInfo.sessionId) {
+    // No active session, button should be enabled
+    sendButton.disabled = false;
+    sendButton.style.opacity = "1";
+    sendButton.style.cursor = "pointer";
+    ztoolkit.log(
+      "[updateSendButtonStateForContainer] No session, enabling button",
+    );
+    return;
+  }
+
+  const { itemId, sessionId } = sessionInfo;
+  const state = getSessionStreamingState(itemId, sessionId);
+  const shouldDisable = state.isStreaming || state.isSending;
+
+  sendButton.disabled = shouldDisable;
+  sendButton.style.opacity = shouldDisable ? "0.5" : "1";
+  sendButton.style.cursor = shouldDisable ? "not-allowed" : "pointer";
+
+  ztoolkit.log(
+    "[updateSendButtonStateForContainer] itemId:",
+    itemId,
+    "sessionId:",
+    sessionId,
+    "isStreaming:",
+    state.isStreaming,
+    "isSending:",
+    state.isSending,
+    "disabled:",
+    shouldDisable,
+  );
 }
 
 /**
  * Update send button state in all active containers
  */
 function updateSendButtonStateInAllContainers(): void {
-  const containers: HTMLElement[] = [];
   if (chatContainer?.isConnected) {
-    containers.push(chatContainer);
+    updateSendButtonStateForContainer(chatContainer);
   }
   if (floatingContainer?.isConnected) {
-    containers.push(floatingContainer);
+    updateSendButtonStateForContainer(floatingContainer);
   }
-
-  const shouldDisable = isGloballyStreaming || isSendingMessage;
-
-  containers.forEach((container) => {
-    const sendButton = container.querySelector(
-      "#chat-send-button",
-    ) as HTMLButtonElement;
-    if (sendButton) {
-      sendButton.disabled = shouldDisable;
-      sendButton.style.opacity = shouldDisable ? "0.5" : "1";
-      sendButton.style.cursor = shouldDisable ? "not-allowed" : "pointer";
-    }
-  });
 }
 
 /**
- * Set the sending message state
+ * Set the sending state for a container's active session
+ */
+export function setIsSendingMessageForContainer(
+  container: HTMLElement,
+  isSending: boolean,
+): void {
+  const sessionInfo = getContainerSessionInfo(container);
+  if (sessionInfo) {
+    setSessionSendingState(
+      sessionInfo.itemId,
+      sessionInfo.sessionId,
+      isSending,
+    );
+  }
+}
+
+/**
+ * Legacy function - deprecated, use setIsSendingMessageForContainer instead
  */
 export function setIsSendingMessage(value: boolean): void {
-  isSendingMessage = value;
-  updateSendButtonStateInAllContainers();
+  // This is a legacy function that updates all containers
+  // For backward compatibility, we update the current active container
+  if (chatContainer?.isConnected) {
+    setIsSendingMessageForContainer(chatContainer, value);
+  }
+  if (floatingContainer?.isConnected) {
+    setIsSendingMessageForContainer(floatingContainer, value);
+  }
+}
+
+/**
+ * Legacy function - check if any session is streaming (for backward compatibility)
+ */
+export function getIsGloballyStreaming(): boolean {
+  // Check sidebar view
+  const sidebarView = getViewState(SIDEBAR_VIEW_ID);
+  if (sidebarView?.currentSessionId) {
+    const state = getSessionStreamingState(
+      sidebarView.currentItemId,
+      sidebarView.currentSessionId,
+    );
+    if (state.isStreaming) return true;
+  }
+  // Check floating view
+  const floatingView = getViewState(FLOATING_VIEW_ID);
+  if (floatingView?.currentSessionId) {
+    const state = getSessionStreamingState(
+      floatingView.currentItemId,
+      floatingView.currentSessionId,
+    );
+    if (state.isStreaming) return true;
+  }
+  return false;
+}
+
+/**
+ * Legacy function - check if any session is sending (for backward compatibility)
+ */
+export function getIsSendingMessage(): boolean {
+  // Check sidebar view
+  const sidebarView = getViewState(SIDEBAR_VIEW_ID);
+  if (sidebarView?.currentSessionId) {
+    const state = getSessionStreamingState(
+      sidebarView.currentItemId,
+      sidebarView.currentSessionId,
+    );
+    if (state.isSending) return true;
+  }
+  // Check floating view
+  const floatingView = getViewState(FLOATING_VIEW_ID);
+  if (floatingView?.currentSessionId) {
+    const state = getSessionStreamingState(
+      floatingView.currentItemId,
+      floatingView.currentSessionId,
+    );
+    if (state.isSending) return true;
+  }
+  return false;
 }
 
 // Panel display mode: 'sidebar' or 'floating'
@@ -799,19 +982,19 @@ function initializeFloatingWindowContent(): void {
  */
 async function initializeChatContentCommon(
   container: HTMLElement,
+  viewId: string,
 ): Promise<void> {
-  const context = createContext(container);
+  // Register view in state manager
+  registerView(viewId, container);
+  ztoolkit.log(`[Init] Registered view: ${viewId}`);
+
+  const context = createContext(container, viewId);
 
   // Initialize scroll manager for this container
   const chatHistory = container.querySelector("#chat-history") as HTMLElement;
   if (chatHistory) {
     getScrollManager(chatHistory);
     activeScrollManagers.add(chatHistory);
-
-    // If globally streaming, start streaming for this container too
-    if (isGloballyStreaming) {
-      startStreamingScroll(chatHistory);
-    }
   }
 
   // Set provider change callback
@@ -947,6 +1130,19 @@ async function initializeChatContentCommon(
   // Load session and render
   const session = await manager.getOrCreateSession(moduleCurrentItem.id);
   manager.setActiveItem(moduleCurrentItem.id);
+
+  // Set view session in state manager
+  const containerViewId = getViewIdForContainer(container);
+  if (containerViewId) {
+    setViewSession(containerViewId, moduleCurrentItem.id, session.id);
+  }
+
+  // Set active session in legacy state manager (for backward compatibility)
+  setActiveSessionId(moduleCurrentItem.id, session.id);
+
+  // Update send button state based on this session's state
+  updateSendButtonStateForContainer(container);
+
   context.renderMessages(session.messages);
 
   focusInput(container);
@@ -992,17 +1188,34 @@ async function refreshChatForContainer(container: HTMLElement): Promise<void> {
   }
   manager.setActiveItem(sessionItemId);
 
+  // Set view session in state manager
+  const containerViewId = getViewIdForContainer(container);
+  if (containerViewId) {
+    setViewSession(containerViewId, sessionItemId, session.id);
+  }
+
+  // Set active session in legacy state manager (for backward compatibility)
+  setActiveSessionId(sessionItemId, session.id);
+
+  // Update send button state based on this session's state
+  updateSendButtonStateForContainer(container);
+
   const chatHistory = container.querySelector("#chat-history") as HTMLElement;
   const emptyState = container.querySelector(
     "#chat-empty-state",
   ) as HTMLElement;
+
+  // Check if this session is currently streaming
+  const sessionState = getSessionStreamingState(sessionItemId, session.id);
+  const isSessionStreaming = sessionState.isStreaming;
+
   if (chatHistory) {
     renderMessageElements(
       chatHistory,
       emptyState,
       session.messages,
       getCurrentTheme(),
-      isGloballyStreaming,
+      isSessionStreaming,
     );
   }
 
@@ -1198,7 +1411,7 @@ async function initializeFloatingChatContent(): Promise<void> {
     );
   }
 
-  await initializeChatContentCommon(floatingContainer);
+  await initializeChatContentCommon(floatingContainer, FLOATING_VIEW_ID);
 }
 
 /**
@@ -1362,7 +1575,7 @@ function showSidebarPanel(): void {
     setupModelChangeSubscription(chatContainer);
     // Re-setup chat manager callbacks to ensure correct container reference
     const manager = getChatManager();
-    const context = createContext(chatContainer);
+    const context = createContext(chatContainer, SIDEBAR_VIEW_ID);
     setupChatManagerCallbacks(manager, context, chatContainer);
   }
 
@@ -1434,10 +1647,81 @@ function setupChatManagerCallbacks(
     cont.querySelector("#chat-history") as HTMLElement;
 
   // Helper to update streaming content in a container
-  const updateStreamingContent = (cont: HTMLElement, content: string) => {
+  const updateStreamingContent = async (
+    cont: HTMLElement,
+    content: string,
+    itemId: number,
+    sessionId: string,
+  ) => {
+    // First, verify this container is still viewing the correct session
+    const sessionInfo = getContainerSessionInfo(cont);
+    if (
+      !sessionInfo ||
+      sessionInfo.itemId !== itemId ||
+      sessionInfo.sessionId !== sessionId
+    ) {
+      ztoolkit.log(
+        "[updateStreamingContent] Container is not viewing the target session, skipping update. " +
+          "Target:",
+        itemId,
+        "/",
+        sessionId,
+        "Actual:",
+        sessionInfo?.itemId,
+        "/",
+        sessionInfo?.sessionId,
+      );
+      return;
+    }
+
     const streamingEl = cont.querySelector("#chat-streaming-content");
     if (streamingEl) {
       renderMarkdownToElement(streamingEl as HTMLElement, content);
+    } else {
+      // Streaming element not found - need to re-render messages
+      // This can happen when switching sessions during streaming
+      ztoolkit.log(
+        "[updateStreamingContent] Streaming element not found, re-rendering messages for session:",
+        sessionId,
+      );
+
+      const chatHistory = getChatHistory(cont);
+      const emptyState = cont.querySelector("#chat-empty-state") as HTMLElement;
+
+      if (chatHistory) {
+        // Try memory cache first, then load from storage
+        let session = manager.getSession(itemId, sessionId);
+        if (!session) {
+          // Load from storage if not in memory cache
+          session = await manager.loadSession(itemId, sessionId);
+        }
+
+        if (session) {
+          // Check if there's an empty assistant message at the end
+          const lastMessage = session.messages[session.messages.length - 1];
+          const hasEmptyAssistantMessage =
+            lastMessage?.role === "assistant" &&
+            (!lastMessage.content || lastMessage.content === "");
+
+          // Should show streaming if there's content or empty assistant message
+          const shouldShowStreaming =
+            content.length > 0 || hasEmptyAssistantMessage;
+
+          renderMessageElements(
+            chatHistory,
+            emptyState,
+            session.messages,
+            getCurrentTheme(),
+            shouldShowStreaming,
+          );
+
+          // Now try to update the streaming content again
+          const newStreamingEl = cont.querySelector("#chat-streaming-content");
+          if (newStreamingEl) {
+            renderMarkdownToElement(newStreamingEl as HTMLElement, content);
+          }
+        }
+      }
     }
   };
 
@@ -1466,28 +1750,69 @@ function setupChatManagerCallbacks(
   };
 
   manager.setCallbacks({
-    onMessageUpdate: (itemId, messages) => {
+    onMessageUpdate: (itemId, messages, sessionId) => {
       ztoolkit.log(
         "onMessageUpdate callback fired, itemId:",
         itemId,
+        "sessionId:",
+        sessionId,
         "moduleCurrentItem:",
         moduleCurrentItem?.id,
       );
-      if (moduleCurrentItem && itemId === moduleCurrentItem.id) {
-        // Update all active containers
-        const containers = getActiveContainers();
-        containers.forEach((cont) => {
+
+      // Update containers that are viewing this specific session
+      const containers = getActiveContainers();
+      containers.forEach((cont) => {
+        const sessionInfo = getContainerSessionInfo(cont);
+        // Only update if both itemId AND sessionId match
+        if (
+          sessionInfo &&
+          sessionInfo.itemId === itemId &&
+          sessionInfo.sessionId === sessionId
+        ) {
           const chatHistory = getChatHistory(cont);
           const emptyState = cont.querySelector(
             "#chat-empty-state",
           ) as HTMLElement;
           if (chatHistory) {
+            // Check if this specific session is streaming
+            const state = getSessionStreamingState(
+              itemId,
+              sessionInfo.sessionId,
+            );
+
+            // Also check if there's an empty assistant message at the end
+            // This indicates we're waiting for AI response
+            const lastMessage = messages[messages.length - 1];
+            const hasEmptyAssistantMessage =
+              lastMessage?.role === "assistant" &&
+              (!lastMessage.content || lastMessage.content === "");
+
+            // Should show streaming UI if:
+            // 1. State says we're streaming, OR
+            // 2. There's an empty assistant message (waiting for response)
+            const shouldShowStreaming =
+              state.isStreaming || hasEmptyAssistantMessage;
+
+            ztoolkit.log(
+              "[onMessageUpdate] Container:",
+              cont.id || "floating",
+              "sessionId:",
+              sessionInfo.sessionId,
+              "isStreaming:",
+              state.isStreaming,
+              "hasEmptyAssistant:",
+              hasEmptyAssistantMessage,
+              "shouldShowStreaming:",
+              shouldShowStreaming,
+            );
+
             renderMessageElements(
               chatHistory,
               emptyState,
               messages,
               getCurrentTheme(),
-              isGloballyStreaming,
+              shouldShowStreaming,
             );
 
             // Scroll to bottom after rendering (not during streaming)
@@ -1496,42 +1821,65 @@ function setupChatManagerCallbacks(
               scrollToBottom(chatHistory, true);
             }
           }
-        });
-      }
-    },
-    onStreamingUpdate: (itemId, content) => {
-      if (moduleCurrentItem && itemId === moduleCurrentItem.id) {
-        // Set global streaming state
-        isGloballyStreaming = true;
-        // Clear sending state since response has started
-        isSendingMessage = false;
-
-        // Update streaming content in all active containers
-        const containers = getActiveContainers();
-        containers.forEach((cont) => {
-          updateStreamingContent(cont, content);
-          scrollDuringStreaming(cont);
-        });
-        // Update send button state in all containers
-        updateSendButtonStateInAllContainers();
-      }
-    },
-    onError: (error) => {
-      ztoolkit.log("[ChatPanel] API Error:", error.message);
-      context.appendError(error.message);
-      // Clear global streaming state and sending state
-      isGloballyStreaming = false;
-      isSendingMessage = false;
-      // Stop streaming scroll in all containers
-      const containers = getActiveContainers();
-      containers.forEach((cont) => {
-        const chatHistory = getChatHistory(cont);
-        if (chatHistory) {
-          stopStreamingScroll(chatHistory);
         }
       });
-      // Update send button state in all containers
-      updateSendButtonStateInAllContainers();
+    },
+    onStreamingUpdate: async (itemId, content, sessionId) => {
+      // Set streaming state for this specific session
+      if (sessionId) {
+        setSessionStreamingState(itemId, sessionId, true);
+        setSessionSendingState(itemId, sessionId, false);
+      }
+
+      // Update containers that are viewing this specific session
+      const containers = getActiveContainers();
+      for (const cont of containers) {
+        const sessionInfo = getContainerSessionInfo(cont);
+        if (
+          sessionInfo &&
+          sessionInfo.itemId === itemId &&
+          sessionInfo.sessionId === sessionId
+        ) {
+          await updateStreamingContent(cont, content, itemId, sessionId);
+          scrollDuringStreaming(cont);
+          // Update send button state for this container
+          updateSendButtonStateForContainer(cont);
+        }
+      }
+    },
+    onError: (error, itemId, sessionId) => {
+      ztoolkit.log(
+        "[ChatPanel] API Error:",
+        error.message,
+        "itemId:",
+        itemId,
+        "sessionId:",
+        sessionId,
+      );
+      context.appendError(error.message);
+
+      // Reset state for the specific session that had the error
+      if (itemId && sessionId) {
+        resetSessionState(itemId, sessionId);
+      }
+
+      // Stop streaming scroll in containers viewing this session
+      const containers = getActiveContainers();
+      containers.forEach((cont) => {
+        const sessionInfo = getContainerSessionInfo(cont);
+        if (
+          sessionInfo &&
+          sessionInfo.itemId === itemId &&
+          sessionInfo.sessionId === sessionId
+        ) {
+          const chatHistory = getChatHistory(cont);
+          if (chatHistory) {
+            stopStreamingScroll(chatHistory);
+          }
+          // Update send button state for this container
+          updateSendButtonStateForContainer(cont);
+        }
+      });
     },
     onPdfAttached: () => {
       // Update all active containers
@@ -1548,38 +1896,71 @@ function setupChatManagerCallbacks(
         "[PDF Attach] Checkbox unchecked after successful attachment",
       );
     },
-    onMessageComplete: async () => {
-      // Clear global streaming state and sending state
-      isGloballyStreaming = false;
-      isSendingMessage = false;
-      // Stop streaming scroll in all containers
+    onMessageComplete: async (itemId, sessionId) => {
+      ztoolkit.log(
+        "[onMessageComplete] itemId:",
+        itemId,
+        "sessionId:",
+        sessionId,
+      );
+
+      // Reset streaming state for this specific session
+      if (itemId && sessionId) {
+        resetSessionState(itemId, sessionId);
+      }
+
+      // Update containers viewing this session
       const containers = getActiveContainers();
+
+      // First, update button state for all affected containers
       containers.forEach((cont) => {
-        const chatHistory = getChatHistory(cont);
-        if (chatHistory) {
-          stopStreamingScroll(chatHistory);
+        const sessionInfo = getContainerSessionInfo(cont);
+        if (
+          sessionInfo &&
+          sessionInfo.itemId === itemId &&
+          sessionInfo.sessionId === sessionId
+        ) {
+          const chatHistory = getChatHistory(cont);
+          if (chatHistory) {
+            stopStreamingScroll(chatHistory);
+          }
+          // Update send button state for this container - MUST be called
+          updateSendButtonStateForContainer(cont);
+          ztoolkit.log(
+            "[onMessageComplete] Updated button state for container viewing session:",
+            sessionId,
+          );
         }
       });
-      // Update send button state in all containers
-      updateSendButtonStateInAllContainers();
+
       // Re-render messages to show copy button and timestamp for completed message
-      if (moduleCurrentItem) {
-        const session = await manager.getOrCreateSession(moduleCurrentItem.id);
-        containers.forEach((cont) => {
-          const chatHistory = getChatHistory(cont);
-          const emptyState = cont.querySelector(
-            "#chat-empty-state",
-          ) as HTMLElement;
-          if (chatHistory) {
-            renderMessageElements(
-              chatHistory,
-              emptyState,
-              session.messages,
-              getCurrentTheme(),
-              isGloballyStreaming,
-            );
-          }
-        });
+      if (itemId && sessionId) {
+        // Load the specific session that completed, not the current active session
+        const session = await manager.loadSession(itemId, sessionId);
+        if (session) {
+          containers.forEach((cont) => {
+            const sessionInfo = getContainerSessionInfo(cont);
+            if (
+              sessionInfo &&
+              sessionInfo.itemId === itemId &&
+              sessionInfo.sessionId === sessionId
+            ) {
+              const chatHistory = getChatHistory(cont);
+              const emptyState = cont.querySelector(
+                "#chat-empty-state",
+              ) as HTMLElement;
+              if (chatHistory) {
+                renderMessageElements(
+                  chatHistory,
+                  emptyState,
+                  session.messages,
+                  getCurrentTheme(),
+                  false,
+                );
+              }
+            }
+          });
+        }
       }
     },
   });
@@ -1794,7 +2175,10 @@ export function unregisterToolbarButton(): void {
 /**
  * Create context for event handlers
  */
-function createContext(container: HTMLElement): ChatPanelContext {
+function createContext(
+  container: HTMLElement,
+  viewId: string,
+): ChatPanelContext {
   const manager = getChatManager();
 
   // Create context object that will be returned
@@ -1932,12 +2316,22 @@ function createContext(container: HTMLElement): ChatPanelContext {
           "#chat-empty-state",
         ) as HTMLElement;
         if (chatHistory) {
+          // Check if the current session is streaming
+          const sessionInfo = getContainerSessionInfo(container);
+          let isStreaming = false;
+          if (sessionInfo) {
+            const state = getSessionStreamingState(
+              sessionInfo.itemId,
+              sessionInfo.sessionId,
+            );
+            isStreaming = state.isStreaming;
+          }
           renderMessageElements(
             chatHistory,
             emptyState,
             messages,
             getCurrentTheme(),
-            isGloballyStreaming,
+            isStreaming,
           );
         }
       }
@@ -2302,6 +2696,8 @@ function createContext(container: HTMLElement): ChatPanelContext {
         );
       }
     },
+    // View identification
+    getViewId: () => viewId,
   };
 
   // Set the current context for event handlers
@@ -2315,7 +2711,7 @@ function createContext(container: HTMLElement): ChatPanelContext {
  */
 async function initializeChatContent(): Promise<void> {
   if (!chatContainer) return;
-  await initializeChatContentCommon(chatContainer);
+  await initializeChatContentCommon(chatContainer, SIDEBAR_VIEW_ID);
 }
 
 /**

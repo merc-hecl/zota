@@ -93,6 +93,8 @@ export interface ChatPanelContext {
   removeImage: (imageId: string) => void;
   clearImages: () => void;
   updateImagePreview: () => void;
+  // View identification
+  getViewId?: () => string;
 }
 
 // HTML namespace for XHTML environment

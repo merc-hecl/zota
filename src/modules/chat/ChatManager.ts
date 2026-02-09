@@ -8,6 +8,7 @@ import type {
   ChatSession,
   SendMessageOptions,
   StreamCallbacks,
+  ChatManagerCallbacks,
 } from "../../types/chat";
 import type { ApiKeyProviderConfig } from "../../types/provider";
 import { StorageService } from "./StorageService";
@@ -23,11 +24,19 @@ export class ChatManager {
   private pdfExtractor: PdfExtractor;
 
   // UI callbacks
-  private onMessageUpdate?: (itemId: number, messages: ChatMessage[]) => void;
-  private onStreamingUpdate?: (itemId: number, content: string) => void;
-  private onError?: (error: Error) => void;
+  private onMessageUpdate?: (
+    itemId: number,
+    messages: ChatMessage[],
+    sessionId?: string,
+  ) => void;
+  private onStreamingUpdate?: (
+    itemId: number,
+    content: string,
+    sessionId?: string,
+  ) => void;
+  private onError?: (error: Error, itemId?: number, sessionId?: string) => void;
   private onPdfAttached?: () => void;
-  private onMessageComplete?: () => void;
+  private onMessageComplete?: (itemId?: number, sessionId?: string) => void;
 
   constructor() {
     this.storageService = new StorageService();
@@ -42,15 +51,9 @@ export class ChatManager {
   }
 
   /**
-   * 设置UI回调
+   * Set UI callbacks
    */
-  setCallbacks(callbacks: {
-    onMessageUpdate?: (itemId: number, messages: ChatMessage[]) => void;
-    onStreamingUpdate?: (itemId: number, content: string) => void;
-    onError?: (error: Error) => void;
-    onPdfAttached?: () => void;
-    onMessageComplete?: () => void;
-  }): void {
+  setCallbacks(callbacks: ChatManagerCallbacks): void {
     this.onMessageUpdate = callbacks.onMessageUpdate;
     this.onStreamingUpdate = callbacks.onStreamingUpdate;
     this.onError = callbacks.onError;
@@ -105,7 +108,7 @@ export class ChatManager {
       timestamp: Date.now(),
     };
     session.messages.push(errorMessage);
-    this.onMessageUpdate?.(itemId, session.messages);
+    this.onMessageUpdate?.(itemId, session.messages, session.id);
     await this.storageService.saveSession(session);
   }
 
@@ -152,7 +155,7 @@ export class ChatManager {
         timestamp: Date.now(),
       };
       session.messages.push(errorMessage);
-      this.onMessageUpdate?.(itemId, session.messages);
+      this.onMessageUpdate?.(itemId, session.messages, session.id);
       await this.storageService.saveSession(session);
       return;
     }
@@ -255,7 +258,7 @@ export class ChatManager {
 
     // Save session to persist user message
     await this.storageService.saveSession(session);
-    this.onMessageUpdate?.(itemId, session.messages);
+    this.onMessageUpdate?.(itemId, session.messages, session.id);
 
     // Create AI message placeholder
     const assistantMessage: ChatMessage = {
@@ -266,7 +269,7 @@ export class ChatManager {
     };
 
     session.messages.push(assistantMessage);
-    this.onMessageUpdate?.(itemId, session.messages);
+    this.onMessageUpdate?.(itemId, session.messages, session.id);
 
     // Log API request info
     ztoolkit.log("[API Request] Sending to provider:", provider.getName());
@@ -276,13 +279,39 @@ export class ChatManager {
       options.images ? options.images.length : 0,
     );
 
+    // Store session ID for callbacks
+    const currentSessionId = session.id;
+
+    // Throttle save during streaming to reduce IO overhead
+    let lastSaveTime = 0;
+    let chunkCount = 0;
+    const SAVE_INTERVAL_MS = 500; // Save at most every 500ms
+    const SAVE_EVERY_N_CHUNKS = 10; // Or every 10 chunks
+
     // Call API
     const attemptRequest = async (): Promise<void> => {
       return new Promise((resolve) => {
         const callbacks: StreamCallbacks = {
-          onChunk: (chunk: string) => {
+          onChunk: async (chunk: string) => {
             assistantMessage.content += chunk;
-            this.onStreamingUpdate?.(itemId, assistantMessage.content);
+            chunkCount++;
+
+            // Throttle save during streaming to reduce IO overhead
+            const now = Date.now();
+            const shouldSave =
+              now - lastSaveTime > SAVE_INTERVAL_MS ||
+              chunkCount % SAVE_EVERY_N_CHUNKS === 0;
+
+            if (shouldSave) {
+              lastSaveTime = now;
+              await this.storageService.saveSession(session);
+            }
+
+            this.onStreamingUpdate?.(
+              itemId,
+              assistantMessage.content,
+              currentSessionId,
+            );
           },
           onComplete: async (fullContent: string) => {
             assistantMessage.content = fullContent;
@@ -298,12 +327,12 @@ export class ChatManager {
             }
 
             await this.storageService.saveSession(session);
-            this.onMessageUpdate?.(itemId, session.messages);
+            this.onMessageUpdate?.(itemId, session.messages, currentSessionId);
 
             if (pdfWasAttached) {
               this.onPdfAttached?.();
             }
-            this.onMessageComplete?.();
+            this.onMessageComplete?.(itemId, currentSessionId);
             resolve();
           },
           onError: async (error: Error) => {
@@ -320,8 +349,8 @@ export class ChatManager {
             };
             session.messages.push(errorMessage);
 
-            this.onError?.(error);
-            this.onMessageUpdate?.(itemId, session.messages);
+            this.onError?.(error, itemId, currentSessionId);
+            this.onMessageUpdate?.(itemId, session.messages, currentSessionId);
             await this.storageService.saveSession(session);
             resolve();
           },
@@ -364,6 +393,29 @@ export class ChatManager {
     const newSession = await this.storageService.createNewSession(itemId);
     this.activeSessions.set(itemId, newSession);
     return newSession;
+  }
+
+  /**
+   * Get specific session by itemId and sessionId (sync - from memory cache only)
+   */
+  getSession(itemId: number, sessionId: string): ChatSession | null {
+    // Check memory cache first
+    const activeSession = this.activeSessions.get(itemId);
+    if (activeSession && activeSession.id === sessionId) {
+      return activeSession;
+    }
+    // Return null if not in cache - caller should handle async loading if needed
+    return null;
+  }
+
+  /**
+   * Load specific session from storage (async)
+   */
+  async loadSession(
+    itemId: number,
+    sessionId: string,
+  ): Promise<ChatSession | null> {
+    return await this.storageService.loadSession(itemId, sessionId);
   }
 
   /**
@@ -415,7 +467,7 @@ export class ChatManager {
   async clearCurrentSession(itemId: number): Promise<ChatSession> {
     // Create new session as current active session
     const newSession = await this.createNewSession(itemId);
-    this.onMessageUpdate?.(itemId, newSession.messages);
+    this.onMessageUpdate?.(itemId, newSession.messages, newSession.id);
     return newSession;
   }
 

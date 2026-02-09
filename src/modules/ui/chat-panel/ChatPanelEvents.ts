@@ -26,10 +26,15 @@ import type { PanelMode } from "./ChatPanelManager";
 import {
   getIsGloballyStreaming,
   getIsSendingMessage,
-  setIsSendingMessage,
+  setIsSendingMessageForContainer,
   getChatContainer,
   getFloatingContainer,
+  updateSendButtonStateForContainer as updateContainerSendButtonState,
 } from "./ChatPanelManager";
+import {
+  setActiveSessionId,
+  getSessionStreamingState,
+} from "./StreamingStateManager";
 import { startStreamingScroll } from "./AutoScrollManager";
 import { getNoteExportService } from "../../chat";
 import {
@@ -269,17 +274,12 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
   // Reference close buttons are handled by updateUnifiedReferenceDisplay
 
-  // Initialize send button state based on global streaming or sending state
+  // Initialize send button state - button starts enabled
+  // The actual state will be updated by ChatPanelManager based on the session state
   if (sendButton) {
-    if (getIsGloballyStreaming() || getIsSendingMessage()) {
-      sendButton.disabled = true;
-      sendButton.style.opacity = "0.5";
-      sendButton.style.cursor = "not-allowed";
-    } else {
-      sendButton.disabled = false;
-      sendButton.style.opacity = "1";
-      sendButton.style.cursor = "pointer";
-    }
+    sendButton.disabled = false;
+    sendButton.style.opacity = "1";
+    sendButton.style.cursor = "pointer";
   }
 
   // Initialize input with global text (in case it was set by another view)
@@ -395,13 +395,25 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   // Send button
   sendButton?.addEventListener("click", async () => {
     ztoolkit.log("Send button clicked");
-    // Block send button while AI is responding or message is being sent
-    if (getIsGloballyStreaming() || getIsSendingMessage()) {
+
+    // Check if input is empty
+    const content = messageInput?.value?.trim() || "";
+    const images = context.getImages();
+
+    // Don't send if there's no content and no images
+    if (!content && images.length === 0) {
+      ztoolkit.log("Send button clicked but input is empty, ignoring");
+      return;
+    }
+
+    // Block send button while AI is responding or message is being sent in this container
+    if (sendButton?.disabled) {
       ztoolkit.log(
         "Send button blocked - AI is responding or message is being sent",
       );
       return;
     }
+
     ztoolkit.log("[Send] attachPdfCheckbox element:", attachPdfCheckbox);
     ztoolkit.log(
       "[Send] attachPdfCheckbox.checked:",
@@ -413,6 +425,7 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       sendButton,
       attachPdfCheckbox,
       attachmentsPreview,
+      container,
     );
   });
 
@@ -467,13 +480,25 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      // Block Enter key while sending or AI is responding
-      if (getIsSendingMessage() || getIsGloballyStreaming()) {
+
+      // Check if input is empty
+      const content = messageInput?.value?.trim() || "";
+      const images = context.getImages();
+
+      // Don't send if there's no content and no images
+      if (!content && images.length === 0) {
+        ztoolkit.log("Enter key pressed but input is empty, ignoring");
+        return;
+      }
+
+      // Block Enter key while sending or AI is responding in this container
+      if (sendButton?.disabled) {
         ztoolkit.log(
           "Enter key blocked - message is being sent or AI is responding",
         );
         return;
       }
+
       ztoolkit.log("Enter key pressed to send");
       ztoolkit.log("[Send] attachPdfCheckbox element:", attachPdfCheckbox);
       ztoolkit.log(
@@ -486,6 +511,7 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         sendButton,
         attachPdfCheckbox,
         attachmentsPreview,
+        container,
       );
     }
   });
@@ -556,7 +582,18 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
     // Create new session instead of clearing current one
     // This preserves all historical sessions
-    await chatManager.createNewSession(item!.id);
+    const newSession = await chatManager.createNewSession(item!.id);
+
+    // Update active session tracking for this container
+    const { setActiveSessionId, setViewSession } =
+      await import("./StreamingStateManager");
+    setActiveSessionId(item!.id, newSession.id);
+
+    // Also update view session in state manager
+    const viewId = context.getViewId?.();
+    if (viewId) {
+      setViewSession(viewId, item!.id, newSession.id);
+    }
 
     // Clear attachments (text quote)
     context.clearAttachments();
@@ -577,7 +614,20 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       emptyState.style.display = "flex";
     }
 
-    ztoolkit.log("New chat started for item:", item!.id);
+    // Reset send button state for the new session
+    // New session should always have button enabled
+    if (sendButton) {
+      sendButton.disabled = false;
+      sendButton.style.opacity = "1";
+      sendButton.style.cursor = "pointer";
+    }
+
+    ztoolkit.log(
+      "New chat started for item:",
+      item!.id,
+      "session:",
+      newSession.id,
+    );
   });
 
   // History button - toggle dropdown with pagination
@@ -688,7 +738,88 @@ export function setupEventHandlers(context: ChatPanelContext): void {
           // Always set the current item
           context.setCurrentItem(itemForSession);
           context.updatePdfCheckboxVisibility(itemForSession);
-          context.renderMessages(loadedSession.messages);
+
+          // Update active session tracking for this container
+          setActiveSessionId(session.itemId, session.sessionId);
+
+          // Also update ChatPanelManager's session tracking
+          const { setContainerActiveSession } =
+            await import("./ChatPanelManager");
+          setContainerActiveSession(
+            container,
+            session.itemId,
+            session.sessionId,
+          );
+
+          // Check if the target session is currently streaming
+          const sessionState = getSessionStreamingState(
+            session.itemId,
+            session.sessionId,
+          );
+
+          // Also check if there's an empty assistant message at the end
+          // This indicates we're waiting for AI response
+          const lastMessage =
+            loadedSession.messages[loadedSession.messages.length - 1];
+          const hasEmptyAssistantMessage =
+            lastMessage?.role === "assistant" &&
+            (!lastMessage.content || lastMessage.content === "");
+
+          // Should show streaming UI if:
+          // 1. State says we're streaming, OR
+          // 2. There's an empty assistant message (waiting for response)
+          const shouldShowStreaming =
+            sessionState.isStreaming || hasEmptyAssistantMessage;
+
+          ztoolkit.log(
+            "[SessionSwitch] Session:",
+            session.sessionId,
+            "isStreaming:",
+            sessionState.isStreaming,
+            "hasEmptyAssistant:",
+            hasEmptyAssistantMessage,
+            "shouldShowStreaming:",
+            shouldShowStreaming,
+          );
+
+          // Render messages with correct streaming state
+          const chatHistory = container.querySelector(
+            "#chat-history",
+          ) as HTMLElement;
+          const emptyState = container.querySelector(
+            "#chat-empty-state",
+          ) as HTMLElement;
+          if (chatHistory) {
+            const { renderMessages } = await import("./MessageRenderer");
+            renderMessages(
+              chatHistory,
+              emptyState,
+              loadedSession.messages,
+              getCurrentTheme(),
+              shouldShowStreaming,
+            );
+
+            // If the session is streaming, ensure streaming scroll is active
+            if (shouldShowStreaming) {
+              const { startStreamingScroll } =
+                await import("./AutoScrollManager");
+              startStreamingScroll(chatHistory);
+            }
+          }
+
+          // Update send button state based on the new session's state
+          const sendButton = container.querySelector(
+            "#chat-send-button",
+          ) as HTMLButtonElement;
+          if (sendButton) {
+            const shouldDisable =
+              sessionState.isStreaming ||
+              sessionState.isSending ||
+              hasEmptyAssistantMessage;
+            sendButton.disabled = shouldDisable;
+            sendButton.style.opacity = shouldDisable ? "0.5" : "1";
+            sendButton.style.cursor = shouldDisable ? "not-allowed" : "pointer";
+          }
         }
       },
       // onDelete callback
@@ -1041,13 +1172,18 @@ async function sendMessage(
   sendButton: HTMLButtonElement | null,
   attachPdfCheckbox: HTMLInputElement | null,
   _attachmentsPreview: HTMLElement | null,
+  container: HTMLElement,
 ): Promise<void> {
-  // Prevent duplicate sends or sending while AI is responding
-  if (getIsSendingMessage() || getIsGloballyStreaming()) return;
-
   const content = messageInput?.value?.trim() || "";
+  const images = context.getImages();
 
-  const { chatManager, container } = context;
+  // Don't send if there's no content and no images
+  if (!content && images.length === 0) {
+    ztoolkit.log("[SendMessage] Empty message, not sending");
+    return;
+  }
+
+  const { chatManager } = context;
 
   // Get active reader item first (used for PDF attachment)
   const activeReaderItem = getActiveReaderItem();
@@ -1070,10 +1206,7 @@ async function sendMessage(
   }
 
   // Get images after setting the correct current item
-  const images = context.getImages();
-
-  // Allow sending if there's content or images
-  if (!content && images.length === 0) return;
+  const currentImages = context.getImages();
 
   // Check provider authentication/readiness
   const providerManager = getProviderManager();
@@ -1084,8 +1217,8 @@ async function sendMessage(
     return;
   }
 
-  // Set sending state and disable send button
-  setIsSendingMessage(true);
+  // Set sending state for this container and disable send button
+  setIsSendingMessageForContainer(container, true);
   if (sendButton) {
     sendButton.disabled = true;
     sendButton.style.opacity = "0.5";
@@ -1163,16 +1296,24 @@ async function sendMessage(
       .sendMessage(content, {
         item: targetItem,
         attachPdf: shouldAttachPdf,
-        images: images.length > 0 ? images : undefined,
+        images: currentImages.length > 0 ? currentImages : undefined,
         ...attachmentOptions,
       })
       .catch((error) => {
         ztoolkit.log("Error in sendMessage:", error);
+        // Re-enable send button on error
+        setIsSendingMessageForContainer(container, false);
+        if (sendButton) {
+          sendButton.disabled = false;
+          sendButton.style.opacity = "1";
+          sendButton.style.cursor = "pointer";
+        }
+        messageInput?.focus();
       });
   } catch (error) {
     ztoolkit.log("Error in sendMessage:", error);
     // Re-enable send button on error
-    setIsSendingMessage(false);
+    setIsSendingMessageForContainer(container, false);
     if (sendButton) {
       sendButton.disabled = false;
       sendButton.style.opacity = "1";

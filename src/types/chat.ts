@@ -76,6 +76,23 @@ export interface StreamCallbacks {
   onError: (error: Error) => void;
 }
 
+// Chat manager callbacks with session identification
+export interface ChatManagerCallbacks {
+  onMessageUpdate?: (
+    itemId: number,
+    messages: ChatMessage[],
+    sessionId?: string,
+  ) => void;
+  onStreamingUpdate?: (
+    itemId: number,
+    content: string,
+    sessionId?: string,
+  ) => void;
+  onError?: (error: Error, itemId?: number, sessionId?: string) => void;
+  onPdfAttached?: () => void;
+  onMessageComplete?: (itemId?: number, sessionId?: string) => void;
+}
+
 // Send message options
 export interface SendMessageOptions {
   attachPdf?: boolean;
