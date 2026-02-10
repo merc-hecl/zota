@@ -4,7 +4,7 @@
  * Uses marked.js to convert Markdown to HTML
  */
 
-import type { ChatSession } from "../../types/chat";
+import type { ChatSession, ChatMessage } from "../../types/chat";
 import { marked } from "marked";
 
 export class NoteExportService {
@@ -14,29 +14,30 @@ export class NoteExportService {
    * - Session title as H1
    * - User questions as H2
    * - AI responses as content
+   * - Include quotes (selectedText) and images
    */
-  generateMarkdown(session: ChatSession): string {
+  generateMarkdown(
+    session: ChatSession,
+    imagePaths: Map<string, string>,
+  ): string {
     let markdown = "";
 
-    // Filter out empty and system messages
-    const validMessages = session.messages.filter(
-      (msg) =>
-        msg.content && msg.content.trim() !== "" && msg.role !== "system",
-    );
+    // Filter out system messages, but keep messages with quotes or images even if content is empty
+    const validMessages = session.messages.filter((msg) => {
+      if (msg.role === "system") return false;
+      // Keep if has content, or has selectedText, or has images
+      const hasContent = msg.content && msg.content.trim() !== "";
+      const hasQuote = msg.selectedText && msg.selectedText.trim() !== "";
+      const hasImages = msg.images && msg.images.length > 0;
+      return hasContent || hasQuote || hasImages;
+    });
 
     // Get session title, use first user question if not available
     let sessionTitle = session.title;
     if (!sessionTitle || sessionTitle === "未命名会话") {
       const firstUserMessage = validMessages.find((msg) => msg.role === "user");
       if (firstUserMessage) {
-        let question = firstUserMessage.content;
-        question = question.replace(
-          /\[PDF Content\]:[\s\S]*?(?=\[Question\]:|$)/,
-          "",
-        );
-        question = question.replace(/^\[Question\]:\s*/, "");
-        question = question.replace(/^\[Selected[^\]]*\]:\s*/g, "");
-        question = question.trim();
+        const question = this.extractUserQuestion(firstUserMessage);
         sessionTitle =
           question.length > 50 ? question.substring(0, 50) + "..." : question;
       }
@@ -49,24 +50,32 @@ export class NoteExportService {
 
     for (const message of validMessages) {
       if (message.role === "user") {
-        let question = message.content;
-
-        // Remove PDF content section
-        question = question.replace(
-          /\[PDF Content\]:[\s\S]*?(?=\[Question\]:|$)/,
-          "",
-        );
-
-        // Remove Question prefix
-        question = question.replace(/^\[Question\]:\s*/, "");
-
-        // Remove Selected text prefix
-        question = question.replace(/^\[Selected[^\]]*\]:\s*/g, "");
-
-        question = question.trim();
+        const question = this.extractUserQuestion(message);
 
         if (question) {
           markdown += `## ${question}\n\n`;
+        }
+
+        // Add quoted text if exists
+        if (message.selectedText && message.selectedText.trim()) {
+          const quoteLines = message.selectedText
+            .trim()
+            .split("\n")
+            .map((line) => `> ${line}`)
+            .join("\n");
+          markdown += `${quoteLines}\n\n`;
+        }
+
+        // Add image path hints if images exist
+        if (message.images && message.images.length > 0) {
+          markdown += `> 📎 **Images:**\n`;
+          for (const image of message.images) {
+            const filePath = imagePaths.get(image.id);
+            if (filePath) {
+              markdown += `> - ${filePath}\n`;
+            }
+          }
+          markdown += `\n`;
         }
       } else if (message.role === "assistant") {
         const answer = message.content.trim();
@@ -77,6 +86,101 @@ export class NoteExportService {
     }
 
     return markdown.trim();
+  }
+
+  /**
+   * Extract user question from message content
+   * Removes PDF content and selected text prefixes
+   */
+  private extractUserQuestion(message: ChatMessage): string {
+    if (!message.content) return "";
+
+    let question = message.content;
+
+    // Remove PDF content section
+    question = question.replace(
+      /\[PDF Content\]:[\s\S]*?(?=\[Question\]:|$)/,
+      "",
+    );
+
+    // Remove Selected text section (including the quoted text after it)
+    // This handles multiline selected text
+    question = question.replace(
+      /\[Selected[^\]]*\]:\s*"?[\s\S]*?(?=\[Question\]:|$)/,
+      "",
+    );
+
+    // Remove Question prefix
+    question = question.replace(/^\[Question\]:\s*/, "");
+
+    question = question.trim();
+
+    return question;
+  }
+
+  /**
+   * Save images to Zotero storage and return file paths
+   */
+  private async saveImages(session: ChatSession): Promise<Map<string, string>> {
+    const imagePaths = new Map<string, string>();
+
+    for (const message of session.messages) {
+      if (message.images && message.images.length > 0) {
+        for (const image of message.images) {
+          try {
+            // Decode base64 to binary
+            const binaryString = atob(
+              image.base64.split(",")[1] || image.base64,
+            );
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            // Create file name
+            const extension = this.getExtensionFromMimeType(image.mimeType);
+            const fileName = `chat-image-${image.id}.${extension}`;
+
+            // Get Zotero directory
+            const storageDir = Zotero.getZoteroDirectory().path;
+            const sessionDir = PathUtils.join(
+              storageDir,
+              "chat-images",
+              session.id,
+            );
+
+            // Ensure directory exists
+            await IOUtils.makeDirectory(sessionDir, { createAncestors: true });
+
+            // Save file
+            const filePath = PathUtils.join(sessionDir, fileName);
+            await IOUtils.write(filePath, bytes);
+
+            imagePaths.set(image.id, filePath);
+          } catch (error) {
+            ztoolkit.log("Error saving image:", error);
+            imagePaths.set(image.id, "[Failed to save image]");
+          }
+        }
+      }
+    }
+
+    return imagePaths;
+  }
+
+  /**
+   * Get file extension from MIME type
+   */
+  private getExtensionFromMimeType(mimeType: string): string {
+    const mimeToExt: Record<string, string> = {
+      "image/png": "png",
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/gif": "gif",
+      "image/webp": "webp",
+      "image/svg+xml": "svg",
+    };
+    return mimeToExt[mimeType] || "png";
   }
 
   /**
@@ -140,8 +244,13 @@ export class NoteExportService {
   /**
    * Generate HTML content for the note
    */
-  generateHtml(session: ChatSession): string {
-    const markdown = this.generateMarkdown(session);
+  async generateHtml(session: ChatSession): Promise<string> {
+    // Save images and get file paths
+    const imagePaths = await this.saveImages(session);
+
+    // Generate markdown with image path hints
+    const markdown = this.generateMarkdown(session, imagePaths);
+
     return this.markdownToHtml(markdown);
   }
 
@@ -185,7 +294,7 @@ export class NoteExportService {
         }
       }
 
-      const noteContent = this.generateHtml(session);
+      const noteContent = await this.generateHtml(session);
       const noteTitle = session.title || "未命名会话";
 
       let noteItem: Zotero.Item;
