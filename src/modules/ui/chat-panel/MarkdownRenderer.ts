@@ -26,43 +26,42 @@ md.block.ruler.before(
   "fence",
   "math_block",
   (state, startLine, endLine, silent) => {
-    const marker = state.src
-      .slice(
-        state.bMarks[startLine] + state.tShift[startLine],
-        state.eMarks[startLine],
-      )
-      .trim();
+    const line = state.src.slice(
+      state.bMarks[startLine] + state.tShift[startLine],
+      state.eMarks[startLine],
+    );
 
-    // Check for display math: $$...$$ or \[ ... \]
-    if (marker.startsWith("$$")) {
+    const trimmedLine = line.trim();
+
+    if (trimmedLine.startsWith("$$")) {
       if (silent) return true;
 
       let nextLine = startLine;
       let content = "";
       let found = false;
 
-      // Single line math
-      if (marker.endsWith("$$") && marker.length > 4) {
-        content = marker.slice(2, -2);
+      if (trimmedLine.endsWith("$$") && trimmedLine.length > 4) {
+        content = trimmedLine.slice(2, -2).trim();
         found = true;
         nextLine = startLine + 1;
       } else {
-        // Multi-line math
-        content = marker.slice(2);
+        content = trimmedLine.slice(2);
         nextLine = startLine + 1;
 
         while (nextLine < endLine) {
-          const line = state.src.slice(
+          const nextLineContent = state.src.slice(
             state.bMarks[nextLine] + state.tShift[nextLine],
             state.eMarks[nextLine],
           );
-          if (line.trim().endsWith("$$")) {
-            content += "\n" + line.slice(0, line.lastIndexOf("$$"));
+          const trimmedNextLine = nextLineContent.trim();
+          if (trimmedNextLine.endsWith("$$")) {
+            const endIndex = trimmedNextLine.lastIndexOf("$$");
+            content += "\n" + trimmedNextLine.slice(0, endIndex);
             found = true;
             nextLine++;
             break;
           }
-          content += "\n" + line;
+          content += "\n" + nextLineContent;
           nextLine++;
         }
       }
@@ -75,36 +74,35 @@ md.block.ruler.before(
       token.markup = "$$";
       state.line = nextLine;
       return true;
-    } else if (marker.startsWith("\\[")) {
-      // LaTeX style display math: \[ ... \]
+    } else if (trimmedLine.startsWith("\\[")) {
       if (silent) return true;
 
       let nextLine = startLine;
       let content = "";
       let found = false;
 
-      // Single line math
-      if (marker.endsWith("\\]") && marker.length > 4) {
-        content = marker.slice(2, -2);
+      if (trimmedLine.endsWith("\\]") && trimmedLine.length > 4) {
+        content = trimmedLine.slice(2, -2).trim();
         found = true;
         nextLine = startLine + 1;
       } else {
-        // Multi-line math
-        content = marker.slice(2);
+        content = trimmedLine.slice(2);
         nextLine = startLine + 1;
 
         while (nextLine < endLine) {
-          const line = state.src.slice(
+          const nextLineContent = state.src.slice(
             state.bMarks[nextLine] + state.tShift[nextLine],
             state.eMarks[nextLine],
           );
-          if (line.trim().endsWith("\\]")) {
-            content += "\n" + line.slice(0, line.lastIndexOf("\\]"));
+          const trimmedNextLine = nextLineContent.trim();
+          if (trimmedNextLine.endsWith("\\]")) {
+            const endIndex = trimmedNextLine.lastIndexOf("\\]");
+            content += "\n" + trimmedNextLine.slice(0, endIndex);
             found = true;
             nextLine++;
             break;
           }
-          content += "\n" + line;
+          content += "\n" + nextLineContent;
           nextLine++;
         }
       }
@@ -128,11 +126,9 @@ md.inline.ruler.after("escape", "math_inline", (state, silent) => {
   const pos = state.pos;
   const marker = state.src.slice(pos, pos + 1);
 
-  // Check for inline math: $...$ or \( ... \)
   if (marker === "$") {
-    // Standard LaTeX: $...$
     if (state.src.charCodeAt(pos + 1) === 0x24) {
-      return false; // $$ is for block math
+      return false;
     }
 
     const endMarker = "$";
@@ -140,7 +136,6 @@ md.inline.ruler.after("escape", "math_inline", (state, silent) => {
 
     while (endPos < state.posMax) {
       if (state.src.slice(endPos, endPos + 1) === endMarker) {
-        // Skip escaped dollar signs
         if (state.src.charCodeAt(endPos - 1) === 0x5c) {
           endPos++;
           continue;
@@ -152,16 +147,17 @@ md.inline.ruler.after("escape", "math_inline", (state, silent) => {
 
     if (endPos >= state.posMax) return false;
 
+    const content = state.src.slice(pos + 1, endPos).trim();
+    if (!content) return false;
+
     if (silent) return true;
 
-    const content = state.src.slice(pos + 1, endPos);
     const token = state.push("math_inline", "span", 0);
     token.content = content;
     token.markup = "$";
     state.pos = endPos + 1;
     return true;
   } else if (marker === "\\" && state.src.slice(pos + 1, pos + 2) === "(") {
-    // LaTeX style: \( ... \)
     let endPos = pos + 2;
 
     while (endPos < state.posMax - 1) {
@@ -176,9 +172,11 @@ md.inline.ruler.after("escape", "math_inline", (state, silent) => {
 
     if (endPos >= state.posMax - 1) return false;
 
+    const content = state.src.slice(pos + 2, endPos).trim();
+    if (!content) return false;
+
     if (silent) return true;
 
-    const content = state.src.slice(pos + 2, endPos);
     const token = state.push("math_inline", "span", 0);
     token.content = content;
     token.markup = "\\(";
@@ -190,6 +188,22 @@ md.inline.ruler.after("escape", "math_inline", (state, silent) => {
 });
 
 /**
+ * Pre-process markdown content to ensure $$...$$ formulas are properly detected as block elements
+ * This works around markdown-it's requirement for empty lines before/after block-level elements
+ */
+function preprocessMathFormulas(markdown: string): string {
+  const processed = markdown.replace(
+    /(\$\$[\s\S]*?\$\$)/g,
+    (match) => `\n${match}\n`,
+  );
+  const processed2 = processed.replace(
+    /(\\\[[\s\S]*?\\\])/g,
+    (match) => `\n${match}\n`,
+  );
+  return processed2;
+}
+
+/**
  * Render LaTeX math to HTML using KaTeX
  */
 function renderMathToHTML(latex: string, displayMode: boolean): string {
@@ -198,9 +212,9 @@ function renderMathToHTML(latex: string, displayMode: boolean): string {
       displayMode,
       throwOnError: false,
       strict: false,
+      output: "mathml",
     });
   } catch {
-    // Fallback: return the original LaTeX as text
     return displayMode ? `$$${latex}$$` : `$${latex}$`;
   }
 }
@@ -217,7 +231,8 @@ export function renderMarkdownToElement(
   const doc = element.ownerDocument;
   if (!doc) return;
 
-  const tokens = md.parse(markdownContent, {});
+  const processedContent = preprocessMathFormulas(markdownContent);
+  const tokens = md.parse(processedContent, {});
   const container = buildDOMFromTokens(doc, tokens);
 
   while (container.firstChild) {
@@ -454,12 +469,20 @@ export function buildDOMFromTokens(
         break;
 
       case "math_block": {
-        // Render display math (block-level)
         const mathHtml = renderMathToHTML(token.content, true);
         const wrapper = doc.createElementNS(HTML_NS, "div") as HTMLElement;
-        wrapper.style.margin = "10px 0";
+        wrapper.style.margin = "0";
         wrapper.style.overflow = "auto";
-        renderMathHTMLToDOM(doc, wrapper, mathHtml);
+        wrapper.style.fontSize = "14px";
+        wrapper.style.textAlign = "center";
+
+        const parser = new DOMParser();
+        const mathDoc = parser.parseFromString(mathHtml, "text/html");
+        const mathContent = mathDoc.body.firstChild;
+        if (mathContent) {
+          wrapper.appendChild(doc.importNode(mathContent, true));
+        }
+
         parent.appendChild(wrapper);
         break;
       }
@@ -561,10 +584,17 @@ export function renderInlineTokens(
         break;
 
       case "math_inline": {
-        // Render inline math
         const mathHtml = renderMathToHTML(token.content, false);
         const span = doc.createElementNS(HTML_NS, "span") as HTMLElement;
-        renderMathHTMLToDOM(doc, span, mathHtml);
+        span.style.fontSize = "14px";
+
+        const parser = new DOMParser();
+        const mathDoc = parser.parseFromString(mathHtml, "text/html");
+        const mathContent = mathDoc.body.firstChild;
+        if (mathContent) {
+          span.appendChild(doc.importNode(mathContent, true));
+        }
+
         current.appendChild(span);
         break;
       }
@@ -589,7 +619,8 @@ function renderMathHTMLToDOM(
   parent: HTMLElement,
   html: string,
 ): void {
-  // Use a stack-based parser to handle nested HTML tags
+  const mmlNS = "http://www.w3.org/1998/Math/MathML";
+
   const stack: Array<{ element: HTMLElement; tagName: string }> = [
     { element: parent, tagName: "root" },
   ];
@@ -600,12 +631,10 @@ function renderMathHTMLToDOM(
   while (pos < len) {
     const current = stack[stack.length - 1];
 
-    // Check for closing tag
     if (html.startsWith("</", pos)) {
       const closeMatch = html.slice(pos).match(/^<\/([a-zA-Z][a-zA-Z0-9]*)>/);
       if (closeMatch) {
         const tagName = closeMatch[1].toLowerCase();
-        // Pop until we find the matching opening tag
         while (
           stack.length > 1 &&
           stack[stack.length - 1].tagName !== tagName
@@ -620,19 +649,17 @@ function renderMathHTMLToDOM(
       }
     }
 
-    // Check for opening tag
     if (html[pos] === "<") {
       const openMatch = html
         .slice(pos)
         .match(/^<([a-zA-Z][a-zA-Z0-9]*)([^>]*)>/);
       if (openMatch) {
-        const tagName = openMatch[1].toLowerCase();
+        const rawTagName = openMatch[1];
+        const tagName = rawTagName.toLowerCase();
         const attrs = openMatch[2];
 
-        // Skip self-closing tags and special elements
         if (tagName === "annotation" || tagName === "semantics") {
-          // Find the closing tag and skip everything in between
-          const closeTag = `</${tagName}>`;
+          const closeTag = `</${rawTagName}>`;
           const closePos = html.indexOf(closeTag, pos + openMatch[0].length);
           if (closePos !== -1) {
             pos = closePos + closeTag.length;
@@ -642,10 +669,11 @@ function renderMathHTMLToDOM(
           continue;
         }
 
-        // Create the element
-        const element = doc.createElementNS(HTML_NS, tagName) as HTMLElement;
+        const element = doc.createElementNS(
+          tagName === "math" ? mmlNS : HTML_NS,
+          rawTagName,
+        ) as HTMLElement;
 
-        // Parse attributes
         const classMatch = attrs.match(/class="([^"]*)"/);
         if (classMatch) {
           element.setAttribute("class", classMatch[1]);
@@ -661,7 +689,6 @@ function renderMathHTMLToDOM(
 
         current.element.appendChild(element);
 
-        // Check if self-closing
         if (
           attrs.endsWith("/") ||
           html[pos + openMatch[0].length - 2] === "/"
@@ -670,14 +697,12 @@ function renderMathHTMLToDOM(
           continue;
         }
 
-        // Push to stack for nested content
         stack.push({ element, tagName });
         pos += openMatch[0].length;
         continue;
       }
     }
 
-    // Check for HTML entities
     if (html[pos] === "&") {
       const entityMatch = html
         .slice(pos)
@@ -720,7 +745,6 @@ function renderMathHTMLToDOM(
       }
     }
 
-    // Collect text content
     let textEnd = pos;
     while (textEnd < len && html[textEnd] !== "<" && html[textEnd] !== "&") {
       textEnd++;
@@ -729,7 +753,6 @@ function renderMathHTMLToDOM(
       current.element.appendChild(doc.createTextNode(html.slice(pos, textEnd)));
       pos = textEnd;
     } else {
-      // Skip unknown character
       pos++;
     }
   }
