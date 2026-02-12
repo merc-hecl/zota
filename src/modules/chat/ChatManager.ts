@@ -576,20 +576,12 @@ export class ChatManager {
   async deleteSession(itemId: number, sessionId: string): Promise<void> {
     await this.storageService.deleteSession(itemId, sessionId);
 
-    // If deleted session was active, switch to another or create new
+    // If deleted session was active, always create new session to show empty state
     const currentSession = this.activeSessions.get(itemId);
     if (currentSession && currentSession.id === sessionId) {
-      // Try to get other sessions for this document
-      const remainingSessions = await this.getSessionsForItem(itemId);
-      const nonEmptySessions = remainingSessions.filter((s) => !s.isEmpty);
-
-      if (nonEmptySessions.length > 0) {
-        // Switch to latest non-empty session
-        await this.switchSession(itemId, nonEmptySessions[0].sessionId);
-      } else {
-        // Create new session
-        await this.createNewSession(itemId);
-      }
+      // Create new session and update UI to show empty state
+      const newSession = await this.createNewSession(itemId);
+      this.onMessageUpdate?.(itemId, newSession.messages, newSession.id);
     }
   }
 

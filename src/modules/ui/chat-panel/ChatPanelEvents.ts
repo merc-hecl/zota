@@ -830,7 +830,48 @@ export function setupEventHandlers(context: ChatPanelContext): void {
           "for item:",
           session.itemId,
         );
+
+        // Check if this is the currently displayed session
+        const currentItem = context.getCurrentItem();
+        const isCurrentSession =
+          currentItem &&
+          currentItem.id === session.itemId &&
+          (await import("./StreamingStateManager")).getActiveSessionIdForItem(
+            session.itemId,
+          ) === session.sessionId;
+
         await chatManager.deleteSession(session.itemId, session.sessionId);
+
+        // If deleted session was currently displayed, update UI to show new session
+        if (isCurrentSession) {
+          const newSession = await chatManager.getActiveSession(session.itemId);
+          if (newSession) {
+            // Update container session tracking
+            setActiveSessionId(session.itemId, newSession.id);
+            const { setContainerActiveSession } =
+              await import("./ChatPanelManager");
+            setContainerActiveSession(container, session.itemId, newSession.id);
+
+            // Update UI to show empty state (new session)
+            const chatHistory = container.querySelector(
+              "#chat-history",
+            ) as HTMLElement;
+            const emptyState = container.querySelector(
+              "#chat-empty-state",
+            ) as HTMLElement;
+            if (chatHistory && emptyState) {
+              const { renderMessages } = await import("./MessageRenderer");
+              renderMessages(
+                chatHistory,
+                emptyState,
+                newSession.messages,
+                getCurrentTheme(),
+                false,
+              );
+            }
+          }
+        }
+
         // Refresh the dropdown to reflect the deletion
         await refreshHistoryDropdown();
       },
