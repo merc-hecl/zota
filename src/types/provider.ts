@@ -77,6 +77,7 @@ export interface ApiKeyProviderConfig extends BaseProviderConfig {
   temperature?: number;
   systemPrompt?: string;
   pdfMaxChars?: number;
+  streamingOutput?: boolean;
   // Support multiple endpoints with their API keys
   endpoints?: EndpointConfig[];
   // Persist current endpoint selection

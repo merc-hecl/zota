@@ -89,6 +89,8 @@ export type FluentMessageId =
   | 'pref-refresh-failed'
   | 'pref-refresh-models'
   | 'pref-show-key'
+  | 'pref-streaming-output'
+  | 'pref-streaming-output-hint'
   | 'pref-system-prompt'
   | 'pref-system-prompt-placeholder'
   | 'pref-temperature'

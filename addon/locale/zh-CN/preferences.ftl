@@ -14,6 +14,8 @@ pref-pdf-max-chars-hint = -1 表示完整上传 PDF，但 ⚠️ 会增加响应
 pref-system-prompt = 系统提示词
 pref-system-prompt-placeholder =
     .placeholder = 可选：自定义 AI 指令。注意：Markdown 格式要求（数学公式等）已内置。
+pref-streaming-output = 流式输出
+pref-streaming-output-hint = 开启后实时显示 AI 响应
 
 # Provider Settings
 pref-providers = 服务提供商

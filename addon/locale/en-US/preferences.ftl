@@ -13,7 +13,9 @@ pref-pdf-max-chars = PDF Max Chars
 pref-pdf-max-chars-hint = -1 for full PDF, but ⚠️ increases latency, memory usage and API costs
 pref-system-prompt = System Prompt
 pref-system-prompt-placeholder =
-    .placeholder = Optional: Custom instructions for the AI. Note: Markdown formatting requirements (for math formulas, etc.) are already built-in.
+    .placeholder = Optional: Custom instructions for AI. Note: Markdown formatting requirements (for math formulas, etc.) are already built-in.
+pref-streaming-output = Streaming Output
+pref-streaming-output-hint = Enable to see AI responses in real-time
 
 # Provider Settings
 pref-providers = Providers

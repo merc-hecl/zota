@@ -180,6 +180,9 @@ export function populateApiKeyPanel(
   const systemPromptEl = doc.getElementById(
     "pref-provider-systemprompt",
   ) as HTMLTextAreaElement;
+  const streamingOutputEl = doc.getElementById(
+    "pref-streaming-output",
+  ) as HTMLInputElement;
 
   if (titleEl && config.name) {
     titleEl.textContent = config.name;
@@ -276,6 +279,9 @@ export function populateApiKeyPanel(
       "pref-system-prompt-placeholder",
       "placeholder",
     );
+  }
+  if (streamingOutputEl) {
+    streamingOutputEl.checked = config.streamingOutput ?? true;
   }
 
   // Reset test result
@@ -610,6 +616,9 @@ export function saveCurrentProviderConfig(
   const systemPromptEl = doc.getElementById(
     "pref-provider-systemprompt",
   ) as HTMLTextAreaElement;
+  const streamingOutputEl = doc.getElementById(
+    "pref-streaming-output",
+  ) as HTMLInputElement;
 
   const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
   const currentApiKeyIndex = getCurrentApiKeyIndex(
@@ -650,6 +659,7 @@ export function saveCurrentProviderConfig(
     temperature: parseFloat(temperatureEl?.value) || 0.7,
     pdfMaxChars: parseInt(pdfMaxCharsEl?.value) || 50000,
     systemPrompt: systemPromptEl?.value || "",
+    streamingOutput: streamingOutputEl?.checked ?? true,
     endpoints,
   };
 
@@ -1637,6 +1647,14 @@ export function bindApiKeyEvents(
     "pref-provider-systemprompt",
   ) as HTMLTextAreaElement;
   systemPromptInput?.addEventListener("blur", () =>
+    saveCurrentProviderConfig(doc, getCurrentProviderId()),
+  );
+
+  // Streaming output
+  const streamingOutputInput = doc.getElementById(
+    "pref-streaming-output",
+  ) as HTMLInputElement;
+  streamingOutputInput?.addEventListener("command", () =>
     saveCurrentProviderConfig(doc, getCurrentProviderId()),
   );
 

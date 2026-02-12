@@ -51,6 +51,15 @@ export class ChatManager {
   }
 
   /**
+   * Check if streaming is enabled
+   */
+  private isStreamingEnabled(): boolean {
+    const provider = this.getActiveProvider();
+    if (!provider) return true;
+    return provider.config.streamingOutput ?? true;
+  }
+
+  /**
    * Set UI callbacks
    */
   setCallbacks(callbacks: ChatManagerCallbacks): void {
@@ -282,6 +291,9 @@ export class ChatManager {
     // Store session ID for callbacks
     const currentSessionId = session.id;
 
+    // Check if streaming is enabled
+    const isStreaming = this.isStreamingEnabled();
+
     // Throttle save during streaming to reduce IO overhead
     let lastSaveTime = 0;
     let chunkCount = 0;
@@ -291,76 +303,163 @@ export class ChatManager {
     // Call API
     const attemptRequest = async (): Promise<void> => {
       return new Promise((resolve) => {
-        const callbacks: StreamCallbacks = {
-          onChunk: async (chunk: string) => {
-            assistantMessage.content += chunk;
-            chunkCount++;
+        if (isStreaming) {
+          // Streaming mode
+          const callbacks: StreamCallbacks = {
+            onChunk: async (chunk: string) => {
+              assistantMessage.content += chunk;
+              chunkCount++;
 
-            // Throttle save during streaming to reduce IO overhead
-            const now = Date.now();
-            const shouldSave =
-              now - lastSaveTime > SAVE_INTERVAL_MS ||
-              chunkCount % SAVE_EVERY_N_CHUNKS === 0;
+              // Throttle save during streaming to reduce IO overhead
+              const now = Date.now();
+              const shouldSave =
+                now - lastSaveTime > SAVE_INTERVAL_MS ||
+                chunkCount % SAVE_EVERY_N_CHUNKS === 0;
 
-            if (shouldSave) {
-              lastSaveTime = now;
+              if (shouldSave) {
+                lastSaveTime = now;
+                await this.storageService.saveSession(session);
+              }
+
+              this.onStreamingUpdate?.(
+                itemId,
+                assistantMessage.content,
+                currentSessionId,
+              );
+            },
+            onComplete: async (fullContent: string) => {
+              assistantMessage.content = fullContent;
+              assistantMessage.timestamp = Date.now();
+              session.updatedAt = Date.now();
+
+              // Generate AI title for first round of conversation if no title exists
+              const validMessages = session.messages.filter(
+                (msg) => msg.content && msg.content.trim() !== "",
+              );
+              if (!session.title && validMessages.length <= 2) {
+                await this.generateSessionTitle(session, itemId);
+              }
+
               await this.storageService.saveSession(session);
-            }
+              this.onMessageUpdate?.(
+                itemId,
+                session.messages,
+                currentSessionId,
+              );
 
-            this.onStreamingUpdate?.(
-              itemId,
-              assistantMessage.content,
-              currentSessionId,
-            );
-          },
-          onComplete: async (fullContent: string) => {
-            assistantMessage.content = fullContent;
-            assistantMessage.timestamp = Date.now();
-            session.updatedAt = Date.now();
+              if (pdfWasAttached) {
+                this.onPdfAttached?.();
+              }
+              this.onMessageComplete?.(itemId, currentSessionId);
+              resolve();
+            },
+            onError: async (error: Error) => {
+              ztoolkit.log("[API Error]", error.message);
 
-            // Generate AI title for first round of conversation if no title exists
-            const validMessages = session.messages.filter(
-              (msg) => msg.content && msg.content.trim() !== "",
-            );
-            if (!session.title && validMessages.length <= 2) {
-              await this.generateSessionTitle(session, itemId);
-            }
+              // Show error message
+              session.messages.pop();
 
-            await this.storageService.saveSession(session);
-            this.onMessageUpdate?.(itemId, session.messages, currentSessionId);
+              const errorMessage: ChatMessage = {
+                id: this.generateId(),
+                role: "error",
+                content: error.message,
+                timestamp: Date.now(),
+              };
+              session.messages.push(errorMessage);
 
-            if (pdfWasAttached) {
-              this.onPdfAttached?.();
-            }
-            this.onMessageComplete?.(itemId, currentSessionId);
-            resolve();
-          },
-          onError: async (error: Error) => {
-            ztoolkit.log("[API Error]", error.message);
+              this.onError?.(error, itemId, currentSessionId);
+              this.onMessageUpdate?.(
+                itemId,
+                session.messages,
+                currentSessionId,
+              );
+              await this.storageService.saveSession(session);
+              resolve();
+            },
+          };
 
-            // Show error message
-            session.messages.pop();
+          provider.streamChatCompletion(
+            session.messages.slice(0, -1),
+            callbacks,
+          );
+        } else {
+          // Non-streaming mode
+          this.setSessionSendingState(itemId, currentSessionId, true);
 
-            const errorMessage: ChatMessage = {
-              id: this.generateId(),
-              role: "error",
-              content: error.message,
-              timestamp: Date.now(),
-            };
-            session.messages.push(errorMessage);
+          provider
+            .chatCompletion(session.messages.slice(0, -1))
+            .then(async (fullContent: string) => {
+              assistantMessage.content = fullContent;
+              assistantMessage.timestamp = Date.now();
+              session.updatedAt = Date.now();
 
-            this.onError?.(error, itemId, currentSessionId);
-            this.onMessageUpdate?.(itemId, session.messages, currentSessionId);
-            await this.storageService.saveSession(session);
-            resolve();
-          },
-        };
+              // Generate AI title for first round of conversation if no title exists
+              const validMessages = session.messages.filter(
+                (msg) => msg.content && msg.content.trim() !== "",
+              );
+              if (!session.title && validMessages.length <= 2) {
+                await this.generateSessionTitle(session, itemId);
+              }
 
-        provider.streamChatCompletion(session.messages.slice(0, -1), callbacks);
+              await this.storageService.saveSession(session);
+              this.onMessageUpdate?.(
+                itemId,
+                session.messages,
+                currentSessionId,
+              );
+
+              if (pdfWasAttached) {
+                this.onPdfAttached?.();
+              }
+              this.onMessageComplete?.(itemId, currentSessionId);
+              resolve();
+            })
+            .catch(async (error: Error) => {
+              ztoolkit.log("[API Error]", error.message);
+
+              // Show error message
+              session.messages.pop();
+
+              const errorMessage: ChatMessage = {
+                id: this.generateId(),
+                role: "error",
+                content: error.message,
+                timestamp: Date.now(),
+              };
+              session.messages.push(errorMessage);
+
+              this.onError?.(error, itemId, currentSessionId);
+              this.onMessageUpdate?.(
+                itemId,
+                session.messages,
+                currentSessionId,
+              );
+              await this.storageService.saveSession(session);
+              resolve();
+            })
+            .finally(() => {
+              this.setSessionSendingState(itemId, currentSessionId, false);
+            });
+        }
       });
     };
 
     await attemptRequest();
+  }
+
+  /**
+   * Set sending state for a session
+   */
+  private setSessionSendingState(
+    itemId: number,
+    sessionId: string,
+    isSending: boolean,
+  ): void {
+    // This is handled by the streaming state manager in the UI layer
+    // We just need to trigger the state update
+    if (isSending) {
+      this.onStreamingUpdate?.(itemId, "", sessionId);
+    }
   }
 
   /**
