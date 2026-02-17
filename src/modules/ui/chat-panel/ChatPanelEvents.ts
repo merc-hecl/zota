@@ -9,6 +9,8 @@ import {
   createElement,
   copyToClipboard,
   updateUnifiedReferenceDisplay,
+  showDropZone,
+  hideDropZone,
 } from "./ChatPanelBuilder";
 import { getCurrentTheme } from "./ChatPanelTheme";
 import {
@@ -45,7 +47,23 @@ import {
   navigateHistoryDown,
   resetHistoryNavigation,
 } from "./InputStateManager";
-import { clearImages, getImages, removeImage } from "./ImageStateManager";
+import {
+  clearImages,
+  getImages,
+  removeImage,
+  addImageFromBase64,
+} from "./ImageStateManager";
+import {
+  parseDataTransfer,
+  hasSupportedImageType,
+  type ParsedDragData,
+} from "./DataTransferParser";
+import {
+  incrementDrag,
+  decrementDrag,
+  resetDragState,
+  onDragStateChange,
+} from "./DragDropManager";
 
 // Import getActiveReaderItem from the manager module to avoid circular dependency
 // This is set by ChatPanelManager during initialization
@@ -328,10 +346,59 @@ export function setupEventHandlers(context: ChatPanelContext): void {
     }
   });
 
-  // Handle drag and drop events for images
+  // Handle drag and drop events for images and Zotero annotations
   const inputWrapper = container.querySelector(
     "#chat-input-wrapper",
   ) as HTMLElement;
+
+  // Subscribe to drag state changes to show/hide drop zone
+  const unsubscribeDragState = onDragStateChange((isDragging) => {
+    if (isDragging) {
+      showDropZone(container);
+    } else {
+      hideDropZone(container);
+    }
+  });
+
+  // Store unsubscribe function for cleanup
+  (container as any)._unsubscribeDragState = unsubscribeDragState;
+
+  // Container-level drag detection for drop zone
+  container.addEventListener("dragenter", (e: DragEvent) => {
+    if (e.dataTransfer && hasSupportedImageType(e.dataTransfer)) {
+      e.preventDefault();
+      e.stopPropagation();
+      incrementDrag();
+    }
+  });
+
+  container.addEventListener("dragleave", (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    decrementDrag();
+  });
+
+  container.addEventListener("dragover", (e: DragEvent) => {
+    if (e.dataTransfer && hasSupportedImageType(e.dataTransfer)) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "copy";
+    }
+  });
+
+  // Handle drop on container (for drop zone)
+  container.addEventListener("drop", async (e: DragEvent) => {
+    if (!e.dataTransfer || !hasSupportedImageType(e.dataTransfer)) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    resetDragState();
+    hideDropZone(container);
+
+    await handleDroppedData(e.dataTransfer, context, messageInput);
+  });
 
   if (inputWrapper) {
     // Store original border style
@@ -340,16 +407,20 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
     // Drag enter - show visual feedback
     inputWrapper.addEventListener("dragenter", (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      inputWrapper.style.border = "2px dashed #10b981";
-      inputWrapper.style.background = "rgba(16, 185, 129, 0.05)";
+      if (e.dataTransfer && hasSupportedImageType(e.dataTransfer)) {
+        e.preventDefault();
+        e.stopPropagation();
+        inputWrapper.style.border = "2px dashed #10b981";
+        inputWrapper.style.background = "rgba(16, 185, 129, 0.05)";
+      }
     });
 
     // Drag over - allow drop
     inputWrapper.addEventListener("dragover", (e: DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
+      if (e.dataTransfer && hasSupportedImageType(e.dataTransfer)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
     });
 
     // Drag leave - remove visual feedback
@@ -366,8 +437,12 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       }
     });
 
-    // Drop - handle dropped files
+    // Drop - handle dropped files and Zotero annotations
     inputWrapper.addEventListener("drop", async (e: DragEvent) => {
+      if (!e.dataTransfer || !hasSupportedImageType(e.dataTransfer)) {
+        return;
+      }
+
       e.preventDefault();
       e.stopPropagation();
 
@@ -375,20 +450,10 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       inputWrapper.style.border = originalBorder;
       inputWrapper.style.background = originalBackground;
 
-      const files = e.dataTransfer?.files;
-      if (!files || files.length === 0) return;
+      resetDragState();
+      hideDropZone(container);
 
-      // Process dropped image files
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        if (file.type.startsWith("image/")) {
-          await context.addImage(file);
-        }
-      }
-      // Update unified reference display after dropping images
-      const dropItemId = context.getCurrentItem()?.id ?? 0;
-      // Pass context explicitly to ensure correct state is fetched
-      updateUnifiedReferenceForItem(dropItemId, undefined, context);
+      await handleDroppedData(e.dataTransfer, context, messageInput);
     });
   }
 
@@ -1577,5 +1642,66 @@ function populateModelDropdown(
     });
     noProviders.textContent = getString("chat-configure-provider");
     dropdown.appendChild(noProviders);
+  }
+}
+
+/**
+ * Handle dropped data from drag events
+ * Supports Zotero annotation images, image files, and text
+ */
+async function handleDroppedData(
+  dataTransfer: DataTransfer,
+  context: ChatPanelContext,
+  messageInput: HTMLTextAreaElement | null,
+): Promise<void> {
+  const parsedData = await parseDataTransfer(dataTransfer);
+  const currentItemId = context.getCurrentItem()?.id ?? 0;
+
+  switch (parsedData.type) {
+    case "zotero/annotation-image": {
+      const { image, libraryID, key, mimeType } = parsedData;
+      const id = `${libraryID}/${key}`;
+
+      ztoolkit.log(
+        "[DragDrop] Adding annotation image:",
+        id,
+        "mimeType:",
+        mimeType,
+        "Image data length:",
+        image.length,
+      );
+
+      addImageFromBase64(currentItemId, image, mimeType, `Figure (${id})`);
+
+      updateUnifiedReferenceForItem(currentItemId, undefined, context);
+
+      ztoolkit.log("[DragDrop] Annotation image added successfully");
+      break;
+    }
+
+    case "image-file": {
+      const { file } = parsedData;
+      ztoolkit.log("[DragDrop] Adding image file:", file.name);
+
+      await context.addImage(file);
+
+      updateUnifiedReferenceForItem(currentItemId, undefined, context);
+
+      ztoolkit.log("[DragDrop] Image file added successfully");
+      break;
+    }
+
+    case "text/plain": {
+      const { text } = parsedData;
+      if (text && messageInput) {
+        messageInput.value += text;
+        setGlobalInputText(messageInput.value);
+        messageInput.focus();
+      }
+      break;
+    }
+
+    default:
+      ztoolkit.log("[DragDrop] Unknown drop type, ignoring");
   }
 }

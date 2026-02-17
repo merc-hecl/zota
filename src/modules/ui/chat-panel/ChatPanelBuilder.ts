@@ -937,6 +937,58 @@ export function createChatContainer(
     { id: "chat-history-dropdown" },
   );
 
+  // Drop zone overlay for drag and drop
+  const dropZone = createElement(
+    doc,
+    "div",
+    {
+      display: "none",
+      position: "absolute",
+      top: "0",
+      left: "0",
+      right: "0",
+      bottom: "0",
+      background: "rgba(16, 185, 129, 0.1)",
+      border: "3px dashed #10b981",
+      borderRadius: "12px",
+      zIndex: "10002",
+      pointerEvents: "auto",
+    },
+    { id: "chat-drop-zone" },
+  );
+
+  // Drop zone content
+  const dropZoneContent = createElement(
+    doc,
+    "div",
+    {
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      textAlign: "center",
+      color: "#10b981",
+      fontSize: "18px",
+      fontWeight: "600",
+    },
+    { class: "drop-zone-content" },
+  );
+  dropZoneContent.textContent = "Drop image here";
+
+  const dropZoneIcon = createElement(
+    doc,
+    "div",
+    {
+      fontSize: "48px",
+      marginBottom: "12px",
+    },
+    { class: "drop-zone-icon" },
+  );
+  dropZoneIcon.textContent = "🖼️";
+
+  dropZoneContent.insertBefore(dropZoneIcon, dropZoneContent.firstChild);
+  dropZone.appendChild(dropZoneContent);
+
   // Assemble
   root.appendChild(dragBar);
   root.appendChild(chatHistory);
@@ -945,6 +997,7 @@ export function createChatContainer(
   root.appendChild(unifiedReferenceContainer);
   root.appendChild(inputArea);
   root.appendChild(historyDropdown);
+  root.appendChild(dropZone);
   container.appendChild(root);
 
   doc.documentElement?.appendChild(container);
@@ -1221,4 +1274,32 @@ export function updateUnifiedReferenceDisplay(
   } else {
     unifiedContainer.style.display = "none";
   }
+}
+
+/**
+ * Show the drop zone overlay
+ */
+export function showDropZone(container: HTMLElement): void {
+  const dropZone = container.querySelector("#chat-drop-zone") as HTMLElement;
+  if (dropZone) {
+    dropZone.style.display = "block";
+  }
+}
+
+/**
+ * Hide the drop zone overlay
+ */
+export function hideDropZone(container: HTMLElement): void {
+  const dropZone = container.querySelector("#chat-drop-zone") as HTMLElement;
+  if (dropZone) {
+    dropZone.style.display = "none";
+  }
+}
+
+/**
+ * Check if drop zone is visible
+ */
+export function isDropZoneVisible(container: HTMLElement): boolean {
+  const dropZone = container.querySelector("#chat-drop-zone") as HTMLElement;
+  return dropZone?.style.display === "block";
 }

@@ -86,6 +86,29 @@ export async function addImage(itemId: number, file: File): Promise<ImageData> {
 }
 
 /**
+ * Add an image from base64 data directly (for Zotero annotations)
+ */
+export function addImageFromBase64(
+  itemId: number,
+  base64: string,
+  mimeType: string = "image/png",
+  name?: string,
+): ImageData {
+  const state = getOrCreateState(itemId);
+
+  const imageData: ImageData = {
+    id: generateImageId(),
+    base64,
+    mimeType,
+    name: name || `image-${Date.now()}`,
+  };
+
+  state.images.push(imageData);
+  notifyListeners(itemId);
+  return imageData;
+}
+
+/**
  * Add an image from clipboard data
  */
 export async function addImageFromClipboard(
