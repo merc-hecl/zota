@@ -14,6 +14,10 @@
 
 ## 特性
 
+### 版本 0.0.5 (2026-02-17)
+
+- **多内置供应商支持**：现在可以在不同的 AI 提供商之间切换，例如 OpenAI、Claude、Google Gemini。也可以使用自己的 OpenAI-Compatible API 端点。
+
 ### 版本 0.0.4 (2026-02-08)
 
 - 主分支现在 **兼容 Zotero 7+**，之前的 Zotero 7 版本代码在分支 [zotero7](https://github.com/merc-hecl/zota/tree/zotero7) 中。
@@ -21,7 +25,7 @@
 - 支持图片上传功能：现在可以从**剪贴板**或**拖拽图片**到聊天面板与支持图片输入的 AI 模型进行讨论。
   ![image-upload](screenshots/upload_image_zh.png)
 
-- 支持**多供应商**和**多 API Key**：现在可以配置多个 API 端点和密钥（每个密钥可以设置一个昵称），可以在不同供应商之间切换。
+- 支持 ~~**多供应商**和~~ **多 API Key**：现在可以配置多个 API 端点和密钥（每个密钥可以设置一个昵称），可以在不同供应商之间切换。
   ![multi-endpoint](screenshots/multiendpoint_zh.png) ![multi-apikey](screenshots/multiapikey_zh.png)
 
 - **浮动窗口**: 现在浮动窗口的大小和位置在关闭后应该会被记住。
@@ -31,7 +35,7 @@
 
 ### 版本 0.0.1 ~ 0.0.3 (2026-02-05)
 
-- **无供应商锁定**: 使用你自己的 OpenAI-Compatible API 端点
+- ~~**无供应商锁定**: 使用你自己的 OpenAI-Compatible API 端点~~
 - **PDF 上下文**: 附加 PDF 内容或者划选段落获得上下文感知回复
 - **流式输出**: 实时响应流
 - **历史记录**: 每个文档独立的对话历史

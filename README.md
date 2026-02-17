@@ -14,22 +14,27 @@
 
 ## Features
 
+### Version 0.0.5 (2026-02-17)
+
+- **Multi built-in providers support**: Now can switch between different AI providers (e.g., OpenAI, Claude, Google Gemini) to get responses, and can take your own OpenAI-Compatible API endpoint.
+
 ### Version 0.0.4 (2026-02-08)
 
 - The main branch is now **compatible with Zotero 7+**, former Zotero 7 version in branch [zotero7](https://github.com/merc-hecl/zota/tree/zotero7).
 - **Add image upload support**: Now can upload images **from clipboard** or **drag-and-drop** into the chat panel to chat about images with the AI model that supports image input.
   ![image-upload](doc/screenshots/upload_image_en.png)
-- Add **multi-endpoint** and **multi-apikey** support: Now can configure multiple API endpoints and keys(and can set a nickname for each api key) to switch between different providers.
+- Add ~~**multi-endpoint** and~~ **multi-apikey** support: Now can configure multiple API endpoints and keys(and can set a nickname for each api key) to switch between different providers.
   ![multi-endpoint](doc/screenshots/multiendpoint_en.png) ![multi-apikey](doc/screenshots/multiapikey_en.png)
 
 - **Float window**: Now the size and position of the float window should be remembered after closing.
 
 - **Bug**: the pin button in the float window is not working in Zotero 8.
+
 - see [Release Notes](https://github.com/merc-hecl/zota/releases/tag/V0.0.4) for more details.
 
 ### Version 0.0.1 ~ 0.0.3 (2026-02-05)
 
-- **No vendor lock-in**: Bring your own OpenAI-Compatible API endpoint
+- ~~**No vendor lock-in**: Bring your own OpenAI-Compatible API endpoint~~
 - **PDF Context**: Attach PDF content or select specific paragraphs for context-aware responses
 - **Streaming**: Real-time response streaming
 - **History**: Per-document conversation history
