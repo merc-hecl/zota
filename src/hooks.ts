@@ -6,6 +6,10 @@ import {
 import { createZToolkit } from "./utils/ztoolkit";
 import { registerToolbarButton, unregisterChatPanel } from "./modules/ui";
 import { destroyProviderManager } from "./modules/providers";
+import {
+  registerItemTrashHandler,
+  unregisterItemTrashHandler,
+} from "./modules/chat";
 
 async function onStartup() {
   await Promise.all([
@@ -24,6 +28,9 @@ async function onStartup() {
     label: getString("pref-title"),
     image: `chrome://${addon.data.config.addonRef}/content/icons/favicon.svg`,
   });
+
+  // Register item trash handler to clean up chat history when items are deleted
+  registerItemTrashHandler();
 
   await Promise.all(
     Zotero.getMainWindows().map((win) => onMainWindowLoad(win)),
@@ -63,6 +70,7 @@ function onShutdown(): void {
   ztoolkit.unregisterAll();
   unregisterChatPanel();
   destroyProviderManager();
+  unregisterItemTrashHandler();
   addon.data.dialog?.window?.close();
   addon.data.alive = false;
   // @ts-expect-error - Plugin instance is not typed

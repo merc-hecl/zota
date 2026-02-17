@@ -6,6 +6,10 @@ export { ChatManager } from "./ChatManager";
 export { StorageService } from "./StorageService";
 export { PdfExtractor } from "./PdfExtractor";
 export { NoteExportService, getNoteExportService } from "./NoteExportService";
+export {
+  registerItemTrashHandler,
+  unregisterItemTrashHandler,
+} from "./ItemTrashHandler";
 
 // Re-export types
 export type {

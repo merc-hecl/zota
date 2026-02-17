@@ -642,6 +642,12 @@ export function setupEventHandlers(context: ChatPanelContext): void {
     await refreshHistoryDropdown();
   });
 
+  // Helper function to check if we are in library view (no active reader)
+  const isInLibraryView = (): boolean => {
+    const activeReaderItem = getActiveReaderItem();
+    return activeReaderItem === null;
+  };
+
   // Helper function to refresh history dropdown
   const refreshHistoryDropdown = async () => {
     if (!historyDropdown) return;
@@ -650,11 +656,15 @@ export function setupEventHandlers(context: ChatPanelContext): void {
     const currentItem = context.getCurrentItem();
     const currentItemId = currentItem?.id;
 
+    // Check if we are in library view (no active reader)
+    const inLibraryView = isInLibraryView();
+
     // Get all sessions
     const allSessions = await chatManager.getAllSessions();
 
-    // Filter sessions: if we have a current item, show only that document's sessions
-    // Otherwise show all sessions
+    // Filter sessions: if we have a current item and not in library view,
+    // show only that document's sessions
+    // Otherwise show all sessions grouped by document
     let sessions: SessionInfo[] = allSessions.map((s) => ({
       sessionId: s.sessionId,
       itemId: s.itemId,
@@ -666,23 +676,30 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       sessionTitle: s.sessionTitle,
     }));
 
-    // 文档隔离：如果当前有选中的文档，只显示该文档的会话
-    if (currentItemId !== undefined && currentItemId !== null) {
+    // Document isolation: if we have a selected document and not in library view,
+    // only show sessions for that document
+    let groupByDocument = false;
+    let documentName: string | undefined;
+
+    if (inLibraryView) {
+      // In library view: show all sessions grouped by document name
+      groupByDocument = true;
+      ztoolkit.log(
+        "[HistoryDropdown] In library view, showing all sessions grouped by document",
+      );
+    } else if (currentItemId !== undefined && currentItemId !== null) {
+      // In reader view with a selected document: show only that document's sessions
       sessions = sessions.filter((s) => s.itemId === currentItemId);
+      if (sessions.length > 0) {
+        documentName = sessions[0]?.itemName;
+      }
+      ztoolkit.log(
+        "[HistoryDropdown] In reader view, showing sessions for document:",
+        currentItemId,
+      );
     }
 
     const theme = getCurrentTheme();
-
-    // 获取文档名（如果有当前选中的文档）
-    let documentName: string | undefined;
-    if (
-      currentItemId !== undefined &&
-      currentItemId !== null &&
-      sessions.length > 0
-    ) {
-      // 使用第一个会话的itemName作为文档名（因为它们都属于同一个文档）
-      documentName = sessions[0]?.itemName;
-    }
 
     populateHistoryDropdown(
       historyDropdown,
@@ -875,7 +892,7 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         // Refresh the dropdown to reflect the deletion
         await refreshHistoryDropdown();
       },
-      // documentName - PDF document name displayed at top
+      // documentName - PDF document name displayed at top (only for single document view)
       documentName,
       // onExport callback - export session as note
       async (session: SessionInfo) => {
@@ -913,6 +930,8 @@ export function setupEventHandlers(context: ChatPanelContext): void {
           throw new Error(result.message);
         }
       },
+      // groupByDocument - when true, sessions are grouped by document name
+      groupByDocument,
     );
   };
 

@@ -447,7 +447,27 @@ function createDocumentHeader(
 }
 
 /**
+ * Group sessions by document name
+ */
+function groupSessionsByDocument(
+  sessions: SessionInfo[],
+): Map<string, SessionInfo[]> {
+  const groups = new Map<string, SessionInfo[]>();
+
+  for (const session of sessions) {
+    const docName = session.itemName || "Global Chat";
+    if (!groups.has(docName)) {
+      groups.set(docName, []);
+    }
+    groups.get(docName)!.push(session);
+  }
+
+  return groups;
+}
+
+/**
  * Populate the history dropdown with sessions
+ * When groupByDocument is true, sessions are grouped by document name
  */
 export function populateHistoryDropdown(
   dropdown: HTMLElement,
@@ -459,6 +479,7 @@ export function populateHistoryDropdown(
   onDelete?: (session: SessionInfo) => void,
   documentName?: string,
   onExport?: (session: SessionInfo) => void,
+  groupByDocument: boolean = false,
 ): void {
   // Reset state
   state.allSessions = sessions;
@@ -475,6 +496,36 @@ export function populateHistoryDropdown(
     });
     emptyMsg.textContent = getString("chat-no-history");
     dropdown.appendChild(emptyMsg);
+    return;
+  }
+
+  if (groupByDocument) {
+    // Group sessions by document name
+    const groupedSessions = groupSessionsByDocument(sessions);
+
+    // Sort document names alphabetically
+    const sortedDocNames = Array.from(groupedSessions.keys()).sort();
+
+    for (const docName of sortedDocNames) {
+      const docSessions = groupedSessions.get(docName)!;
+
+      // Add document header
+      const header = createDocumentHeader(doc, docName, theme);
+      dropdown.appendChild(header);
+
+      // Create a temporary state for this document's sessions
+      const docState: HistoryDropdownState = {
+        allSessions: docSessions,
+        displayedCount: 0,
+      };
+
+      // Render all sessions for this document (no pagination within groups)
+      for (const session of docSessions) {
+        dropdown.appendChild(
+          createSessionItem(doc, session, theme, onSelect, onDelete, onExport),
+        );
+      }
+    }
   } else {
     // Add document name header at the top if provided
     if (documentName) {
