@@ -1,5 +1,5 @@
 /**
- * Provider Types - AI API type definitions (generic only)
+ * Provider Types - Multi-provider AI API type definitions
  */
 
 import type { ChatMessage, StreamCallbacks } from "./chat";
@@ -26,11 +26,32 @@ export interface ModelInfo {
 }
 
 /**
- * Supported provider types (generic only)
+ * Supported provider types
+ * Hybrid architecture: some providers have independent implementations,
+ * while others reuse openai-compatible base implementation
  */
 export type ProviderType =
-  | "openai" // Native OpenAI API
-  | "openai-compatible"; // Generic OpenAI-compatible API
+  | "anthropic-compatible"
+  | "gemini"
+  | "openai-compatible"
+  | "deepseek"
+  | "mistral"
+  | "groq"
+  | "openrouter";
+
+/**
+ * Provider identifier for built-in providers
+ */
+export type BuiltinProviderId =
+  | "openai"
+  | "claude"
+  | "gemini"
+  | "deepseek"
+  | "mistral"
+  | "groq"
+  | "openrouter"
+  | "kimi"
+  | "glm";
 
 /**
  * Base provider configuration
@@ -45,7 +66,7 @@ export interface BaseProviderConfig {
 }
 
 /**
- * API key entry with value
+ * API key entry with value and nickname
  */
 export interface ApiKeyEntry {
   key: string;
@@ -67,7 +88,7 @@ export interface EndpointConfig {
  * Configuration for API key-based providers
  */
 export interface ApiKeyProviderConfig extends BaseProviderConfig {
-  type: "openai" | "openai-compatible";
+  type: ProviderType;
   apiKey: string;
   baseUrl: string;
   defaultModel: string;
@@ -78,9 +99,7 @@ export interface ApiKeyProviderConfig extends BaseProviderConfig {
   systemPrompt?: string;
   pdfMaxChars?: number;
   streamingOutput?: boolean;
-  // Support multiple endpoints with their API keys
   endpoints?: EndpointConfig[];
-  // Persist current endpoint selection
   currentEndpointIndex?: number;
 }
 
@@ -88,6 +107,29 @@ export interface ApiKeyProviderConfig extends BaseProviderConfig {
  * Union type for all provider configs
  */
 export type ProviderConfig = ApiKeyProviderConfig;
+
+/**
+ * Endpoint option for providers with multiple endpoints
+ */
+export interface EndpointOption {
+  label: string;
+  baseUrl: string;
+  website: string;
+}
+
+/**
+ * Provider metadata for display and defaults
+ */
+export interface ProviderMetadata {
+  id: BuiltinProviderId;
+  name: string;
+  defaultBaseUrl: string;
+  defaultModels: string[];
+  defaultModelInfos: ModelInfo[];
+  website: string;
+  type: ProviderType;
+  endpoints?: EndpointOption[];
+}
 
 /**
  * Provider storage format (for Zotero prefs)
@@ -98,33 +140,72 @@ export interface ProviderStorageData {
 }
 
 /**
+ * Message format for Anthropic API
+ */
+export interface AnthropicMessage {
+  role: "user" | "assistant";
+  content:
+    | string
+    | (AnthropicTextBlock | AnthropicImageBlock | AnthropicDocumentBlock)[];
+}
+
+export interface AnthropicTextBlock {
+  type: "text";
+  text: string;
+}
+
+export interface AnthropicImageBlock {
+  type: "image";
+  source: {
+    type: "base64";
+    media_type: string;
+    data: string;
+  };
+}
+
+export interface AnthropicDocumentBlock {
+  type: "document";
+  source: {
+    type: "base64";
+    media_type: string;
+    data: string;
+  };
+}
+
+/**
+ * Message format for Gemini API
+ */
+export interface GeminiContent {
+  role: "user" | "model";
+  parts: GeminiPart[];
+}
+
+export interface GeminiPart {
+  text?: string;
+  inline_data?: {
+    mime_type: string;
+    data: string;
+  };
+}
+
+/**
  * AI Provider interface that all providers must implement
  */
 export interface AIProvider {
-  /** Provider configuration */
   readonly config: ProviderConfig;
-
-  /** Get display name */
   getName(): string;
-
-  /** Check if provider is configured and ready */
   isReady(): boolean;
-
-  /** Update configuration */
   updateConfig(config: Partial<ProviderConfig>): void;
-
-  /** Stream chat completion */
   streamChatCompletion(
     messages: ChatMessage[],
     callbacks: StreamCallbacks,
   ): Promise<void>;
-
-  /** Non-streaming chat completion */
   chatCompletion(messages: ChatMessage[]): Promise<string>;
-
-  /** Test connection to the API */
   testConnection(): Promise<boolean>;
-
-  /** Get available models */
   getAvailableModels(): Promise<string[]>;
 }
+
+/**
+ * Provider factory type
+ */
+export type ProviderFactory = (config: ProviderConfig) => AIProvider;

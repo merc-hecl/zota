@@ -2,34 +2,39 @@
  * Providers Module Exports
  */
 
-// Manager
 export {
   ProviderManager,
   getProviderManager,
   destroyProviderManager,
+  BUILTIN_PROVIDERS,
 } from "./ProviderManager";
 
-// Model State Manager
 export {
   ModelStateManager,
   getModelStateManager,
   destroyModelStateManager,
-  type ModelChangeCallback,
-  type ProviderChangeCallback,
 } from "./ModelStateManager";
 
-// Provider implementations
 export { BaseProvider } from "./BaseProvider";
-export { OpenAICompatibleProvider } from "./OpenAICompatibleProvider";
+export { OpenAIProvider } from "./OpenAIProvider";
+export { AnthropicProvider } from "./AnthropicProvider";
+export { GeminiProvider } from "./GeminiProvider";
+export { DeepSeekProvider } from "./DeepSeekProvider";
+export { MistralProvider } from "./MistralProvider";
+export { GroqProvider } from "./GroqProvider";
+export { OpenRouterProvider } from "./OpenRouterProvider";
 
-// Re-export types
 export type {
   AIProvider,
   ProviderConfig,
+  ProviderMetadata,
   ProviderStorageData,
   ProviderType,
+  BuiltinProviderId,
   BaseProviderConfig,
   ApiKeyProviderConfig,
   ModelInfo,
   ModelCapability,
+  ApiKeyEntry,
+  EndpointConfig,
 } from "../../types/provider";

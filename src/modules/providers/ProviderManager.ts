@@ -1,25 +1,163 @@
 /**
  * ProviderManager - Central management of AI providers
- * Generic implementation without built-in providers
+ * Supports built-in providers and custom endpoints
  */
 
 import type {
   AIProvider,
   ProviderConfig,
+  ProviderMetadata,
   ProviderStorageData,
+  BuiltinProviderId,
   ApiKeyProviderConfig,
   ModelInfo,
 } from "../../types/provider";
-import { OpenAICompatibleProvider } from "./OpenAICompatibleProvider";
-import { getString } from "../../utils/locale";
-
+import { OpenAIProvider } from "./OpenAIProvider";
+import { AnthropicProvider } from "./AnthropicProvider";
+import { GeminiProvider } from "./GeminiProvider";
+import { DeepSeekProvider } from "./DeepSeekProvider";
+import { MistralProvider } from "./MistralProvider";
+import { GroqProvider } from "./GroqProvider";
+import { OpenRouterProvider } from "./OpenRouterProvider";
 import { config } from "../../../package.json";
+
+export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
+  openai: {
+    id: "openai",
+    name: "OpenAI",
+    defaultBaseUrl: "https://api.openai.com/v1",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://platform.openai.com",
+    type: "openai-compatible",
+    endpoints: [
+      {
+        label: "Chat Completions",
+        baseUrl: "https://api.openai.com/v1",
+        website: "https://platform.openai.com",
+      },
+      {
+        label: "Responses",
+        baseUrl: "https://api.openai.com/v1/responses",
+        website: "https://platform.openai.com",
+      },
+    ],
+  },
+  claude: {
+    id: "claude",
+    name: "Claude",
+    defaultBaseUrl: "https://api.anthropic.com/v1",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://console.anthropic.com",
+    type: "anthropic-compatible",
+  },
+  gemini: {
+    id: "gemini",
+    name: "Gemini",
+    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://ai.google.dev",
+    type: "gemini",
+  },
+  deepseek: {
+    id: "deepseek",
+    name: "DeepSeek",
+    defaultBaseUrl: "https://api.deepseek.com/v1",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://platform.deepseek.com",
+    type: "deepseek",
+    endpoints: [
+      {
+        label: "官方 (国内)",
+        baseUrl: "https://api.deepseek.com/v1",
+        website: "https://platform.deepseek.com",
+      },
+      {
+        label: "硅基流动",
+        baseUrl: "https://api.siliconflow.cn/v1",
+        website: "https://cloud.siliconflow.cn",
+      },
+    ],
+  },
+  mistral: {
+    id: "mistral",
+    name: "Mistral",
+    defaultBaseUrl: "https://api.mistral.ai/v1",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://console.mistral.ai",
+    type: "mistral",
+  },
+  groq: {
+    id: "groq",
+    name: "Groq",
+    defaultBaseUrl: "https://api.groq.com/openai/v1",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://console.groq.com",
+    type: "groq",
+  },
+  openrouter: {
+    id: "openrouter",
+    name: "OpenRouter",
+    defaultBaseUrl: "https://openrouter.ai/api/v1",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://openrouter.ai",
+    type: "openrouter",
+  },
+  kimi: {
+    id: "kimi",
+    name: "Kimi",
+    defaultBaseUrl: "https://api.moonshot.cn/v1",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://platform.moonshot.cn",
+    type: "openai-compatible",
+    endpoints: [
+      {
+        label: "国内",
+        baseUrl: "https://api.moonshot.cn/v1",
+        website: "https://platform.moonshot.cn",
+      },
+      {
+        label: "海外",
+        baseUrl: "https://api.moonshot.ai/v1",
+        website: "https://platform.moonshot.ai/console",
+      },
+    ],
+  },
+  glm: {
+    id: "glm",
+    name: "GLM",
+    defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://bigmodel.cn",
+    type: "openai-compatible",
+    endpoints: [
+      {
+        label: "国内",
+        baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+        website: "https://bigmodel.cn",
+      },
+      {
+        label: "海外",
+        baseUrl: "https://api.z.ai/api/paas/v4",
+        website: "https://chat.z.ai",
+      },
+    ],
+  },
+};
 
 const PREFS_KEY = `${config.prefsPrefix}.providersConfig`;
 
 export class ProviderManager {
   private providers: Map<string, AIProvider> = new Map();
-  private activeProviderId: string = "custom";
+  private activeProviderId: string = "openai";
   private configs: ProviderConfig[] = [];
   private onProviderChangeCallback?: (providerId: string) => void;
 
@@ -28,16 +166,10 @@ export class ProviderManager {
     this.initializeProviders();
   }
 
-  /**
-   * Set callback for when active provider changes
-   */
   setOnProviderChange(callback: (providerId: string) => void): void {
     this.onProviderChangeCallback = callback;
   }
 
-  /**
-   * Load configuration from Zotero preferences
-   */
   private loadFromPrefs(): void {
     try {
       const stored = Zotero.Prefs.get(PREFS_KEY, true) as string | undefined;
@@ -53,13 +185,10 @@ export class ProviderManager {
           "[ProviderManager] Parsed providers:",
           providers.map((p) => p.id),
         );
-        ztoolkit.log(
-          "[ProviderManager] Active provider ID:",
-          data.activeProviderId,
-        );
 
-        this.activeProviderId = data.activeProviderId || "custom";
-        this.configs = providers;
+        this.activeProviderId = data.activeProviderId || "openai";
+        // Merge with default configs to include new built-in providers
+        this.configs = this.mergeWithDefaultConfigs(providers);
         ztoolkit.log(
           "[ProviderManager] Loaded configs:",
           this.configs.map((c) => ({ id: c.id, enabled: c.enabled })),
@@ -75,8 +204,60 @@ export class ProviderManager {
   }
 
   /**
-   * Save configuration to Zotero preferences
+   * Merge stored configs with default configs to include new built-in providers
    */
+  private mergeWithDefaultConfigs(
+    storedConfigs: ProviderConfig[],
+  ): ProviderConfig[] {
+    const defaultConfigs = this.getDefaultConfigs();
+    const storedMap = new Map(storedConfigs.map((c) => [c.id, c]));
+    const merged: ProviderConfig[] = [];
+
+    // Add all default built-in providers
+    for (const defaultConfig of defaultConfigs) {
+      const storedConfig = storedMap.get(defaultConfig.id);
+      if (storedConfig) {
+        // Use stored config but update type if it changed
+        merged.push({
+          ...storedConfig,
+          type: defaultConfig.type,
+          name: defaultConfig.name,
+          baseUrl: storedConfig.baseUrl || defaultConfig.baseUrl,
+        });
+      } else {
+        // Add new built-in provider
+        merged.push(defaultConfig);
+      }
+    }
+
+    // Add custom providers from stored configs
+    for (const storedConfig of storedConfigs) {
+      if (!storedConfig.isBuiltin) {
+        merged.push(storedConfig);
+      }
+    }
+
+    // Reorder to maintain consistent order
+    merged.sort((a, b) => {
+      // Built-in providers come first, sorted by order
+      if (a.isBuiltin && b.isBuiltin) {
+        return (a.order || 0) - (b.order || 0);
+      }
+      // Built-in comes before custom
+      if (a.isBuiltin && !b.isBuiltin) return -1;
+      if (!a.isBuiltin && b.isBuiltin) return 1;
+      // Both custom, maintain original order
+      return 0;
+    });
+
+    // Update order property
+    merged.forEach((config, index) => {
+      config.order = index;
+    });
+
+    return merged;
+  }
+
   saveToPrefs(): void {
     const data: ProviderStorageData = {
       activeProviderId: this.activeProviderId,
@@ -85,35 +266,42 @@ export class ProviderManager {
     Zotero.Prefs.set(PREFS_KEY, JSON.stringify(data), true);
   }
 
-  /**
-   * Get default provider configurations (generic only)
-   */
   private getDefaultConfigs(): ProviderConfig[] {
-    // Use localized name if available, fallback to English
-    const defaultName = getString
-      ? getString("pref-generic-provider-title" as any) || "AI Provider"
-      : "AI Provider";
+    const configs: ProviderConfig[] = [];
 
-    return [
-      {
-        id: "custom",
-        name: defaultName,
-        type: "openai-compatible",
+    const apiKeyProviders: BuiltinProviderId[] = [
+      "openai",
+      "claude",
+      "gemini",
+      "deepseek",
+      "mistral",
+      "groq",
+      "openrouter",
+      "kimi",
+      "glm",
+    ];
+
+    apiKeyProviders.forEach((id, index) => {
+      const meta = BUILTIN_PROVIDERS[id];
+      configs.push({
+        id: id,
+        name: meta.name,
+        type: meta.type,
         enabled: false,
-        isBuiltin: false,
-        order: 0,
+        isBuiltin: true,
+        order: index,
         apiKey: "",
-        baseUrl: "",
+        baseUrl: meta.defaultBaseUrl,
         defaultModel: "",
         availableModels: [],
         models: [],
-      } as ApiKeyProviderConfig,
-    ];
+        streamingOutput: true,
+      } as ApiKeyProviderConfig);
+    });
+
+    return configs;
   }
 
-  /**
-   * Initialize provider instances
-   */
   private initializeProviders(): void {
     this.providers.clear();
 
@@ -127,76 +315,59 @@ export class ProviderManager {
     }
   }
 
-  /**
-   * Create provider instance from config
-   */
   private createProvider(config: ProviderConfig): AIProvider | null {
     switch (config.type) {
-      case "openai":
+      case "anthropic-compatible":
+        return new AnthropicProvider(config as ApiKeyProviderConfig);
+      case "gemini":
+        return new GeminiProvider(config as ApiKeyProviderConfig);
+      case "deepseek":
+        return new DeepSeekProvider(config as ApiKeyProviderConfig);
+      case "mistral":
+        return new MistralProvider(config as ApiKeyProviderConfig);
+      case "groq":
+        return new GroqProvider(config as ApiKeyProviderConfig);
+      case "openrouter":
+        return new OpenRouterProvider(config as ApiKeyProviderConfig);
       case "openai-compatible":
-        return new OpenAICompatibleProvider(config as ApiKeyProviderConfig);
+        return new OpenAIProvider(config as ApiKeyProviderConfig);
       default:
         return null;
     }
   }
 
-  /**
-   * Get active provider
-   */
   getActiveProvider(): AIProvider | null {
     return this.providers.get(this.activeProviderId) || null;
   }
 
-  /**
-   * Get active provider ID
-   */
   getActiveProviderId(): string {
     return this.activeProviderId;
   }
 
-  /**
-   * Set active provider
-   */
   setActiveProvider(providerId: string): void {
     if (this.configs.some((c) => c.id === providerId)) {
       this.activeProviderId = providerId;
       this.saveToPrefs();
-      // Notify listeners about the provider change
       this.onProviderChangeCallback?.(providerId);
     }
   }
 
-  /**
-   * Get provider by ID
-   */
   getProvider(providerId: string): AIProvider | null {
     return this.providers.get(providerId) || null;
   }
 
-  /**
-   * Get all provider configs
-   */
   getAllConfigs(): ProviderConfig[] {
     return [...this.configs].sort((a, b) => a.order - b.order);
   }
 
-  /**
-   * Get all configured (enabled) provider instances
-   */
   getConfiguredProviders(): AIProvider[] {
     return Array.from(this.providers.values());
   }
 
-  /**
-   * Get provider config by ID
-   */
   getProviderConfig(providerId: string): ProviderConfig | null {
     return this.configs.find((c) => c.id === providerId) || null;
   }
 
-  /**
-   * Update provider config
-   */
   updateProviderConfig(
     providerId: string,
     updates: Partial<ProviderConfig>,
@@ -209,13 +380,11 @@ export class ProviderManager {
       } as ProviderConfig;
       this.saveToPrefs();
 
-      // Update existing provider instance if it exists
       const existingProvider = this.providers.get(providerId);
       if (existingProvider) {
         existingProvider.updateConfig(this.configs[index]);
       }
 
-      // Create provider if it's enabled and either doesn't exist or was just enabled
       if (this.configs[index].enabled) {
         if (!existingProvider) {
           const provider = this.createProvider(this.configs[index]);
@@ -224,21 +393,17 @@ export class ProviderManager {
           }
         }
       } else if (existingProvider) {
-        // Remove provider if it's now disabled
         this.providers.delete(providerId);
       }
     }
   }
 
-  /**
-   * Add custom provider
-   */
-  addCustomProvider(name: string): string {
+  addCustomProvider(name: string, type: "openai-compatible"): string {
     const id = `custom-${Date.now()}`;
     const config: ApiKeyProviderConfig = {
-      id,
-      name,
-      type: "openai-compatible",
+      id: id,
+      name: name,
+      type: type,
       enabled: true,
       isBuiltin: false,
       order: this.configs.length,
@@ -246,6 +411,7 @@ export class ProviderManager {
       baseUrl: "",
       defaultModel: "",
       availableModels: [],
+      streamingOutput: true,
     };
     this.configs.push(config);
     this.saveToPrefs();
@@ -253,9 +419,6 @@ export class ProviderManager {
     return id;
   }
 
-  /**
-   * Remove custom provider
-   */
   removeCustomProvider(providerId: string): boolean {
     const index = this.configs.findIndex(
       (c) => c.id === providerId && !c.isBuiltin,
@@ -263,7 +426,7 @@ export class ProviderManager {
     if (index >= 0) {
       this.configs.splice(index, 1);
       if (this.activeProviderId === providerId) {
-        this.activeProviderId = "custom";
+        this.activeProviderId = "openai";
       }
       this.saveToPrefs();
       this.initializeProviders();
@@ -272,22 +435,23 @@ export class ProviderManager {
     return false;
   }
 
-  /**
-   * Add custom model to a provider
-   */
+  getProviderMetadata(providerId: string): ProviderMetadata | null {
+    return BUILTIN_PROVIDERS[providerId as BuiltinProviderId] || null;
+  }
+
+  getAllProviderMetadata(): ProviderMetadata[] {
+    return Object.values(BUILTIN_PROVIDERS);
+  }
+
   addCustomModel(providerId: string, modelId: string): boolean {
     const config = this.getProviderConfig(
       providerId,
     ) as ApiKeyProviderConfig | null;
     if (!config) return false;
 
-    // Check if model already exists
     if (config.availableModels.includes(modelId)) return false;
 
-    // Add to availableModels
     const newModels = [...config.availableModels, modelId];
-
-    // Add to models array with isCustom flag
     const modelInfo: ModelInfo = { modelId, isCustom: true };
     const newModelInfos = [...(config.models || []), modelInfo];
 
@@ -298,28 +462,20 @@ export class ProviderManager {
     return true;
   }
 
-  /**
-   * Remove custom model from a provider
-   */
   removeCustomModel(providerId: string, modelId: string): boolean {
     const config = this.getProviderConfig(
       providerId,
     ) as ApiKeyProviderConfig | null;
     if (!config) return false;
 
-    // Check if model exists and is custom
     const modelInfo = config.models?.find((m) => m.modelId === modelId);
     if (!modelInfo?.isCustom) return false;
 
-    // Remove from availableModels
     const newModels = config.availableModels.filter((m) => m !== modelId);
-
-    // Remove from models array
     const newModelInfos = (config.models || []).filter(
       (m) => m.modelId !== modelId,
     );
 
-    // Update default model if it was removed
     const updates: Partial<ApiKeyProviderConfig> = {
       availableModels: newModels,
       models: newModelInfos,
@@ -332,26 +488,18 @@ export class ProviderManager {
     return true;
   }
 
-  /**
-   * Get model info for a provider
-   */
   getModelInfo(providerId: string, modelId: string): ModelInfo | null {
     const config = this.getProviderConfig(
       providerId,
     ) as ApiKeyProviderConfig | null;
     if (!config) return null;
 
-    // First check provider config models
     const configModel = config.models?.find((m) => m.modelId === modelId);
     if (configModel) return configModel;
 
-    // Return basic info if not found
     return { modelId };
   }
 
-  /**
-   * Check if a model is custom (user-added)
-   */
   isCustomModel(providerId: string, modelId: string): boolean {
     const config = this.getProviderConfig(
       providerId,
@@ -362,28 +510,18 @@ export class ProviderManager {
     return modelInfo?.isCustom === true;
   }
 
-  /**
-   * Refresh providers (reload from prefs)
-   */
   refresh(): void {
     this.loadFromPrefs();
     this.initializeProviders();
   }
 
-  /**
-   * Destroy all providers
-   */
   destroy(): void {
     this.providers.clear();
   }
 }
 
-// Singleton instance
 let providerManager: ProviderManager | null = null;
 
-/**
- * Get the singleton ProviderManager instance
- */
 export function getProviderManager(): ProviderManager {
   if (!providerManager) {
     providerManager = new ProviderManager();
@@ -391,9 +529,6 @@ export function getProviderManager(): ProviderManager {
   return providerManager;
 }
 
-/**
- * Destroy the singleton ProviderManager instance
- */
 export function destroyProviderManager(): void {
   if (providerManager) {
     providerManager.destroy();

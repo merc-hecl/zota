@@ -333,11 +333,19 @@ export class ChatManager {
               session.updatedAt = Date.now();
 
               // Generate AI title for first round of conversation if no title exists
+              // Use try-catch to ensure title generation failure doesn't affect message display
               const validMessages = session.messages.filter(
                 (msg) => msg.content && msg.content.trim() !== "",
               );
               if (!session.title && validMessages.length <= 2) {
-                await this.generateSessionTitle(session, itemId);
+                try {
+                  await this.generateSessionTitle(session, itemId);
+                } catch (titleError) {
+                  ztoolkit.log(
+                    "Error generating title (ignored, continuing):",
+                    titleError,
+                  );
+                }
               }
 
               await this.storageService.saveSession(session);
@@ -394,11 +402,19 @@ export class ChatManager {
               session.updatedAt = Date.now();
 
               // Generate AI title for first round of conversation if no title exists
+              // Use try-catch to ensure title generation failure doesn't affect message display
               const validMessages = session.messages.filter(
                 (msg) => msg.content && msg.content.trim() !== "",
               );
               if (!session.title && validMessages.length <= 2) {
-                await this.generateSessionTitle(session, itemId);
+                try {
+                  await this.generateSessionTitle(session, itemId);
+                } catch (titleError) {
+                  ztoolkit.log(
+                    "Error generating title (ignored, continuing):",
+                    titleError,
+                  );
+                }
               }
 
               await this.storageService.saveSession(session);

@@ -1660,17 +1660,6 @@ function setupChatManagerCallbacks(
       sessionInfo.itemId !== itemId ||
       sessionInfo.sessionId !== sessionId
     ) {
-      ztoolkit.log(
-        "[updateStreamingContent] Container is not viewing the target session, skipping update. " +
-          "Target:",
-        itemId,
-        "/",
-        sessionId,
-        "Actual:",
-        sessionInfo?.itemId,
-        "/",
-        sessionInfo?.sessionId,
-      );
       return;
     }
 
@@ -1935,8 +1924,12 @@ function setupChatManagerCallbacks(
 
       // Re-render messages to show copy button and timestamp for completed message
       if (itemId && sessionId) {
-        // Load the specific session that completed, not the current active session
-        const session = await manager.loadSession(itemId, sessionId);
+        // Get the session from memory cache first (faster and has latest data)
+        let session = manager.getSession(itemId, sessionId);
+        // Only load from storage if not in memory cache
+        if (!session) {
+          session = await manager.loadSession(itemId, sessionId);
+        }
         if (session) {
           containers.forEach((cont) => {
             const sessionInfo = getContainerSessionInfo(cont);

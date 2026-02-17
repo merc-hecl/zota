@@ -1,5 +1,7 @@
 # dot files
 .DS_Store
+.googleapi.md
+.claudeapi.md
 
 # Node.js
 node_modules

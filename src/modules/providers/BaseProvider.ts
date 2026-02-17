@@ -8,7 +8,15 @@ import type {
   OpenAIMessage,
   OpenAIMessageContent,
 } from "../../types/chat";
-import type { AIProvider, ApiKeyProviderConfig } from "../../types/provider";
+import type {
+  AIProvider,
+  ApiKeyProviderConfig,
+  AnthropicMessage,
+  AnthropicTextBlock,
+  AnthropicImageBlock,
+  GeminiContent,
+  GeminiPart,
+} from "../../types/provider";
 import {
   parseSSEStream,
   type SSEFormat,
@@ -18,8 +26,39 @@ import {
 export abstract class BaseProvider implements AIProvider {
   protected _config: ApiKeyProviderConfig;
 
+  static readonly DEFAULT_SYSTEM_PROMPT =
+    "You are a helpful research assistant. Help the user understand and analyze academic papers and documents.";
+
+  static readonly FORMATTING_REQUIREMENTS = `
+
+=== FORMATTING REQUIREMENTS ===
+
+When writing mathematical formulas, you MUST follow these formatting rules:
+
+1. ALWAYS wrap inline formulas with single dollar signs: $formula$
+   - Correct: The energy is $E = mc^2$ and the result is...
+   - Incorrect: The energy is $E = mc^2 and the result is...$
+
+2. ALWAYS wrap block/display formulas with double dollar signs: $$formula$$
+   - Put the opening $$ on its own line or at the start of a line
+   - Put the closing $$ on its own line or at the end of a line
+
+3. NEVER put other text inside the dollar signs with LaTeX code
+   - Correct: The formula is $E = mc^2$ where $E$ represents energy
+   - Incorrect: The formula is $E = mc^2 where E represents energy$
+
+4. Keep LaTeX code clean inside dollar signs - only mathematical expressions, no explanatory text
+
+=== END FORMATTING REQUIREMENTS ===`;
+
   constructor(config: ApiKeyProviderConfig) {
     this._config = config;
+  }
+
+  protected buildSystemPrompt(userCustomPrompt?: string): string {
+    const basePrompt =
+      userCustomPrompt?.trim() || BaseProvider.DEFAULT_SYSTEM_PROMPT;
+    return basePrompt + BaseProvider.FORMATTING_REQUIREMENTS;
   }
 
   get config(): ApiKeyProviderConfig {
@@ -85,7 +124,6 @@ export abstract class BaseProvider implements AIProvider {
 
   /**
    * Stream SSE response with content accumulation
-   * Handles the common pattern of accumulating content and calling callbacks
    */
   protected async streamWithCallbacks(
     response: Response,
@@ -121,7 +159,6 @@ export abstract class BaseProvider implements AIProvider {
     const lastIndex = nonErrorMessages.length - 1;
 
     return nonErrorMessages.filter((msg, index) => {
-      // Allow empty content for last assistant message (streaming placeholder)
       if (index === lastIndex && msg.role === "assistant") {
         return msg.content.trim() !== "";
       }
@@ -131,22 +168,18 @@ export abstract class BaseProvider implements AIProvider {
 
   /**
    * Format messages for OpenAI-compatible API
-   * Supports text and image content (Vision API)
    */
   protected formatOpenAIMessages(messages: ChatMessage[]): OpenAIMessage[] {
     const filtered = this.filterMessages(messages);
 
     return filtered.map((msg) => {
-      // If message has images, use array content format for Vision API
       if (msg.images && msg.images.length > 0) {
         const content: OpenAIMessageContent[] = [];
 
-        // Add text content if present
         if (msg.content && msg.content.trim()) {
           content.push({ type: "text", text: msg.content });
         }
 
-        // Add images
         for (const image of msg.images) {
           content.push({
             type: "image_url",
@@ -162,11 +195,77 @@ export abstract class BaseProvider implements AIProvider {
         };
       }
 
-      // Plain text message
       return {
         role: msg.role as "user" | "assistant" | "system",
         content: msg.content,
       };
     });
+  }
+
+  /**
+   * Format messages for Anthropic API
+   */
+  protected formatAnthropicMessages(
+    messages: ChatMessage[],
+  ): AnthropicMessage[] {
+    const filtered = this.filterMessages(messages).filter(
+      (msg) => msg.role !== "system",
+    );
+
+    return filtered.map((msg) => {
+      const hasImages = msg.images && msg.images.length > 0;
+
+      if (hasImages) {
+        const content: (AnthropicTextBlock | AnthropicImageBlock)[] = [];
+
+        if (msg.images) {
+          for (const img of msg.images) {
+            content.push({
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: img.mimeType,
+                data: img.base64,
+              },
+            });
+          }
+        }
+
+        content.push({ type: "text", text: msg.content });
+
+        return { role: msg.role as "user" | "assistant", content };
+      }
+
+      return { role: msg.role as "user" | "assistant", content: msg.content };
+    });
+  }
+
+  /**
+   * Format messages for Gemini API
+   */
+  protected formatGeminiMessages(messages: ChatMessage[]): GeminiContent[] {
+    return this.filterMessages(messages)
+      .filter((msg) => msg.role !== "system")
+      .map((msg) => {
+        const parts: GeminiPart[] = [];
+
+        if (msg.images && msg.images.length > 0) {
+          for (const img of msg.images) {
+            parts.push({
+              inline_data: {
+                mime_type: img.mimeType,
+                data: img.base64,
+              },
+            });
+          }
+        }
+
+        parts.push({ text: msg.content });
+
+        return {
+          role: msg.role === "assistant" ? "model" : "user",
+          parts,
+        };
+      });
   }
 }

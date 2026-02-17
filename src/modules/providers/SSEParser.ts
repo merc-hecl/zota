@@ -1,9 +1,9 @@
 /**
  * SSEParser - Server-Sent Events stream parser
- * Generic OpenAI-compatible format only
+ * Supports multiple API formats: OpenAI, Anthropic, Gemini
  */
 
-export type SSEFormat = "openai";
+export type SSEFormat = "openai" | "anthropic" | "gemini";
 
 export interface SSEParserCallbacks {
   onText: (text: string) => void;
@@ -22,14 +22,52 @@ const contentExtractors: Record<SSEFormat, (parsed: unknown) => string | null> =
       };
       return data.choices?.[0]?.delta?.content || null;
     },
+    anthropic: (parsed) => {
+      const data = parsed as {
+        type?: string;
+        delta?: { text?: string };
+        content_block?: { type?: string; text?: string };
+      };
+      if (data.type === "content_block_delta" && data.delta?.text) {
+        return data.delta.text;
+      }
+      return null;
+    },
+    gemini: (parsed) => {
+      const data = parsed as {
+        candidates?: Array<{
+          content?: { parts?: Array<{ text?: string }> };
+        }>;
+      };
+      return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+    },
   };
 
 /**
+ * Check if the event indicates completion for different formats
+ */
+const completionCheckers: Record<SSEFormat, (parsed: unknown) => boolean> = {
+  openai: (parsed) => {
+    const data = parsed as {
+      choices?: Array<{ finish_reason?: string | null }>;
+    };
+    const finishReason = data.choices?.[0]?.finish_reason;
+    return finishReason !== undefined && finishReason !== null;
+  },
+  anthropic: (parsed) => {
+    const data = parsed as { type?: string };
+    return data.type === "message_stop";
+  },
+  gemini: (parsed) => {
+    const data = parsed as {
+      candidates?: Array<{ finishReason?: string }>;
+    };
+    return data.candidates?.[0]?.finishReason !== undefined;
+  },
+};
+
+/**
  * Parse SSE stream with unified handling for different API formats
- *
- * @param reader - ReadableStream reader from fetch response
- * @param format - The API format to use for content extraction
- * @param callbacks - Callbacks for text, completion, and errors
  */
 export async function parseSSEStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -38,6 +76,7 @@ export async function parseSSEStream(
 ): Promise<void> {
   const { onText, onDone, onError } = callbacks;
   const extractContent = contentExtractors[format];
+  const isComplete = completionCheckers[format];
   const decoder = new TextDecoder();
   let buffer = "";
 
@@ -53,29 +92,61 @@ export async function parseSSEStream(
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith("data: ")) continue;
+        if (!trimmed) continue;
 
-        const data = trimmed.slice(6);
-        if (data === "[DONE]") continue;
+        if (format === "anthropic") {
+          if (!trimmed.startsWith("data: ")) continue;
+          const data = trimmed.slice(6);
+          if (data === "[DONE]") continue;
 
-        try {
-          const parsed = JSON.parse(data);
-          const text = extractContent(parsed);
-          if (text) {
-            onText(text);
-          }
-        } catch (extractError) {
-          // If extractor threw an error (not JSON parse error), propagate it
-          if (
-            extractError instanceof Error &&
-            extractError.message !== "Unexpected end of JSON input"
-          ) {
-            if (onError) {
-              onError(extractError);
+          try {
+            const parsed = JSON.parse(data);
+            if (isComplete(parsed)) {
+              onDone();
+              return;
             }
+            const text = extractContent(parsed);
+            if (text) {
+              onText(text);
+            }
+          } catch {
+            // Ignore parse errors for this chunk
+          }
+        } else if (format === "gemini") {
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (isComplete(parsed)) {
+              onDone();
+              return;
+            }
+            const text = extractContent(parsed);
+            if (text) {
+              onText(text);
+            }
+          } catch {
+            // Ignore parse errors for this chunk
+          }
+        } else {
+          if (!trimmed.startsWith("data: ")) continue;
+          const data = trimmed.slice(6);
+          if (data === "[DONE]") {
+            onDone();
             return;
           }
-          // Ignore JSON parse errors for incomplete chunks
+
+          try {
+            const parsed = JSON.parse(data);
+            if (isComplete(parsed)) {
+              onDone();
+              return;
+            }
+            const text = extractContent(parsed);
+            if (text) {
+              onText(text);
+            }
+          } catch {
+            // Ignore parse errors for this chunk
+          }
         }
       }
     }
