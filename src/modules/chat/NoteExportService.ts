@@ -2,6 +2,7 @@
  * NoteExportService - Export chat history as Zotero notes
  *
  * Uses marked.js to convert Markdown to HTML
+ * Images are embedded as base64 data URLs for proper display in notes
  */
 
 import type { ChatSession, ChatMessage } from "../../types/chat";
@@ -18,7 +19,7 @@ export class NoteExportService {
    */
   generateMarkdown(
     session: ChatSession,
-    imagePaths: Map<string, string>,
+    imageData: Map<string, { base64: string; mimeType: string }>,
   ): string {
     let markdown = "";
 
@@ -66,16 +67,15 @@ export class NoteExportService {
           markdown += `${quoteLines}\n\n`;
         }
 
-        // Add image path hints if images exist
+        // Add images as placeholders that will be replaced with HTML img tags
         if (message.images && message.images.length > 0) {
-          markdown += `> 📎 **Images:**\n`;
           for (const image of message.images) {
-            const filePath = imagePaths.get(image.id);
-            if (filePath) {
-              markdown += `> - ${filePath}\n`;
+            const imgData = imageData.get(image.id);
+            if (imgData) {
+              // Use a unique placeholder that will be replaced with actual img tag
+              markdown += `<!--IMAGE_PLACEHOLDER_${image.id}-->\n\n`;
             }
           }
-          markdown += `\n`;
         }
       } else if (message.role === "assistant") {
         const answer = message.content.trim();
@@ -119,68 +119,31 @@ export class NoteExportService {
   }
 
   /**
-   * Save images to Zotero storage and return file paths
+   * Collect image data from session messages
+   * Returns a map of image id to base64 data and mime type
    */
-  private async saveImages(session: ChatSession): Promise<Map<string, string>> {
-    const imagePaths = new Map<string, string>();
+  private collectImageData(
+    session: ChatSession,
+  ): Map<string, { base64: string; mimeType: string }> {
+    const imageData = new Map<string, { base64: string; mimeType: string }>();
 
     for (const message of session.messages) {
       if (message.images && message.images.length > 0) {
         for (const image of message.images) {
-          try {
-            // Decode base64 to binary
-            const binaryString = atob(
-              image.base64.split(",")[1] || image.base64,
-            );
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-
-            // Create file name
-            const extension = this.getExtensionFromMimeType(image.mimeType);
-            const fileName = `chat-image-${image.id}.${extension}`;
-
-            // Get Zotero directory
-            const storageDir = Zotero.getZoteroDirectory().path;
-            const sessionDir = PathUtils.join(
-              storageDir,
-              "chat-images",
-              session.id,
-            );
-
-            // Ensure directory exists
-            await IOUtils.makeDirectory(sessionDir, { createAncestors: true });
-
-            // Save file
-            const filePath = PathUtils.join(sessionDir, fileName);
-            await IOUtils.write(filePath, bytes);
-
-            imagePaths.set(image.id, filePath);
-          } catch (error) {
-            ztoolkit.log("Error saving image:", error);
-            imagePaths.set(image.id, "[Failed to save image]");
+          // Ensure base64 has proper data URL prefix
+          let base64Data = image.base64;
+          if (!base64Data.startsWith("data:")) {
+            base64Data = `data:${image.mimeType};base64,${base64Data}`;
           }
+          imageData.set(image.id, {
+            base64: base64Data,
+            mimeType: image.mimeType,
+          });
         }
       }
     }
 
-    return imagePaths;
-  }
-
-  /**
-   * Get file extension from MIME type
-   */
-  private getExtensionFromMimeType(mimeType: string): string {
-    const mimeToExt: Record<string, string> = {
-      "image/png": "png",
-      "image/jpeg": "jpg",
-      "image/jpg": "jpg",
-      "image/gif": "gif",
-      "image/webp": "webp",
-      "image/svg+xml": "svg",
-    };
-    return mimeToExt[mimeType] || "png";
+    return imageData;
   }
 
   /**
@@ -243,15 +206,28 @@ export class NoteExportService {
 
   /**
    * Generate HTML content for the note
+   * Images are embedded as base64 data URLs
    */
   async generateHtml(session: ChatSession): Promise<string> {
-    // Save images and get file paths
-    const imagePaths = await this.saveImages(session);
+    // Collect image data (base64)
+    const imageData = this.collectImageData(session);
 
-    // Generate markdown with image path hints
-    const markdown = this.generateMarkdown(session, imagePaths);
+    // Generate markdown with image placeholders
+    const markdown = this.generateMarkdown(session, imageData);
 
-    return this.markdownToHtml(markdown);
+    // Convert markdown to HTML
+    let html = this.markdownToHtml(markdown);
+
+    // Replace image placeholders with actual img tags
+    for (const [id, data] of imageData) {
+      const placeholder = `<!--IMAGE_PLACEHOLDER_${id}-->`;
+      // The placeholder might be wrapped in <p> tags by marked, handle both cases
+      const imgTag = `<img src="${data.base64}" alt="Image" style="max-width: 100%; height: auto; margin: 8px 0;" />`;
+      html = html.replace(new RegExp(`<p>${placeholder}</p>`, "g"), imgTag);
+      html = html.replace(new RegExp(placeholder, "g"), imgTag);
+    }
+
+    return html;
   }
 
   /**

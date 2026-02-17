@@ -71,3 +71,4 @@
 - [paper-chat-for-zotero](https://github.com/syt2/paper-chat-for-zotero) - 本项目是 paper-chat-for-zotero 的一个分支。
 - [Kimi-K2.5](https://github.com/MoonshotAI/Kimi-K2.5) - 本项目完全使用 Kimi-K2.5 模型进行开发。
 - [lucide](https://lucide.dev) - 本项目使用了 lucide 图标库。
+- [ai-research-assistant](https://github.com/lifan0127/ai-research-assistant) - 本项目的一些功能受到了 ai-research-assistant 的启发。
