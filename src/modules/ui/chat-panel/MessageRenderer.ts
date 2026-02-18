@@ -336,13 +336,99 @@ export function createMessageElement(
       userContentContainer.appendChild(imageCard);
     }
 
+    // Display documents if present
+    if (msg.documents && msg.documents.length > 0) {
+      // Create document card with similar design to quote card
+      const documentCard = createElement(doc, "div", {
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        padding: "10px 12px",
+        background: "rgba(255, 255, 255, 0.12)",
+        borderRadius: "8px",
+        border: "1px solid rgba(255, 255, 255, 0.18)",
+        marginTop:
+          msg.selectedText || (msg.images && msg.images.length > 0)
+            ? "8px"
+            : "0",
+      });
+
+      // Document header with icon and label
+      const documentHeader = createElement(doc, "div", {
+        display: "flex",
+        alignItems: "center",
+        gap: "5px",
+        fontSize: "10px",
+        fontWeight: "600",
+        textTransform: "uppercase",
+        letterSpacing: "0.4px",
+        opacity: "0.85",
+      });
+
+      // Document icon
+      const documentIcon = createElement(doc, "span", {
+        fontSize: "12px",
+        lineHeight: "1",
+      });
+      documentIcon.textContent = "📄";
+
+      const documentLabel = createElement(doc, "span", {});
+      documentLabel.textContent = getString("chat-document-label");
+
+      documentHeader.appendChild(documentIcon);
+      documentHeader.appendChild(documentLabel);
+      documentCard.appendChild(documentHeader);
+
+      // Document list container
+      const documentListContainer = createElement(doc, "div", {
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+      });
+
+      for (const document of msg.documents) {
+        const docItem = createElement(
+          doc,
+          "div",
+          {
+            fontSize: "12px",
+            lineHeight: "1.4",
+            opacity: "0.95",
+            paddingLeft: "4px",
+          },
+          { class: "document-item" },
+        );
+
+        // Build display text: title (creators, year)
+        let displayText = document.title;
+        const metaParts: string[] = [];
+        if (document.creators) {
+          metaParts.push(document.creators);
+        }
+        if (document.year) {
+          metaParts.push(`(${document.year})`);
+        }
+        if (metaParts.length > 0) {
+          displayText += ` ${metaParts.join(" ")}`;
+        }
+
+        docItem.textContent = displayText;
+        documentListContainer.appendChild(docItem);
+      }
+
+      documentCard.appendChild(documentListContainer);
+      userContentContainer.appendChild(documentCard);
+    }
+
     // Question text with slightly larger font
     if (questionContent) {
       const questionText = createElement(doc, "div", {
         fontSize: "14px",
         lineHeight: "1.5",
         marginTop:
-          msg.selectedText || (msg.images && msg.images.length > 0)
+          msg.selectedText ||
+          (msg.images && msg.images.length > 0) ||
+          (msg.documents && msg.documents.length > 0)
             ? "8px"
             : "0",
       });

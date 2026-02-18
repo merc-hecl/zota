@@ -1,9 +1,19 @@
 /**
- * DataTransferParser - Parse Zotero drag data for annotation images
+ * DataTransferParser - Parse Zotero drag data for annotation images and items
  *
  * This module handles parsing of DataTransfer objects when users drag
- * Zotero annotations (especially image annotations) into the chat input.
+ * Zotero annotations (especially image annotations) or items into the chat input.
  */
+
+export interface ParsedZoteroItem {
+  type: "zotero/item";
+  items: Array<{
+    id: number;
+    title: string;
+    creators?: string;
+    year?: number;
+  }>;
+}
 
 export interface ParsedAnnotationImage {
   type: "zotero/annotation-image";
@@ -24,6 +34,7 @@ export interface ParsedImageFile {
 }
 
 export type ParsedDragData =
+  | ParsedZoteroItem
   | ParsedAnnotationImage
   | ParsedText
   | ParsedImageFile
@@ -31,12 +42,17 @@ export type ParsedDragData =
 
 /**
  * Parse DataTransfer object from drag events
- * Handles Zotero annotation images, text, and image files
+ * Handles Zotero items, annotation images, text, and image files
  */
 export async function parseDataTransfer(
   dataTransfer: DataTransfer,
 ): Promise<ParsedDragData> {
   const { types } = dataTransfer;
+
+  // Check for zotero/item first
+  if (types.includes("zotero/item")) {
+    return parseZoteroItem(dataTransfer);
+  }
 
   if (types.includes("zotero/annotation")) {
     return parseZoteroAnnotation(dataTransfer);
@@ -60,6 +76,80 @@ export async function parseDataTransfer(
   }
 
   return { type: "unknown" };
+}
+
+/**
+ * Parse Zotero items from DataTransfer
+ * Extracts id, title, creators, and year from dragged items
+ */
+async function parseZoteroItem(
+  dataTransfer: DataTransfer,
+): Promise<ParsedDragData> {
+  try {
+    const ids = dataTransfer
+      .getData("zotero/item")
+      .split(",")
+      .map((x) => parseInt(x))
+      .filter((id) => !isNaN(id));
+
+    if (ids.length === 0) {
+      return {
+        type: "text/plain",
+        text: "No valid item IDs found",
+      };
+    }
+
+    const items = await Promise.all(
+      ids.map(async (id) => {
+        const item = await Zotero.Items.getAsync(id);
+        const title = item.getDisplayTitle();
+
+        // Extract creators: "LastName et al." if multiple, "FirstName LastName" if single
+        const creators = item.getCreators();
+        let creatorsStr: string | undefined;
+        if (creators.length > 0) {
+          if (creators.length > 1) {
+            creatorsStr = `${creators[0].lastName} et al.`;
+          } else {
+            creatorsStr = `${creators[0].firstName} ${creators[0].lastName}`;
+          }
+        }
+
+        // Extract year from date field
+        const dateStr = item.getField("date") as string;
+        let year: number | undefined;
+        if (dateStr && dateStr !== "") {
+          const parsedYear = new Date(dateStr).getFullYear();
+          if (!isNaN(parsedYear)) {
+            year = parsedYear;
+          }
+        }
+
+        return {
+          id,
+          title,
+          creators: creatorsStr,
+          year,
+        };
+      }),
+    );
+
+    ztoolkit.log(
+      "[DataTransferParser] Parsed zotero/item, count:",
+      items.length,
+    );
+
+    return {
+      type: "zotero/item",
+      items,
+    };
+  } catch (error) {
+    ztoolkit.log("[DataTransferParser] Error parsing zotero/item:", error);
+    return {
+      type: "text/plain",
+      text: "Failed to parse item data",
+    };
+  }
 }
 
 /**
@@ -137,6 +227,13 @@ async function parseZoteroAnnotation(
       text: "Failed to parse annotation data",
     };
   }
+}
+
+/**
+ * Check if DataTransfer contains Zotero item
+ */
+export function hasZoteroItem(dataTransfer: DataTransfer): boolean {
+  return dataTransfer.types.includes("zotero/item");
 }
 
 /**

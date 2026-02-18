@@ -11,6 +11,7 @@ import type {
   StoredSessionMeta,
   DocumentSessions,
 } from "../../types/chat";
+import { getString } from "../../utils/locale";
 
 export class StorageService {
   private storagePath: string;
@@ -146,9 +147,45 @@ export class StorageService {
     session: ChatSession,
     itemId: number,
   ): Promise<StoredSessionMeta> {
-    // Get item name
+    // Get item name - check for multi-document sessions first
     let itemName = "Global Chat";
-    if (itemId !== 0) {
+    let documentIds: number[] | undefined;
+    let documentNames: string[] | undefined;
+
+    // Check if session has document references (multi-document session)
+    if (session.documentIds && session.documentIds.length > 0) {
+      documentIds = session.documentIds;
+      documentNames = session.documentNames;
+
+      if (session.documentIds.length > 1) {
+        // Multi-document session - show first few words of document names
+        if (documentNames && documentNames.length > 0) {
+          // Get first 2 words from each document name, max 3 documents
+          const maxDocs = 3;
+          const maxWordsPerDoc = 2;
+          const nameParts = documentNames.slice(0, maxDocs).map((name) => {
+            const words = name.split(/\s+/).slice(0, maxWordsPerDoc);
+            return words.join(" ");
+          });
+          // Join with comma, add ellipsis if more docs
+          if (documentNames.length > maxDocs) {
+            itemName = nameParts.join(", ") + "...";
+          } else {
+            itemName = nameParts.join(", ");
+          }
+          // Truncate if too long
+          if (itemName.length > 50) {
+            itemName = itemName.substring(0, 47) + "...";
+          }
+        } else {
+          itemName = getString("chat-multiple-documents");
+        }
+      } else if (session.documentNames && session.documentNames.length > 0) {
+        // Single document session - use the document name
+        itemName = session.documentNames[0];
+      }
+    } else if (itemId !== 0) {
+      // Traditional single-document session (no documentIds array)
       try {
         const item = await Zotero.Items.getAsync(itemId);
         if (item) {
@@ -205,6 +242,15 @@ export class StorageService {
       }
     }
 
+    // If still no title but has documents, use document name as hint
+    if (!sessionTitle && documentNames && documentNames.length > 0) {
+      if (documentNames.length > 1) {
+        sessionTitle = getString("chat-multiple-documents");
+      } else {
+        sessionTitle = documentNames[0];
+      }
+    }
+
     return {
       itemId: itemId,
       itemName,
@@ -214,6 +260,8 @@ export class StorageService {
       sessionId: session.id,
       sessionTitle,
       isEmpty,
+      documentIds,
+      documentNames,
     };
   }
 

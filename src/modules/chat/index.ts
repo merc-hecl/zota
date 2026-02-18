@@ -9,6 +9,7 @@ export { NoteExportService, getNoteExportService } from "./NoteExportService";
 export {
   registerItemTrashHandler,
   unregisterItemTrashHandler,
+  onSessionsDeleted,
 } from "./ItemTrashHandler";
 
 // Re-export types

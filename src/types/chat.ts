@@ -9,6 +9,14 @@ export interface MessageImage {
   mimeType: string;
 }
 
+// Document reference for multi-document sessions
+export interface DocumentReference {
+  id: number;
+  title: string;
+  creators?: string;
+  year?: number;
+}
+
 // Chat message
 export interface ChatMessage {
   id: string;
@@ -18,6 +26,7 @@ export interface ChatMessage {
   pdfContext?: boolean; // Whether PDF context is included
   selectedText?: string; // Selected PDF text
   images?: MessageImage[]; // Attached images
+  documents?: DocumentReference[]; // Attached document references
 }
 
 // Chat session
@@ -30,6 +39,8 @@ export interface ChatSession {
   createdAt: number;
   updatedAt: number;
   title?: string; // Session title, optional
+  documentIds?: number[]; // Array of associated document item IDs
+  documentNames?: string[]; // Array of document display names
 }
 
 // Document sessions list (one document can have multiple sessions)
@@ -98,6 +109,7 @@ export interface SendMessageOptions {
   attachPdf?: boolean;
   selectedText?: string;
   images?: Array<{ id: string; base64: string; mimeType: string }>;
+  documents?: DocumentReference[]; // Attached document references
 }
 
 // Stored session metadata
@@ -110,4 +122,6 @@ export interface StoredSessionMeta {
   sessionId: string; // Unique session ID
   sessionTitle?: string; // Session title
   isEmpty: boolean; // Whether session is empty (no messages)
+  documentIds?: number[]; // Document IDs for multi-document sessions
+  documentNames?: string[]; // Document display names
 }

@@ -8,6 +8,9 @@ import { StorageService } from "./StorageService";
 let trashNotifierID: string | null = null;
 let storageService: StorageService | null = null;
 
+// Callbacks to notify UI when sessions are deleted
+const onSessionsDeletedCallbacks = new Set<(itemIds: number[]) => void>();
+
 /**
  * Get or create StorageService instance
  */
@@ -16,6 +19,31 @@ function getStorageService(): StorageService {
     storageService = new StorageService();
   }
   return storageService;
+}
+
+/**
+ * Register callback to be notified when sessions are deleted
+ */
+export function onSessionsDeleted(
+  callback: (itemIds: number[]) => void,
+): () => void {
+  onSessionsDeletedCallbacks.add(callback);
+  return () => {
+    onSessionsDeletedCallbacks.delete(callback);
+  };
+}
+
+/**
+ * Notify all registered callbacks about deleted sessions
+ */
+function notifySessionsDeleted(itemIds: number[]): void {
+  onSessionsDeletedCallbacks.forEach((callback) => {
+    try {
+      callback(itemIds);
+    } catch (error) {
+      ztoolkit.log("[ItemTrashHandler] Callback error:", error);
+    }
+  });
 }
 
 /**
@@ -42,6 +70,9 @@ async function handleItemsMovedToTrash(itemIds: number[]): Promise<void> {
       );
     }
   }
+
+  // Notify UI to refresh
+  notifySessionsDeleted(itemIds);
 }
 
 /**
@@ -88,4 +119,5 @@ export function unregisterItemTrashHandler(): void {
     trashNotifierID = null;
     ztoolkit.log("[ItemTrashHandler] Unregistered item trash handler");
   }
+  onSessionsDeletedCallbacks.clear();
 }

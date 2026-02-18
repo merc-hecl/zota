@@ -143,6 +143,9 @@ export function populateApiKeyPanel(
   const pdfMaxCharsEl = doc.getElementById(
     "pref-provider-pdfmaxchars",
   ) as HTMLInputElement;
+  const maxDocumentsEl = doc.getElementById(
+    "pref-max-documents",
+  ) as HTMLInputElement;
   const systemPromptEl = doc.getElementById(
     "pref-provider-systemprompt",
   ) as HTMLTextAreaElement;
@@ -239,6 +242,7 @@ export function populateApiKeyPanel(
   if (maxTokensEl) maxTokensEl.value = String(config.maxTokens ?? -1);
   if (temperatureEl) temperatureEl.value = String(config.temperature ?? 0.7);
   if (pdfMaxCharsEl) pdfMaxCharsEl.value = String(config.pdfMaxChars ?? 50000);
+  if (maxDocumentsEl) maxDocumentsEl.value = String(config.maxDocuments ?? 3);
   if (systemPromptEl) {
     systemPromptEl.value = config.systemPrompt || "";
     systemPromptEl.placeholder = getString(
@@ -559,6 +563,9 @@ export function saveCurrentProviderConfig(
   const pdfMaxCharsEl = doc.getElementById(
     "pref-provider-pdfmaxchars",
   ) as HTMLInputElement;
+  const maxDocumentsEl = doc.getElementById(
+    "pref-max-documents",
+  ) as HTMLInputElement;
   const systemPromptEl = doc.getElementById(
     "pref-provider-systemprompt",
   ) as HTMLTextAreaElement;
@@ -599,6 +606,7 @@ export function saveCurrentProviderConfig(
     maxTokens: parseInt(maxTokensEl?.value) || -1,
     temperature: parseFloat(temperatureEl?.value) || 0.7,
     pdfMaxChars: parseInt(pdfMaxCharsEl?.value) || 50000,
+    maxDocuments: parseInt(maxDocumentsEl?.value) || 3,
     systemPrompt: systemPromptEl?.value || "",
     streamingOutput: streamingOutputEl?.checked ?? true,
     endpoints,
@@ -1504,6 +1512,13 @@ export function bindApiKeyEvents(
     "pref-provider-pdfmaxchars",
   ) as HTMLInputElement;
   pdfMaxCharsInput?.addEventListener("blur", () =>
+    saveCurrentProviderConfig(doc, getCurrentProviderId()),
+  );
+
+  const maxDocumentsInput = doc.getElementById(
+    "pref-max-documents",
+  ) as HTMLInputElement;
+  maxDocumentsInput?.addEventListener("blur", () =>
     saveCurrentProviderConfig(doc, getCurrentProviderId()),
   );
 

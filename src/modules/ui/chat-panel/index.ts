@@ -37,3 +37,19 @@ export type {
 } from "./types";
 
 export type { AutoScrollManagerOptions } from "./AutoScrollManager";
+
+// Document state management
+export {
+  getDocuments,
+  setDocuments,
+  addDocument,
+  addDocuments,
+  removeDocument,
+  clearDocuments,
+  hasDocuments,
+  getDocumentIds,
+  getDocumentNames,
+  onDocumentsChange,
+  formatDocumentDisplayName,
+  buildDocumentContext,
+} from "./DocumentStateManager";

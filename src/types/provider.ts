@@ -98,6 +98,7 @@ export interface ApiKeyProviderConfig extends BaseProviderConfig {
   temperature?: number;
   systemPrompt?: string;
   pdfMaxChars?: number;
+  maxDocuments?: number;
   streamingOutput?: boolean;
   endpoints?: EndpointConfig[];
   currentEndpointIndex?: number;

@@ -131,7 +131,7 @@ export class ChatManager {
     options: SendMessageOptions & { item?: Zotero.Item | null } = {},
   ): Promise<void> {
     const item = options.item;
-    const itemId = item?.id ?? 0;
+    let itemId = item?.id ?? 0;
     const isGlobalChat = !item || item.id === 0;
 
     ztoolkit.log(
@@ -141,8 +141,92 @@ export class ChatManager {
       isGlobalChat,
     );
 
+    // Handle documents - determine session itemId based on single/multi-document
+    let documentIds: number[] | undefined;
+    let documentNames: string[] | undefined;
+    const documentContents: string[] = [];
+
+    if (options.documents && options.documents.length > 0) {
+      documentIds = options.documents.map((d) => d.id);
+      documentNames = options.documents.map((d) => d.title);
+
+      ztoolkit.log(
+        "[ChatManager] Processing documents:",
+        documentIds.length,
+        "ids:",
+        documentIds,
+      );
+
+      // Determine itemId based on document count
+      if (documentIds.length === 1) {
+        // Single document: use that document's itemId
+        itemId = documentIds[0];
+        ztoolkit.log(
+          "[ChatManager] Single document session, using itemId:",
+          itemId,
+        );
+      } else {
+        // Multi-document: use itemId = 0 (global)
+        itemId = 0;
+        ztoolkit.log(
+          "[ChatManager] Multi-document session, using global itemId: 0",
+        );
+      }
+
+      // Extract PDF content for each document
+      for (const doc of options.documents) {
+        try {
+          const zoteroItem = await Zotero.Items.getAsync(doc.id);
+          if (zoteroItem) {
+            const pdfText = await this.pdfExtractor.extractPdfText(
+              zoteroItem as Zotero.Item,
+            );
+            if (pdfText) {
+              // Get PDF max chars config (default 50000, -1 means unlimited)
+              const providerManager = getProviderManager();
+              const activeProviderId = providerManager.getActiveProviderId();
+              const providerConfig = providerManager.getProviderConfig(
+                activeProviderId,
+              ) as ApiKeyProviderConfig | null;
+              const pdfMaxChars = providerConfig?.pdfMaxChars ?? 50000;
+
+              const truncatedText =
+                pdfMaxChars > 0 ? pdfText.substring(0, pdfMaxChars) : pdfText;
+
+              documentContents.push(
+                `[Document: ${doc.title}]:\n${truncatedText}`,
+              );
+              ztoolkit.log(
+                "[ChatManager] Extracted PDF content for document:",
+                doc.title,
+                "length:",
+                truncatedText.length,
+              );
+            } else {
+              ztoolkit.log(
+                "[ChatManager] No PDF content found for document:",
+                doc.title,
+              );
+            }
+          }
+        } catch (error) {
+          ztoolkit.log(
+            "[ChatManager] Error extracting PDF for document:",
+            doc.id,
+            error,
+          );
+        }
+      }
+    }
+
     // Get or create session
     const session = await this.getOrCreateSession(itemId);
+
+    // Store document info in session for multi-document sessions
+    if (documentIds && documentIds.length > 1) {
+      session.documentIds = documentIds;
+      session.documentNames = documentNames;
+    }
 
     // Get active AI provider
     const provider = this.getActiveProvider();
@@ -173,13 +257,21 @@ export class ChatManager {
     ztoolkit.log("[ChatManager] sendMessage options:", {
       attachPdf: options.attachPdf,
       hasSelectedText: !!options.selectedText,
+      hasDocuments: !!(options.documents && options.documents.length > 0),
+      documentCount: options.documents?.length || 0,
     });
 
     // Build final message content parts
     const messageParts: string[] = [];
     let pdfWasAttached = false;
 
-    // 1. Process PDF content (only when attach PDF is checked and not already in session)
+    // 1. Process document contents (for dropped documents)
+    if (documentContents.length > 0) {
+      messageParts.push(documentContents.join("\n\n"));
+      pdfWasAttached = true;
+    }
+
+    // 2. Process PDF content (only when attach PDF is checked and not already in session)
     if (!isGlobalChat && options.attachPdf && item) {
       // Check if PDF content is already attached to current session
       const isPdfAlreadyInContext = session.pdfAttached && session.pdfContent;
@@ -235,7 +327,7 @@ export class ChatManager {
       }
     }
 
-    // 2. Process selected text
+    // 3. Process selected text
     if (options.selectedText) {
       const prefix = isGlobalChat
         ? "[Selected text]"
@@ -243,7 +335,7 @@ export class ChatManager {
       messageParts.push(`${prefix}:\n"${options.selectedText}"`);
     }
 
-    // 3. Add user question
+    // 4. Add user question
     if (content) {
       messageParts.push(`[Question]:\n${content}`);
     }
@@ -260,6 +352,7 @@ export class ChatManager {
       pdfContext: options.attachPdf,
       selectedText: options.selectedText,
       images: options.images,
+      documents: options.documents,
     };
 
     session.messages.push(userMessage);

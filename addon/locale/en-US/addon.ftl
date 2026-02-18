@@ -32,6 +32,12 @@ chat-image-label = Image
 chat-reference-label = Reference
 chat-text-quote-label = Text Quote
 
+# Document Reference
+chat-document-label = Documents
+chat-document-single = Document
+chat-multiple-documents = Multiple Documents
+chat-drop-document = Drop document here
+
 # Empty State
 chat-empty-title = The important thing is not to stop questioning. Curiosity has its own reason for existing.
 chat-empty-subtitle = —— Albert Einstein

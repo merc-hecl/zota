@@ -11,6 +11,7 @@ import {
   updateUnifiedReferenceDisplay,
   showDropZone,
   hideDropZone,
+  updateDropZoneText,
 } from "./ChatPanelBuilder";
 import { getCurrentTheme } from "./ChatPanelTheme";
 import {
@@ -21,7 +22,11 @@ import {
 } from "./HistoryDropdown";
 
 import { getString } from "../../../utils/locale";
-import { getProviderManager, getModelStateManager } from "../../providers";
+import {
+  getProviderManager,
+  getModelStateManager,
+  type ApiKeyProviderConfig,
+} from "../../providers";
 import { getPref, setPref } from "../../../utils/prefs";
 import { formatModelLabel } from "../../preferences/ModelsFetcher";
 import type { PanelMode } from "./ChatPanelManager";
@@ -56,6 +61,7 @@ import {
 import {
   parseDataTransfer,
   hasSupportedImageType,
+  hasZoteroItem,
   type ParsedDragData,
 } from "./DataTransferParser";
 import {
@@ -64,6 +70,13 @@ import {
   resetDragState,
   onDragStateChange,
 } from "./DragDropManager";
+import {
+  setDocuments,
+  getDocuments,
+  removeDocument,
+  clearDocuments,
+  hasDocuments,
+} from "./DocumentStateManager";
 
 // Import getActiveReaderItem from the manager module to avoid circular dependency
 // This is set by ChatPanelManager during initialization
@@ -74,6 +87,32 @@ let togglePanelModeFn: (() => void) | null = null;
 
 // Note: We use the global isSendingMessage state from ChatPanelManager
 // instead of a local variable to ensure proper state synchronization
+
+// Global history refresh callbacks
+const historyRefreshCallbacks = new Set<() => void>();
+
+/**
+ * Register a callback to be called when history should be refreshed
+ */
+export function onHistoryRefresh(callback: () => void): () => void {
+  historyRefreshCallbacks.add(callback);
+  return () => {
+    historyRefreshCallbacks.delete(callback);
+  };
+}
+
+/**
+ * Trigger history refresh for all registered callbacks
+ */
+export function triggerHistoryRefresh(): void {
+  historyRefreshCallbacks.forEach((callback) => {
+    try {
+      callback();
+    } catch (error) {
+      ztoolkit.log("[ChatPanelEvents] History refresh callback error:", error);
+    }
+  });
+}
 // Use setIsSendingMessage(true/false) to set the state
 // Use getIsSendingMessage() to read the state
 
@@ -365,9 +404,15 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
   // Container-level drag detection for drop zone
   container.addEventListener("dragenter", (e: DragEvent) => {
-    if (e.dataTransfer && hasSupportedImageType(e.dataTransfer)) {
+    if (
+      e.dataTransfer &&
+      (hasSupportedImageType(e.dataTransfer) || hasZoteroItem(e.dataTransfer))
+    ) {
       e.preventDefault();
       e.stopPropagation();
+      // Update drop zone text based on content type
+      const isDocument = hasZoteroItem(e.dataTransfer);
+      updateDropZoneText(container, isDocument);
       incrementDrag();
     }
   });
@@ -379,7 +424,10 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   });
 
   container.addEventListener("dragover", (e: DragEvent) => {
-    if (e.dataTransfer && hasSupportedImageType(e.dataTransfer)) {
+    if (
+      e.dataTransfer &&
+      (hasSupportedImageType(e.dataTransfer) || hasZoteroItem(e.dataTransfer))
+    ) {
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = "copy";
@@ -388,7 +436,10 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
   // Handle drop on container (for drop zone)
   container.addEventListener("drop", async (e: DragEvent) => {
-    if (!e.dataTransfer || !hasSupportedImageType(e.dataTransfer)) {
+    if (
+      !e.dataTransfer ||
+      (!hasSupportedImageType(e.dataTransfer) && !hasZoteroItem(e.dataTransfer))
+    ) {
       return;
     }
 
@@ -407,7 +458,10 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
     // Drag enter - show visual feedback
     inputWrapper.addEventListener("dragenter", (e: DragEvent) => {
-      if (e.dataTransfer && hasSupportedImageType(e.dataTransfer)) {
+      if (
+        e.dataTransfer &&
+        (hasSupportedImageType(e.dataTransfer) || hasZoteroItem(e.dataTransfer))
+      ) {
         e.preventDefault();
         e.stopPropagation();
         inputWrapper.style.border = "2px dashed #10b981";
@@ -417,7 +471,10 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
     // Drag over - allow drop
     inputWrapper.addEventListener("dragover", (e: DragEvent) => {
-      if (e.dataTransfer && hasSupportedImageType(e.dataTransfer)) {
+      if (
+        e.dataTransfer &&
+        (hasSupportedImageType(e.dataTransfer) || hasZoteroItem(e.dataTransfer))
+      ) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -439,7 +496,11 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
     // Drop - handle dropped files and Zotero annotations
     inputWrapper.addEventListener("drop", async (e: DragEvent) => {
-      if (!e.dataTransfer || !hasSupportedImageType(e.dataTransfer)) {
+      if (
+        !e.dataTransfer ||
+        (!hasSupportedImageType(e.dataTransfer) &&
+          !hasZoteroItem(e.dataTransfer))
+      ) {
         return;
       }
 
@@ -800,20 +861,21 @@ export function setupEventHandlers(context: ChatPanelContext): void {
               if (item) {
                 itemForSession = item as Zotero.Item;
               } else {
-                // Item was deleted - treat as global chat
+                // Item was deleted - create a placeholder with the original itemId
+                // This ensures session tracking remains consistent
                 ztoolkit.log(
-                  "Item not found, treating as global chat:",
+                  "Item not found, creating placeholder for session:",
                   session.itemId,
                 );
-                itemForSession = { id: 0 } as Zotero.Item;
+                itemForSession = { id: session.itemId } as Zotero.Item;
               }
             } catch {
-              // Error fetching item - treat as global chat
+              // Error fetching item - create a placeholder with the original itemId
               ztoolkit.log(
-                "Error fetching item, treating as global chat:",
+                "Error fetching item, creating placeholder for session:",
                 session.itemId,
               );
-              itemForSession = { id: 0 } as Zotero.Item;
+              itemForSession = { id: session.itemId } as Zotero.Item;
             }
           }
 
@@ -913,6 +975,9 @@ export function setupEventHandlers(context: ChatPanelContext): void {
           session.itemId,
         );
 
+        // Delete the session
+        await chatManager.deleteSession(session.itemId, session.sessionId);
+
         // Check if this is the currently displayed session
         const currentItem = context.getCurrentItem();
         const isCurrentSession =
@@ -921,8 +986,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
           (await import("./StreamingStateManager")).getActiveSessionIdForItem(
             session.itemId,
           ) === session.sessionId;
-
-        await chatManager.deleteSession(session.itemId, session.sessionId);
 
         // If deleted session was currently displayed, update UI to show new session
         if (isCurrentSession) {
@@ -1004,6 +1067,15 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   if (historyDropdown && historyBtn) {
     setupClickOutsideHandler(container, historyDropdown, historyBtn);
   }
+
+  // Subscribe to global history refresh events
+  const unsubscribeHistoryRefresh = onHistoryRefresh(async () => {
+    ztoolkit.log("[ChatPanelEvents] Received history refresh event");
+    await refreshHistoryDropdown();
+  });
+
+  // Store unsubscribe function for cleanup
+  (container as any)._unsubscribeHistoryRefresh = unsubscribeHistoryRefresh;
 
   // Model selector
   const modelSelectorBtn = container.querySelector(
@@ -1392,6 +1464,9 @@ async function sendMessage(
     selectedText: selectedText || undefined,
   };
 
+  // Get documents from context
+  const currentDocuments = context.getDocuments();
+
   // Get the item ID for clearing images (targetItem is already set above)
   const currentItemId = targetItem?.id ?? 0;
 
@@ -1402,6 +1477,14 @@ async function sendMessage(
     "[SendMessage] Images after clear:",
     getImages(currentItemId).length,
   );
+  // Clear documents after getting them
+  if (currentDocuments.length > 0) {
+    ztoolkit.log(
+      "[SendMessage] Clearing documents, count:",
+      currentDocuments.length,
+    );
+    context.clearDocuments();
+  }
   // Update unified reference display in both containers immediately
   // Pass null to explicitly clear the display (not fetch from state)
   updateUnifiedReferenceForItem(currentItemId, null);
@@ -1422,6 +1505,7 @@ async function sendMessage(
         item: targetItem,
         attachPdf: shouldAttachPdf,
         images: currentImages.length > 0 ? currentImages : undefined,
+        documents: currentDocuments.length > 0 ? currentDocuments : undefined,
         ...attachmentOptions,
       })
       .catch((error) => {
@@ -1647,7 +1731,7 @@ function populateModelDropdown(
 
 /**
  * Handle dropped data from drag events
- * Supports Zotero annotation images, image files, and text
+ * Supports Zotero annotation images, image files, documents, and text
  */
 async function handleDroppedData(
   dataTransfer: DataTransfer,
@@ -1658,6 +1742,53 @@ async function handleDroppedData(
   const currentItemId = context.getCurrentItem()?.id ?? 0;
 
   switch (parsedData.type) {
+    case "zotero/item": {
+      const { items } = parsedData;
+      ztoolkit.log("[DragDrop] Adding document references:", items.length);
+
+      // Get max documents limit from provider config
+      const providerManager = getProviderManager();
+      const activeProviderId = providerManager.getActiveProviderId();
+      const providerConfig = providerManager.getProviderConfig(
+        activeProviderId,
+      ) as ApiKeyProviderConfig | null;
+      const maxDocuments = providerConfig?.maxDocuments ?? 3;
+
+      ztoolkit.log(
+        "[DragDrop] Max documents limit from config:",
+        maxDocuments,
+        "providerId:",
+        activeProviderId,
+      );
+
+      // Limit the number of documents
+      const limitedItems = items.slice(0, maxDocuments);
+      if (items.length > maxDocuments) {
+        ztoolkit.log(
+          `[DragDrop] Limited documents from ${items.length} to ${maxDocuments}`,
+        );
+      }
+
+      // Convert to DocumentReference format and set documents
+      const documents = limitedItems.map((item) => ({
+        id: item.id,
+        title: item.title,
+        creators: item.creators,
+        year: item.year,
+      }));
+
+      setDocuments(documents);
+
+      // Update unified reference display to show documents
+      updateUnifiedReferenceForDocuments();
+
+      // Focus input after drop
+      messageInput?.focus();
+
+      ztoolkit.log("[DragDrop] Document references added successfully");
+      break;
+    }
+
     case "zotero/annotation-image": {
       const { image, libraryID, key, mimeType } = parsedData;
       const id = `${libraryID}/${key}`;
@@ -1704,4 +1835,318 @@ async function handleDroppedData(
     default:
       ztoolkit.log("[DragDrop] Unknown drop type, ignoring");
   }
+}
+
+/**
+ * Update unified reference display for documents
+ * Shows document references in both sidebar and floating containers
+ */
+function updateUnifiedReferenceForDocuments(): void {
+  const documents = getDocuments();
+  const chatContainer = getChatContainer();
+  const floatingContainer = getFloatingContainer();
+  const theme = getCurrentTheme();
+
+  ztoolkit.log(
+    "[updateUnifiedReferenceForDocuments] documents count:",
+    documents.length,
+  );
+
+  // Create handlers for document removal
+  const handleRemoveDocument = (documentId: number) => {
+    removeDocument(documentId);
+    // Refresh display
+    updateUnifiedReferenceForDocuments();
+  };
+
+  const handleCloseAll = () => {
+    clearDocuments();
+    // Refresh display
+    updateUnifiedReferenceForDocuments();
+  };
+
+  if (chatContainer) {
+    updateUnifiedReferenceDisplayForDocuments(
+      chatContainer,
+      {
+        documents,
+        onRemoveDocument: handleRemoveDocument,
+        onCloseAll: handleCloseAll,
+      },
+      theme,
+    );
+  }
+  if (floatingContainer) {
+    updateUnifiedReferenceDisplayForDocuments(
+      floatingContainer,
+      {
+        documents,
+        onRemoveDocument: handleRemoveDocument,
+        onCloseAll: handleCloseAll,
+      },
+      theme,
+    );
+  }
+}
+
+/**
+ * Update unified reference display to show document references
+ */
+function updateUnifiedReferenceDisplayForDocuments(
+  container: HTMLElement,
+  options: {
+    documents: Array<{
+      id: number;
+      title: string;
+      creators?: string;
+      year?: number;
+    }>;
+    onRemoveDocument: (documentId: number) => void;
+    onCloseAll: () => void;
+  },
+  theme: {
+    borderColor: string;
+    textMuted: string;
+    inputBg: string;
+    referenceCloseBtnBg: string;
+    referenceCloseBtnHoverBg: string;
+    referenceCloseBtnColor: string;
+    referenceCloseBtnHoverColor: string;
+  },
+): void {
+  const unifiedContainer = container.querySelector(
+    "#chat-unified-reference-container",
+  ) as HTMLElement;
+
+  if (!unifiedContainer) return;
+
+  const doc = container.ownerDocument;
+  if (!doc) return;
+
+  // If no documents, hide the container
+  if (options.documents.length === 0) {
+    unifiedContainer.style.display = "none";
+    return;
+  }
+
+  // Show the container
+  unifiedContainer.style.display = "flex";
+
+  // Clear existing content
+  unifiedContainer.textContent = "";
+
+  // Create document reference section
+  const documentSection = createElement(
+    doc,
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
+      width: "100%",
+    },
+    { id: "chat-document-reference-section" },
+  );
+
+  // Create header with title and close button
+  const header = createElement(
+    doc,
+    "div",
+    {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: "4px",
+    },
+    { class: "document-reference-header" },
+  );
+
+  const title = createElement(
+    doc,
+    "span",
+    {
+      fontSize: "11px",
+      fontWeight: "600",
+      color: theme.textMuted,
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+    },
+    { class: "document-reference-title" },
+  );
+  // Use localized string with document count
+  const label = getString("chat-document-label");
+  title.textContent = `${label} (${options.documents.length})`;
+
+  const closeBtn = createElement(
+    doc,
+    "button",
+    {
+      width: "20px",
+      height: "20px",
+      borderRadius: "4px",
+      border: "none",
+      background: theme.referenceCloseBtnBg,
+      color: theme.referenceCloseBtnColor,
+      fontSize: "14px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0",
+      opacity: "0.7",
+      transition: "opacity 0.2s ease",
+    },
+    { title: getString("chat-close") },
+  );
+  closeBtn.textContent = "×";
+
+  closeBtn.addEventListener("click", () => {
+    options.onCloseAll();
+  });
+
+  closeBtn.addEventListener("mouseenter", () => {
+    closeBtn.style.opacity = "1";
+    closeBtn.style.background = theme.referenceCloseBtnHoverBg;
+    closeBtn.style.color = theme.referenceCloseBtnHoverColor;
+  });
+  closeBtn.addEventListener("mouseleave", () => {
+    closeBtn.style.opacity = "0.7";
+    closeBtn.style.background = theme.referenceCloseBtnBg;
+    closeBtn.style.color = theme.referenceCloseBtnColor;
+  });
+
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+
+  // Create document list
+  const documentList = createElement(
+    doc,
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      gap: "6px",
+    },
+    { class: "document-reference-list" },
+  );
+
+  options.documents.forEach((document) => {
+    const docItem = createElement(
+      doc,
+      "div",
+      {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "6px 8px",
+        background: theme.inputBg,
+        borderRadius: "6px",
+        border: `1px solid ${theme.borderColor}`,
+      },
+      { "data-document-id": String(document.id) },
+    );
+
+    // Document info
+    const docInfo = createElement(doc, "div", {
+      display: "flex",
+      flexDirection: "column",
+      gap: "2px",
+      flex: "1",
+      overflow: "hidden",
+    });
+
+    // Title
+    const docTitle = createElement(
+      doc,
+      "span",
+      {
+        fontSize: "12px",
+        fontWeight: "500",
+        color: theme.textMuted,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+      },
+      { class: "document-title" },
+    );
+    docTitle.textContent = document.title;
+    docTitle.title = document.title;
+
+    docInfo.appendChild(docTitle);
+
+    // Creators and year
+    if (document.creators || document.year) {
+      const metaInfo = createElement(
+        doc,
+        "span",
+        {
+          fontSize: "10px",
+          color: theme.textMuted,
+          opacity: "0.7",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        },
+        { class: "document-meta" },
+      );
+      const metaParts: string[] = [];
+      if (document.creators) {
+        metaParts.push(document.creators);
+      }
+      if (document.year) {
+        metaParts.push(`(${document.year})`);
+      }
+      metaInfo.textContent = metaParts.join(" ");
+      docInfo.appendChild(metaInfo);
+    }
+
+    // Remove button
+    const removeBtn = createElement(
+      doc,
+      "button",
+      {
+        width: "18px",
+        height: "18px",
+        borderRadius: "4px",
+        border: "none",
+        background: "transparent",
+        color: theme.textMuted,
+        fontSize: "12px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0",
+        opacity: "0.6",
+        transition: "opacity 0.2s ease",
+        flexShrink: "0",
+        marginLeft: "8px",
+      },
+      { title: getString("chat-delete") },
+    );
+    removeBtn.textContent = "×";
+
+    removeBtn.addEventListener("click", () => {
+      options.onRemoveDocument(document.id);
+    });
+
+    removeBtn.addEventListener("mouseenter", () => {
+      removeBtn.style.opacity = "1";
+      removeBtn.style.background = theme.referenceCloseBtnHoverBg;
+      removeBtn.style.color = theme.referenceCloseBtnHoverColor;
+    });
+    removeBtn.addEventListener("mouseleave", () => {
+      removeBtn.style.opacity = "0.6";
+      removeBtn.style.background = "transparent";
+      removeBtn.style.color = theme.textMuted;
+    });
+
+    docItem.appendChild(docInfo);
+    docItem.appendChild(removeBtn);
+    documentList.appendChild(docItem);
+  });
+
+  documentSection.appendChild(header);
+  documentSection.appendChild(documentList);
+  unifiedContainer.appendChild(documentSection);
 }

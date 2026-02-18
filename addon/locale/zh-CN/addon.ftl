@@ -32,6 +32,12 @@ chat-image-label = 图片
 chat-reference-label = 引用
 chat-text-quote-label = 文字引用
 
+# Document Reference
+chat-document-label = 文档
+chat-document-single = 文档
+chat-multiple-documents = 多个文档
+chat-drop-document = 拖放文档到此处
+
 # Empty State
 chat-empty-title = 学贵知疑，小疑则小进，大疑则大进。
 chat-empty-subtitle = ——《明儒学案·白沙学案上·文恭陈白沙先生献章》

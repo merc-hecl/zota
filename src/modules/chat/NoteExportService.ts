@@ -15,7 +15,7 @@ export class NoteExportService {
    * - Session title as H1
    * - User questions as H2
    * - AI responses as content
-   * - Include quotes (selectedText) and images
+   * - Include quotes (selectedText), images, and document references
    */
   generateMarkdown(
     session: ChatSession,
@@ -23,14 +23,15 @@ export class NoteExportService {
   ): string {
     let markdown = "";
 
-    // Filter out system messages, but keep messages with quotes or images even if content is empty
+    // Filter out system messages, but keep messages with quotes, images, or documents even if content is empty
     const validMessages = session.messages.filter((msg) => {
       if (msg.role === "system") return false;
-      // Keep if has content, or has selectedText, or has images
+      // Keep if has content, or has selectedText, or has images, or has documents
       const hasContent = msg.content && msg.content.trim() !== "";
       const hasQuote = msg.selectedText && msg.selectedText.trim() !== "";
       const hasImages = msg.images && msg.images.length > 0;
-      return hasContent || hasQuote || hasImages;
+      const hasDocuments = msg.documents && msg.documents.length > 0;
+      return hasContent || hasQuote || hasImages || hasDocuments;
     });
 
     // Get session title, use first user question if not available
@@ -38,7 +39,7 @@ export class NoteExportService {
     if (!sessionTitle || sessionTitle === "未命名会话") {
       const firstUserMessage = validMessages.find((msg) => msg.role === "user");
       if (firstUserMessage) {
-        const question = this.extractUserQuestion(firstUserMessage);
+        const { question } = this.extractUserQuestion(firstUserMessage);
         sessionTitle =
           question.length > 50 ? question.substring(0, 50) + "..." : question;
       }
@@ -51,10 +52,19 @@ export class NoteExportService {
 
     for (const message of validMessages) {
       if (message.role === "user") {
-        const question = this.extractUserQuestion(message);
+        const { question, documentTitles } = this.extractUserQuestion(message);
 
         if (question) {
           markdown += `## ${question}\n\n`;
+        }
+
+        // Add referenced documents section if exists
+        if (documentTitles.length > 0) {
+          markdown += `**Referenced Documents:**\n`;
+          for (const title of documentTitles) {
+            markdown += `- ${title}\n`;
+          }
+          markdown += `\n`;
         }
 
         // Add quoted text if exists
@@ -90,12 +100,46 @@ export class NoteExportService {
 
   /**
    * Extract user question from message content
-   * Removes PDF content and selected text prefixes
+   * Removes PDF content, document content, and selected text prefixes
+   * Returns both the cleaned question and any document titles found
    */
-  private extractUserQuestion(message: ChatMessage): string {
-    if (!message.content) return "";
+  private extractUserQuestion(message: ChatMessage): {
+    question: string;
+    documentTitles: string[];
+  } {
+    const documentTitles: string[] = [];
+
+    // If message has documents field, use that for document titles
+    if (message.documents && message.documents.length > 0) {
+      for (const doc of message.documents) {
+        if (doc.title) {
+          documentTitles.push(doc.title);
+        }
+      }
+    }
+
+    if (!message.content) {
+      return { question: "", documentTitles };
+    }
 
     let question = message.content;
+
+    // Extract document titles from [Document: Title]: sections
+    // This handles multi-document sessions where content includes document sections
+    const documentMatches = question.matchAll(/\[Document:\s*([^\]]+)\]:/g);
+    for (const match of documentMatches) {
+      const title = match[1].trim();
+      if (title && !documentTitles.includes(title)) {
+        documentTitles.push(title);
+      }
+    }
+
+    // Remove [Document: Title]: sections with their full content
+    // Pattern matches: [Document: Title]:\n...content... until next section or end
+    question = question.replace(
+      /\[Document:\s*[^\]]+\]:[\s\S]*?(?=\[Document:|\[Question\]:|\[Selected|\[PDF Content\]:|$)/g,
+      "",
+    );
 
     // Remove PDF content section
     question = question.replace(
@@ -115,7 +159,7 @@ export class NoteExportService {
 
     question = question.trim();
 
-    return question;
+    return { question, documentTitles };
   }
 
   /**

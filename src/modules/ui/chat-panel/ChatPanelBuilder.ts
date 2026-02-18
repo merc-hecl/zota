@@ -8,6 +8,7 @@ import { chatColors } from "../../../utils/colors";
 import type { ThemeColors } from "./types";
 import { HTML_NS, SVG_NS } from "./types";
 import { getCurrentTheme } from "./ChatPanelTheme";
+import type { DocumentReference } from "../../../types/chat";
 
 /**
  * Helper to create an element with styles (using proper HTML namespace for XHTML)
@@ -611,9 +612,60 @@ export function createChatContainer(
   imagePreviewSection.appendChild(imagePreviewHeader);
   imagePreviewSection.appendChild(imagesGrid);
 
+  // Document preview section
+  const documentPreviewSection = createElement(
+    doc,
+    "div",
+    {
+      display: "none",
+      flexDirection: "column",
+    },
+    { id: "chat-document-preview-section" },
+  );
+
+  // Document preview header
+  const documentPreviewHeader = createElement(doc, "div", {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "6px",
+  });
+
+  const documentPreviewLabel = createElement(doc, "span", {
+    fontSize: "10px",
+    color: theme.referenceLabelColor,
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: "0.2px",
+  });
+  documentPreviewLabel.textContent = getString("chat-document-label");
+
+  documentPreviewHeader.appendChild(documentPreviewLabel);
+
+  // Documents grid container
+  const documentsGrid = createElement(
+    doc,
+    "div",
+    {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "8px",
+      padding: "10px 14px",
+      background: theme.inputBg,
+      borderRadius: "8px",
+      border: `1px solid ${theme.borderColor}`,
+      boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+    },
+    { id: "chat-documents-grid" },
+  );
+
+  documentPreviewSection.appendChild(documentPreviewHeader);
+  documentPreviewSection.appendChild(documentsGrid);
+
   unifiedReferenceContainer.appendChild(unifiedHeader);
   unifiedReferenceContainer.appendChild(textQuoteSection);
   unifiedReferenceContainer.appendChild(imagePreviewSection);
+  unifiedReferenceContainer.appendChild(documentPreviewSection);
 
   // Input Area - ChatBox style with vertical layout
   const inputArea = createElement(doc, "div", {
@@ -1138,21 +1190,162 @@ export function createImagePreviewElement(
 }
 
 /**
+ * Create a document preview element (chip) for the input area
+ */
+export function createDocumentPreviewElement(
+  doc: Document,
+  documentData: DocumentReference,
+  onRemove: (documentId: number) => void,
+  theme: { borderColor: string; textMuted: string; textPrimary: string },
+): HTMLElement {
+  const container = createElement(
+    doc,
+    "div",
+    {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "8px 12px",
+      borderRadius: "8px",
+      border: `1px solid ${theme.borderColor}`,
+      background: "rgba(255, 255, 255, 0.5)",
+      flexShrink: "0",
+      maxWidth: "200px",
+      position: "relative",
+    },
+    { "data-document-id": String(documentData.id) },
+  );
+
+  // Document icon container
+  const iconContainer = createElement(doc, "div", {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "24px",
+    height: "24px",
+    flexShrink: "0",
+  });
+
+  // Document icon (file icon using text)
+  const docIcon = createElement(doc, "span", {
+    fontSize: "16px",
+    lineHeight: "1",
+  });
+  docIcon.textContent = "📄";
+
+  iconContainer.appendChild(docIcon);
+
+  // Document info container
+  const infoContainer = createElement(doc, "div", {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2px",
+    overflow: "hidden",
+    flex: "1",
+    minWidth: "0",
+  });
+
+  // Document title
+  const titleEl = createElement(doc, "span", {
+    fontSize: "12px",
+    fontWeight: "500",
+    color: theme.textPrimary,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  });
+  titleEl.textContent = documentData.title;
+  titleEl.title = documentData.title; // Show full title on hover
+
+  // Document meta info (creators and year)
+  const metaParts: string[] = [];
+  if (documentData.creators) {
+    metaParts.push(documentData.creators);
+  }
+  if (documentData.year) {
+    metaParts.push(String(documentData.year));
+  }
+
+  const metaEl = createElement(doc, "span", {
+    fontSize: "10px",
+    color: theme.textMuted,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  });
+  metaEl.textContent = metaParts.join(" · ");
+
+  infoContainer.appendChild(titleEl);
+  infoContainer.appendChild(metaEl);
+
+  // Remove button
+  const removeBtn = createElement(
+    doc,
+    "button",
+    {
+      width: "18px",
+      height: "18px",
+      borderRadius: "50%",
+      border: "none",
+      background: "transparent",
+      color: theme.textMuted,
+      fontSize: "14px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0",
+      lineHeight: "1",
+      flexShrink: "0",
+      opacity: "0.6",
+      transition: "all 0.2s ease",
+    },
+    { title: "Remove document" },
+  );
+  removeBtn.textContent = "×";
+
+  // Hover effects
+  removeBtn.addEventListener("mouseenter", () => {
+    removeBtn.style.opacity = "1";
+    removeBtn.style.background = "rgba(0, 0, 0, 0.1)";
+  });
+  removeBtn.addEventListener("mouseleave", () => {
+    removeBtn.style.opacity = "0.6";
+    removeBtn.style.background = "transparent";
+  });
+
+  // Click handler
+  removeBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    onRemove(documentData.id);
+  });
+
+  container.appendChild(iconContainer);
+  container.appendChild(infoContainer);
+  container.appendChild(removeBtn);
+
+  return container;
+}
+
+/**
  * Update unified reference container display
- * Shows/hides text quote and image sections based on content
+ * Shows/hides text quote, image, and document sections based on content
  */
 export function updateUnifiedReferenceDisplay(
   container: HTMLElement,
   options: {
     textQuote: string | null;
     images: Array<{ id: string; base64: string; mimeType: string }>;
+    documents?: DocumentReference[];
     onRemoveImage: (imageId: string) => void;
+    onRemoveDocument?: (documentId: number) => void;
     onCloseTextQuote: () => void;
     onCloseAll: () => void;
   },
   theme: {
     borderColor: string;
     textMuted: string;
+    textPrimary: string;
     inputBg: string;
     referenceCloseBtnBg: string;
     referenceCloseBtnHoverBg: string;
@@ -1174,6 +1367,12 @@ export function updateUnifiedReferenceDisplay(
   ) as HTMLElement;
   const imagesGrid = container.querySelector(
     "#chat-images-grid",
+  ) as HTMLElement;
+  const documentPreviewSection = container.querySelector(
+    "#chat-document-preview-section",
+  ) as HTMLElement;
+  const documentsGrid = container.querySelector(
+    "#chat-documents-grid",
   ) as HTMLElement;
 
   if (!unifiedContainer) return;
@@ -1241,6 +1440,33 @@ export function updateUnifiedReferenceDisplay(
     }
   }
 
+  // Update document preview section
+  if (documentsGrid) {
+    documentsGrid.textContent = "";
+
+    if (
+      options.documents &&
+      options.documents.length > 0 &&
+      options.onRemoveDocument
+    ) {
+      options.documents.forEach((documentData) => {
+        const previewEl = createDocumentPreviewElement(
+          doc,
+          documentData,
+          options.onRemoveDocument!,
+          theme,
+        );
+        documentsGrid.appendChild(previewEl);
+      });
+
+      if (documentPreviewSection) {
+        documentPreviewSection.style.display = "flex";
+      }
+    } else if (documentPreviewSection) {
+      documentPreviewSection.style.display = "none";
+    }
+  }
+
   // Setup close all button
   const referenceCloseBtn = unifiedContainer.querySelector(
     "#chat-reference-close-btn",
@@ -1268,8 +1494,9 @@ export function updateUnifiedReferenceDisplay(
   // Show/hide entire container based on whether there's any content
   const hasTextQuote = !!options.textQuote;
   const hasImages = options.images.length > 0;
+  const hasDocuments = options.documents && options.documents.length > 0;
 
-  if (hasTextQuote || hasImages) {
+  if (hasTextQuote || hasImages || hasDocuments) {
     unifiedContainer.style.display = "flex";
   } else {
     unifiedContainer.style.display = "none";
@@ -1293,6 +1520,46 @@ export function hideDropZone(container: HTMLElement): void {
   const dropZone = container.querySelector("#chat-drop-zone") as HTMLElement;
   if (dropZone) {
     dropZone.style.display = "none";
+  }
+}
+
+/**
+ * Update drop zone text based on drag content type
+ * @param container - The chat container element
+ * @param isDocument - Whether the dragged content is a document (zotero/item)
+ */
+export function updateDropZoneText(
+  container: HTMLElement,
+  isDocument: boolean,
+): void {
+  const dropZone = container.querySelector("#chat-drop-zone") as HTMLElement;
+  if (!dropZone) return;
+
+  const dropZoneContent = dropZone.querySelector(
+    ".drop-zone-content",
+  ) as HTMLElement;
+  const dropZoneIcon = dropZone.querySelector(".drop-zone-icon") as HTMLElement;
+
+  if (dropZoneContent) {
+    if (isDocument) {
+      dropZoneContent.childNodes.forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          node.textContent = getString("chat-drop-document");
+        }
+      });
+      if (dropZoneIcon) {
+        dropZoneIcon.textContent = "📄";
+      }
+    } else {
+      dropZoneContent.childNodes.forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          node.textContent = "Drop image here";
+        }
+      });
+      if (dropZoneIcon) {
+        dropZoneIcon.textContent = "🖼️";
+      }
+    }
   }
 }
 

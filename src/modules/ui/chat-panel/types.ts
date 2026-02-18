@@ -93,6 +93,10 @@ export interface ChatPanelContext {
   removeImage: (imageId: string) => void;
   clearImages: () => void;
   updateImagePreview: () => void;
+  // Document handling
+  getDocuments: () => import("../../../types/chat").DocumentReference[];
+  clearDocuments: () => void;
+  removeDocument: (documentId: number) => void;
   // View identification
   getViewId?: () => string;
 }
