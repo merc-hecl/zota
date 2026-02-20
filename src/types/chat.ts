@@ -17,6 +17,12 @@ export interface DocumentReference {
   year?: number;
 }
 
+// Content version for regenerated messages
+export interface ContentVersion {
+  content: string;
+  timestamp: number;
+}
+
 // Chat message
 export interface ChatMessage {
   id: string;
@@ -27,6 +33,9 @@ export interface ChatMessage {
   selectedText?: string; // Selected PDF text
   images?: MessageImage[]; // Attached images
   documents?: DocumentReference[]; // Attached document references
+  // For regenerated AI responses
+  contentVersions?: ContentVersion[]; // All versions of content (for regenerated messages)
+  currentVersionIndex?: number; // Current displayed version index (0-based)
 }
 
 // Chat session

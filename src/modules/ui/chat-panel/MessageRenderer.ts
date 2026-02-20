@@ -11,6 +11,30 @@ import { renderMarkdownToElement } from "./MarkdownRenderer";
 import { createElement, copyToClipboard } from "./ChatPanelBuilder";
 import { getString } from "../../../utils/locale";
 
+// Callbacks for regenerate and version switching
+let regenerateCallback: ((messageId: string) => Promise<void>) | null = null;
+let switchVersionCallback:
+  | ((messageId: string, versionIndex: number) => void)
+  | null = null;
+
+/**
+ * Set the regenerate callback function
+ */
+export function setRegenerateCallback(
+  callback: (messageId: string) => Promise<void>,
+): void {
+  regenerateCallback = callback;
+}
+
+/**
+ * Set the version switch callback function
+ */
+export function setSwitchVersionCallback(
+  callback: (messageId: string, versionIndex: number) => void,
+): void {
+  switchVersionCallback = callback;
+}
+
 /**
  * Format timestamp to "yy/mm/dd hh:mm:ss" format
  */
@@ -105,6 +129,191 @@ function createCopyButton(doc: Document, content: string): HTMLElement {
   });
 
   return copyBtn;
+}
+
+/**
+ * Create a regenerate button element
+ */
+function createRegenerateButton(doc: Document, messageId: string): HTMLElement {
+  const regenerateBtn = createElement(
+    doc,
+    "button",
+    {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "16px",
+      height: "16px",
+      padding: "0",
+      margin: "0",
+      background: "transparent",
+      border: "none",
+      cursor: "pointer",
+      opacity: "0.6",
+      transition: "opacity 0.2s ease",
+    },
+    { class: "chat-regenerate-btn", title: getString("chat-regenerate") },
+  );
+
+  // Regenerate icon
+  const regenerateIcon = createElement(doc, "img", {
+    width: "14px",
+    height: "14px",
+  });
+  (regenerateIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/retry.svg`;
+  regenerateBtn.appendChild(regenerateIcon);
+
+  // Hover effect
+  regenerateBtn.addEventListener("mouseenter", () => {
+    regenerateBtn.style.opacity = "1";
+  });
+  regenerateBtn.addEventListener("mouseleave", () => {
+    regenerateBtn.style.opacity = "0.6";
+  });
+
+  // Click handler
+  regenerateBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (regenerateCallback) {
+      regenerateCallback(messageId);
+    }
+  });
+
+  return regenerateBtn;
+}
+
+/**
+ * Create version navigation UI (prev button, counter, next button)
+ */
+function createVersionNavigation(
+  doc: Document,
+  messageId: string,
+  currentIndex: number,
+  totalVersions: number,
+  theme: ThemeColors,
+): HTMLElement {
+  const container = createElement(
+    doc,
+    "div",
+    {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "4px",
+      marginLeft: "8px",
+    },
+    { class: "chat-version-nav" },
+  );
+
+  // Previous button
+  const prevBtn = createElement(
+    doc,
+    "button",
+    {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "14px",
+      height: "14px",
+      padding: "0",
+      margin: "0",
+      background: "transparent",
+      border: "none",
+      cursor: currentIndex > 0 ? "pointer" : "default",
+      opacity: currentIndex > 0 ? "0.6" : "0.3",
+      transition: "opacity 0.2s ease",
+    },
+    { class: "chat-version-prev-btn", title: getString("chat-prev-version") },
+  );
+
+  const prevIcon = createElement(doc, "img", {
+    width: "12px",
+    height: "12px",
+  });
+  (prevIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/prev-msg.svg`;
+  prevBtn.appendChild(prevIcon);
+
+  if (currentIndex > 0) {
+    prevBtn.addEventListener("mouseenter", () => {
+      prevBtn.style.opacity = "1";
+    });
+    prevBtn.addEventListener("mouseleave", () => {
+      prevBtn.style.opacity = "0.6";
+    });
+    prevBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (switchVersionCallback) {
+        switchVersionCallback(messageId, currentIndex - 1);
+      }
+    });
+  }
+
+  container.appendChild(prevBtn);
+
+  // Version counter (e.g., "1/3")
+  const counter = createElement(
+    doc,
+    "span",
+    {
+      fontSize: "10px",
+      color: theme.textMuted,
+      userSelect: "none",
+      minWidth: "24px",
+      textAlign: "center",
+    },
+    { class: "chat-version-counter" },
+  );
+  counter.textContent = `${currentIndex + 1}/${totalVersions}`;
+  container.appendChild(counter);
+
+  // Next button
+  const nextBtn = createElement(
+    doc,
+    "button",
+    {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "14px",
+      height: "14px",
+      padding: "0",
+      margin: "0",
+      background: "transparent",
+      border: "none",
+      cursor: currentIndex < totalVersions - 1 ? "pointer" : "default",
+      opacity: currentIndex < totalVersions - 1 ? "0.6" : "0.3",
+      transition: "opacity 0.2s ease",
+    },
+    { class: "chat-version-next-btn", title: getString("chat-next-version") },
+  );
+
+  const nextIcon = createElement(doc, "img", {
+    width: "12px",
+    height: "12px",
+  });
+  (nextIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/next-msg.svg`;
+  nextBtn.appendChild(nextIcon);
+
+  if (currentIndex < totalVersions - 1) {
+    nextBtn.addEventListener("mouseenter", () => {
+      nextBtn.style.opacity = "1";
+    });
+    nextBtn.addEventListener("mouseleave", () => {
+      nextBtn.style.opacity = "0.6";
+    });
+    nextBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (switchVersionCallback) {
+        switchVersionCallback(messageId, currentIndex + 1);
+      }
+    });
+  }
+
+  container.appendChild(nextBtn);
+
+  return container;
 }
 
 /**
@@ -480,8 +689,8 @@ export function createMessageElement(
   );
 
   if (msg.role === "assistant") {
-    // For assistant messages: copy button first, then timestamp
-    // Only show copy button and timestamp if:
+    // For assistant messages: copy button, regenerate button, timestamp, and version navigation
+    // Only show buttons and timestamp if:
     // 1. Not the last assistant message (historical message), OR
     // 2. The last assistant message but not currently streaming globally AND has content
     const isComplete =
@@ -493,7 +702,50 @@ export function createMessageElement(
       const copyBtn = createCopyButton(doc, rawContent);
       metaRow.appendChild(copyBtn);
 
+      // Regenerate button
+      const regenerateBtn = createRegenerateButton(doc, msg.id);
+      metaRow.appendChild(regenerateBtn);
+
       // Timestamp - only show when message is complete
+      const timestamp = createElement(
+        doc,
+        "span",
+        {
+          fontSize: "11px",
+          color: theme.textMuted,
+          userSelect: "none",
+        },
+        { class: "chat-timestamp" },
+      );
+      timestamp.textContent = formatTimestamp(msg.timestamp);
+      metaRow.appendChild(timestamp);
+
+      // Version navigation (only if there are multiple versions)
+      const hasMultipleVersions =
+        msg.contentVersions && msg.contentVersions.length > 1;
+      if (hasMultipleVersions) {
+        const versionNav = createVersionNavigation(
+          doc,
+          msg.id,
+          msg.currentVersionIndex ?? msg.contentVersions!.length - 1,
+          msg.contentVersions!.length,
+          theme,
+        );
+        metaRow.appendChild(versionNav);
+      }
+    }
+  } else if (msg.role === "error") {
+    // For error messages: regenerate button and timestamp
+    const isComplete =
+      !isLastAssistant ||
+      (!isGloballyStreaming && rawContent.trim().length > 0);
+
+    if (isComplete) {
+      // Regenerate button (for error messages, this allows retry)
+      const regenerateBtn = createRegenerateButton(doc, msg.id);
+      metaRow.appendChild(regenerateBtn);
+
+      // Timestamp
       const timestamp = createElement(
         doc,
         "span",

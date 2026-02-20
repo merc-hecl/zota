@@ -99,6 +99,9 @@ export interface ChatPanelContext {
   removeDocument: (documentId: number) => void;
   // View identification
   getViewId?: () => string;
+  // Regenerate handling
+  regenerateMessage?: (messageId: string) => Promise<void>;
+  switchMessageVersion?: (messageId: string, versionIndex: number) => void;
 }
 
 // HTML namespace for XHTML environment

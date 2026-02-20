@@ -557,6 +557,246 @@ export class ChatManager {
   }
 
   /**
+   * Regenerate an AI response message
+   * For error messages: replaces the error with a new AI response
+   * For normal messages: saves current content as a version and generates new content
+   */
+  async regenerateMessage(itemId: number, messageId: string): Promise<void> {
+    const session = await this.getActiveSession(itemId);
+    if (!session) {
+      ztoolkit.log("[Regenerate] No active session found for item:", itemId);
+      return;
+    }
+
+    // Find the message to regenerate
+    const messageIndex = session.messages.findIndex(
+      (msg) => msg.id === messageId,
+    );
+    if (messageIndex === -1) {
+      ztoolkit.log("[Regenerate] Message not found:", messageId);
+      return;
+    }
+
+    const message = session.messages[messageIndex];
+
+    // Only allow regenerating assistant or error messages
+    if (message.role !== "assistant" && message.role !== "error") {
+      ztoolkit.log("[Regenerate] Cannot regenerate non-AI message");
+      return;
+    }
+
+    // Get active AI provider
+    const provider = this.getActiveProvider();
+    if (!provider || !provider.isReady()) {
+      ztoolkit.log("[Regenerate] Provider not ready");
+      return;
+    }
+
+    const isStreaming = this.isStreamingEnabled();
+    const currentSessionId = session.id;
+
+    // Handle error message - convert to assistant message
+    if (message.role === "error") {
+      // Convert error message to assistant message
+      message.role = "assistant";
+      message.content = "";
+      message.contentVersions = [];
+      message.currentVersionIndex = 0;
+    } else {
+      // For normal assistant messages, save current content as a version
+      if (!message.contentVersions) {
+        message.contentVersions = [];
+      }
+
+      // Add current content to versions if not already there
+      if (message.content && message.content.trim()) {
+        message.contentVersions.push({
+          content: message.content,
+          timestamp: message.timestamp,
+        });
+      }
+
+      // Clear content for new generation
+      message.content = "";
+    }
+
+    // Update timestamp
+    message.timestamp = Date.now();
+
+    // Save and update UI
+    await this.storageService.saveSession(session);
+    this.onMessageUpdate?.(itemId, session.messages, currentSessionId);
+
+    // Throttle save during streaming
+    let lastSaveTime = 0;
+    let chunkCount = 0;
+    const SAVE_INTERVAL_MS = 500;
+    const SAVE_EVERY_N_CHUNKS = 10;
+
+    // Get messages up to this point for context (excluding the message being regenerated)
+    const contextMessages = session.messages.slice(0, messageIndex);
+
+    // Call API
+    const attemptRequest = async (): Promise<void> => {
+      return new Promise((resolve) => {
+        if (isStreaming) {
+          const callbacks: StreamCallbacks = {
+            onChunk: async (chunk: string) => {
+              message.content += chunk;
+              chunkCount++;
+
+              const now = Date.now();
+              const shouldSave =
+                now - lastSaveTime > SAVE_INTERVAL_MS ||
+                chunkCount % SAVE_EVERY_N_CHUNKS === 0;
+
+              if (shouldSave) {
+                lastSaveTime = now;
+                await this.storageService.saveSession(session);
+              }
+
+              this.onStreamingUpdate?.(
+                itemId,
+                message.content,
+                currentSessionId,
+              );
+            },
+            onComplete: async (fullContent: string) => {
+              message.content = fullContent;
+              message.timestamp = Date.now();
+
+              // Add new content to versions
+              if (!message.contentVersions) {
+                message.contentVersions = [];
+              }
+              message.contentVersions.push({
+                content: fullContent,
+                timestamp: Date.now(),
+              });
+              message.currentVersionIndex = message.contentVersions.length - 1;
+
+              session.updatedAt = Date.now();
+              await this.storageService.saveSession(session);
+              this.onMessageUpdate?.(
+                itemId,
+                session.messages,
+                currentSessionId,
+              );
+              this.onMessageComplete?.(itemId, currentSessionId);
+              resolve();
+            },
+            onError: async (error: Error) => {
+              ztoolkit.log("[Regenerate Error]", error.message);
+
+              // Convert back to error message
+              message.role = "error";
+              message.content = error.message;
+              message.timestamp = Date.now();
+
+              this.onError?.(error, itemId, currentSessionId);
+              this.onMessageUpdate?.(
+                itemId,
+                session.messages,
+                currentSessionId,
+              );
+              await this.storageService.saveSession(session);
+              resolve();
+            },
+          };
+
+          provider.streamChatCompletion(contextMessages, callbacks);
+        } else {
+          this.setSessionSendingState(itemId, currentSessionId, true);
+
+          provider
+            .chatCompletion(contextMessages)
+            .then(async (fullContent: string) => {
+              message.content = fullContent;
+              message.timestamp = Date.now();
+
+              // Add new content to versions
+              if (!message.contentVersions) {
+                message.contentVersions = [];
+              }
+              message.contentVersions.push({
+                content: fullContent,
+                timestamp: Date.now(),
+              });
+              message.currentVersionIndex = message.contentVersions.length - 1;
+
+              session.updatedAt = Date.now();
+              await this.storageService.saveSession(session);
+              this.onMessageUpdate?.(
+                itemId,
+                session.messages,
+                currentSessionId,
+              );
+              this.onMessageComplete?.(itemId, currentSessionId);
+              resolve();
+            })
+            .catch(async (error: Error) => {
+              ztoolkit.log("[Regenerate Error]", error.message);
+
+              // Convert back to error message
+              message.role = "error";
+              message.content = error.message;
+              message.timestamp = Date.now();
+
+              this.onError?.(error, itemId, currentSessionId);
+              this.onMessageUpdate?.(
+                itemId,
+                session.messages,
+                currentSessionId,
+              );
+              await this.storageService.saveSession(session);
+              resolve();
+            })
+            .finally(() => {
+              this.setSessionSendingState(itemId, currentSessionId, false);
+            });
+        }
+      });
+    };
+
+    await attemptRequest();
+  }
+
+  /**
+   * Switch to a different version of a message
+   */
+  async switchMessageVersion(
+    itemId: number,
+    messageId: string,
+    versionIndex: number,
+  ): Promise<void> {
+    const session = await this.getActiveSession(itemId);
+    if (!session) {
+      ztoolkit.log("[SwitchVersion] No active session found for item:", itemId);
+      return;
+    }
+
+    // Find the message
+    const message = session.messages.find((msg) => msg.id === messageId);
+    if (
+      !message ||
+      !message.contentVersions ||
+      !message.contentVersions[versionIndex]
+    ) {
+      ztoolkit.log("[SwitchVersion] Message or version not found");
+      return;
+    }
+
+    // Update current version index and content
+    message.currentVersionIndex = versionIndex;
+    message.content = message.contentVersions[versionIndex].content;
+    message.timestamp = message.contentVersions[versionIndex].timestamp;
+
+    // Save and update UI
+    await this.storageService.saveSession(session);
+    this.onMessageUpdate?.(itemId, session.messages, session.id);
+  }
+
+  /**
    * Set sending state for a session
    */
   private setSessionSendingState(

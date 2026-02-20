@@ -18,7 +18,11 @@ import {
   setupThemeListener,
 } from "./ChatPanelTheme";
 import { createChatContainer } from "./ChatPanelBuilder";
-import { renderMessages as renderMessageElements } from "./MessageRenderer";
+import {
+  renderMessages as renderMessageElements,
+  setRegenerateCallback,
+  setSwitchVersionCallback,
+} from "./MessageRenderer";
 import { renderMarkdownToElement } from "./MarkdownRenderer";
 import {
   setupEventHandlers,
@@ -998,6 +1002,16 @@ async function initializeChatContentCommon(
   ztoolkit.log(`[Init] Registered view: ${viewId}`);
 
   const context = createContext(container, viewId);
+
+  // Set up regenerate and version switch callbacks for MessageRenderer
+  setRegenerateCallback(async (messageId: string) => {
+    const itemId = moduleCurrentItem?.id ?? 0;
+    await manager.regenerateMessage(itemId, messageId);
+  });
+  setSwitchVersionCallback((messageId: string, versionIndex: number) => {
+    const itemId = moduleCurrentItem?.id ?? 0;
+    manager.switchMessageVersion(itemId, messageId, versionIndex);
+  });
 
   // Initialize scroll manager for this container
   const chatHistory = container.querySelector("#chat-history") as HTMLElement;
@@ -3089,6 +3103,15 @@ function createContext(
     },
     // View identification
     getViewId: () => viewId,
+    // Regenerate handling
+    regenerateMessage: async (messageId: string) => {
+      const itemId = moduleCurrentItem?.id ?? 0;
+      await manager.regenerateMessage(itemId, messageId);
+    },
+    switchMessageVersion: (messageId: string, versionIndex: number) => {
+      const itemId = moduleCurrentItem?.id ?? 0;
+      manager.switchMessageVersion(itemId, messageId, versionIndex);
+    },
   };
 
   // Set the current context for event handlers

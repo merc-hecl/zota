@@ -88,7 +88,13 @@ export class NoteExportService {
           }
         }
       } else if (message.role === "assistant") {
-        const answer = message.content.trim();
+        // For regenerated messages, use the last version's content
+        let answer = message.content;
+        if (message.contentVersions && message.contentVersions.length > 0) {
+          answer =
+            message.contentVersions[message.contentVersions.length - 1].content;
+        }
+        answer = answer.trim();
         markdown += `${answer}\n\n---\n\n`;
       } else if (message.role === "error") {
         markdown += `> ⚠️ Error: ${message.content.trim()}\n\n---\n\n`;
