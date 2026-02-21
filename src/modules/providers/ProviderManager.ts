@@ -70,7 +70,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     defaultModelInfos: [],
     website: "https://platform.deepseek.com",
     type: "deepseek",
-
   },
   mistral: {
     id: "mistral",
