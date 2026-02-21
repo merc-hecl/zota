@@ -73,6 +73,7 @@ export async function parseSSEStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   format: SSEFormat,
   callbacks: SSEParserCallbacks,
+  signal?: AbortSignal,
 ): Promise<void> {
   const { onText, onDone, onError } = callbacks;
   const extractContent = contentExtractors[format];
@@ -80,10 +81,59 @@ export async function parseSSEStream(
   const decoder = new TextDecoder();
   let buffer = "";
 
+  const abortHandler = (): void => {
+    ztoolkit.log("[SSEParser] abortHandler called");
+    reader.cancel().catch(() => {});
+  };
+
+  if (signal) {
+    signal.addEventListener("abort", abortHandler);
+    ztoolkit.log(
+      "[SSEParser] Abort listener added, signal.aborted:",
+      signal.aborted,
+    );
+  }
+
   try {
     while (true) {
+      ztoolkit.log(
+        "[SSEParser] Before read, signal?.aborted:",
+        signal?.aborted,
+      );
+      if (signal?.aborted) {
+        ztoolkit.log("[SSEParser] Signal aborted detected in loop");
+        const abortError = new Error("Request aborted");
+        abortError.name = "AbortError";
+        if (onError) {
+          onError(abortError);
+        }
+        return;
+      }
+
       const result = await reader.read();
-      if (result.done) break;
+      ztoolkit.log(
+        "[SSEParser] After read, result.done:",
+        result.done,
+        "result.value:",
+        result.value,
+      );
+
+      // Check if stream was cancelled (aborted)
+      const wasAborted =
+        !result.value || (result.value as Uint8Array).length === 0;
+
+      if (result.done) {
+        if (wasAborted && signal?.aborted) {
+          ztoolkit.log("[SSEParser] Stream cancelled due to abort");
+          const abortError = new Error("Request aborted");
+          abortError.name = "AbortError";
+          if (onError) {
+            onError(abortError);
+          }
+          return;
+        }
+        break;
+      }
       const value = result.value as Uint8Array;
 
       buffer += decoder.decode(value, { stream: true });
@@ -152,8 +202,20 @@ export async function parseSSEStream(
     }
     onDone();
   } catch (error) {
+    if (signal?.aborted) {
+      const abortError = new Error("Request aborted");
+      abortError.name = "AbortError";
+      if (onError) {
+        onError(abortError);
+      }
+      return;
+    }
     if (onError) {
       onError(error instanceof Error ? error : new Error(String(error)));
+    }
+  } finally {
+    if (signal) {
+      signal.removeEventListener("abort", abortHandler);
     }
   }
 }

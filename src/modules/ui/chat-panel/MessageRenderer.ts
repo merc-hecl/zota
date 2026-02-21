@@ -16,6 +16,9 @@ let regenerateCallback: ((messageId: string) => Promise<void>) | null = null;
 let switchVersionCallback:
   | ((messageId: string, versionIndex: number) => void)
   | null = null;
+let continueCallback:
+  | ((messageId: string, messageContent: string) => Promise<void>)
+  | null = null;
 
 /**
  * Set the regenerate callback function
@@ -24,6 +27,15 @@ export function setRegenerateCallback(
   callback: (messageId: string) => Promise<void>,
 ): void {
   regenerateCallback = callback;
+}
+
+/**
+ * Set the continue callback function
+ */
+export function setContinueCallback(
+  callback: (messageId: string, messageContent: string) => Promise<void>,
+): void {
+  continueCallback = callback;
 }
 
 /**
@@ -181,6 +193,68 @@ function createRegenerateButton(doc: Document, messageId: string): HTMLElement {
   });
 
   return regenerateBtn;
+}
+
+/**
+ * Create a continue button element for incomplete AI responses
+ */
+function createContinueButton(
+  doc: Document,
+  messageId: string,
+  messageContent: string,
+): HTMLElement {
+  const continueBtn = createElement(
+    doc,
+    "button",
+    {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "2px 6px",
+      margin: "0 2px",
+      background: "transparent",
+      border: "none",
+      borderRadius: "4px",
+      cursor: "pointer",
+      opacity: "0.7",
+      transition: "opacity 0.2s ease",
+      fontSize: "11px",
+      color: "var(--chat-text-muted, #666)",
+    },
+    { class: "chat-continue-btn", title: getString("chat-continue") },
+  );
+
+  const icon = createElement(doc, "img", {
+    width: "14px",
+    height: "14px",
+    marginRight: "4px",
+    opacity: "0.7",
+  });
+  (icon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/continue-response.svg`;
+  continueBtn.appendChild(icon);
+
+  const text = createElement(doc, "span", {});
+  text.textContent = getString("chat-continue");
+  continueBtn.appendChild(text);
+
+  continueBtn.addEventListener("mouseenter", () => {
+    continueBtn.style.opacity = "1";
+    (icon as HTMLImageElement).style.opacity = "1";
+  });
+  continueBtn.addEventListener("mouseleave", () => {
+    continueBtn.style.opacity = "0.7";
+    (icon as HTMLImageElement).style.opacity = "0.7";
+  });
+
+  continueBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (continueCallback) {
+      continueCallback(messageId, messageContent);
+    }
+  });
+
+  return continueBtn;
 }
 
 /**
@@ -689,7 +763,7 @@ export function createMessageElement(
   );
 
   if (msg.role === "assistant") {
-    // For assistant messages: copy button, regenerate button, timestamp, and version navigation
+    // For assistant messages: copy button, regenerate button, continue button (if incomplete), timestamp, and version navigation
     // Only show buttons and timestamp if:
     // 1. Not the last assistant message (historical message), OR
     // 2. The last assistant message but not currently streaming globally AND has content
@@ -697,7 +771,20 @@ export function createMessageElement(
       !isLastAssistant ||
       (!isGloballyStreaming && rawContent.trim().length > 0);
 
-    if (isComplete) {
+    // Show continue button only for incomplete AI responses (aborted)
+    const showContinue =
+      msg.isComplete === false && rawContent.trim().length > 0;
+
+    // Show buttons when message is complete OR aborted (has partial content)
+    const showButtons = isComplete || showContinue;
+
+    // Continue button - show for aborted messages (before other buttons)
+    if (showContinue) {
+      const continueBtn = createContinueButton(doc, msg.id, rawContent);
+      metaRow.appendChild(continueBtn);
+    }
+
+    if (showButtons) {
       // Copy button
       const copyBtn = createCopyButton(doc, rawContent);
       metaRow.appendChild(copyBtn);
@@ -706,7 +793,7 @@ export function createMessageElement(
       const regenerateBtn = createRegenerateButton(doc, msg.id);
       metaRow.appendChild(regenerateBtn);
 
-      // Timestamp - only show when message is complete
+      // Timestamp - show when message is complete or aborted
       const timestamp = createElement(
         doc,
         "span",
@@ -822,9 +909,12 @@ export function renderMessages(
     }
   }
 
+  // Filter out hidden messages
+  const visibleMessages = messages.filter((msg) => !msg.isHidden);
+
   // Render each message
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
+  for (let i = 0; i < visibleMessages.length; i++) {
+    const msg = visibleMessages[i];
     const isLastAssistant = i === lastAssistantIndex;
     chatHistory.appendChild(
       createMessageElement(

@@ -10,6 +10,7 @@ export class AnthropicProvider extends BaseProvider {
   async streamChatCompletion(
     messages: ChatMessage[],
     callbacks: StreamCallbacks,
+    signal?: AbortSignal,
   ): Promise<void> {
     const { onChunk, onComplete, onError } = callbacks;
 
@@ -38,11 +39,15 @@ export class AnthropicProvider extends BaseProvider {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
+        signal,
       });
 
       await this.validateResponse(response);
-      await this.streamWithCallbacks(response, "anthropic", callbacks);
+      await this.streamWithCallbacks(response, "anthropic", callbacks, signal);
     } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        return;
+      }
       onError(this.wrapError(error));
     }
   }

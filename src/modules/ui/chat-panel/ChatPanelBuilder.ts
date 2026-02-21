@@ -750,6 +750,40 @@ export function createChatContainer(
     `chrome://${config.addonRef}/content/icons/send.svg`;
   sendButton.appendChild(sendIcon);
 
+  // Pause button (hidden by default)
+  const pauseButton = createElement(
+    doc,
+    "button",
+    {
+      position: "absolute",
+      right: "6px",
+      bottom: "6px",
+      width: "32px",
+      height: "32px",
+      background: "transparent",
+      border: "none",
+      borderRadius: "0",
+      cursor: "pointer",
+      display: "none",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: "0",
+      padding: "0",
+      zIndex: "1",
+      transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+    },
+    { id: "chat-pause-button" },
+  );
+
+  const pauseIcon = createElement(doc, "img", {
+    width: "18px",
+    height: "18px",
+    opacity: "0.8",
+  });
+  (pauseIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/pause.svg`;
+  pauseButton.appendChild(pauseIcon);
+
   // Hover effect via event listeners
   sendButton.addEventListener("mouseenter", () => {
     sendButton.style.transform = "translateY(-1px) scale(1.1)";
@@ -771,8 +805,30 @@ export function createChatContainer(
     sendButton.style.transform = "translateY(-1px) scale(1.05)";
   });
 
+  // Pause button hover effect
+  pauseButton.addEventListener("mouseenter", () => {
+    pauseButton.style.transform = "translateY(-1px) scale(1.1)";
+    const icon = pauseButton.querySelector("img");
+    if (icon) icon.style.opacity = "1";
+  });
+
+  pauseButton.addEventListener("mouseleave", () => {
+    pauseButton.style.transform = "translateY(0) scale(1)";
+    const icon = pauseButton.querySelector("img");
+    if (icon) icon.style.opacity = "0.8";
+  });
+
+  pauseButton.addEventListener("mousedown", () => {
+    pauseButton.style.transform = "translateY(0) scale(0.95)";
+  });
+
+  pauseButton.addEventListener("mouseup", () => {
+    pauseButton.style.transform = "translateY(-1px) scale(1.05)";
+  });
+
   inputWrapper.appendChild(messageInput);
   inputWrapper.appendChild(sendButton);
+  inputWrapper.appendChild(pauseButton);
 
   // Bottom bar - model selector + settings on left, send button on right
   const inputBottomBar = createElement(doc, "div", {

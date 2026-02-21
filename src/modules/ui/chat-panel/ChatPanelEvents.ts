@@ -305,6 +305,9 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   const sendButton = container.querySelector(
     "#chat-send-button",
   ) as HTMLButtonElement;
+  const pauseButton = container.querySelector(
+    "#chat-pause-button",
+  ) as HTMLButtonElement;
   const attachPdfCheckbox = container.querySelector(
     "#chat-attach-pdf",
   ) as HTMLInputElement;
@@ -553,6 +556,31 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       attachmentsPreview,
       container,
     );
+  });
+
+  // Pause button - abort AI response
+  pauseButton?.addEventListener("click", async () => {
+    ztoolkit.log("Pause button clicked - aborting AI response");
+
+    if (pauseButton) {
+      pauseButton.style.display = "none";
+    }
+    if (sendButton) {
+      sendButton.style.display = "flex";
+      sendButton.disabled = false;
+      sendButton.style.opacity = "1";
+      sendButton.style.cursor = "pointer";
+    }
+
+    // Uncheck PDF attach checkbox after abort
+    const attachPdfCheckbox = container.querySelector(
+      "#chat-attach-pdf",
+    ) as HTMLInputElement;
+    if (attachPdfCheckbox) {
+      attachPdfCheckbox.checked = false;
+    }
+
+    context.chatManager.abort();
   });
 
   // Input keydown - Enter to send (blocked while sending), ArrowUp/ArrowDown for history

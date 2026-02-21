@@ -15,17 +15,19 @@ export class OpenAIProvider extends BaseProvider {
   async streamChatCompletion(
     messages: ChatMessage[],
     callbacks: StreamCallbacks,
+    signal?: AbortSignal,
   ): Promise<void> {
     if (this.isResponsesEndpoint()) {
-      await this.streamChatCompletionResponses(messages, callbacks);
+      await this.streamChatCompletionResponses(messages, callbacks, signal);
     } else {
-      await this.streamChatCompletionCompletions(messages, callbacks);
+      await this.streamChatCompletionCompletions(messages, callbacks, signal);
     }
   }
 
   private async streamChatCompletionCompletions(
     messages: ChatMessage[],
     callbacks: StreamCallbacks,
+    signal?: AbortSignal,
   ): Promise<void> {
     const { onChunk, onComplete, onError } = callbacks;
 
@@ -35,6 +37,11 @@ export class OpenAIProvider extends BaseProvider {
     }
 
     try {
+      ztoolkit.log(
+        "[OpenAIProvider] streamChatCompletionCompletions called, signal:",
+        !!signal,
+      );
+
       const apiMessages = this.formatOpenAIMessages(messages);
       const systemPrompt = this.buildSystemPrompt(this._config.systemPrompt);
       apiMessages.unshift({
@@ -60,11 +67,15 @@ export class OpenAIProvider extends BaseProvider {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
+        signal,
       });
 
       await this.validateResponse(response);
-      await this.streamWithCallbacks(response, "openai", callbacks);
+      await this.streamWithCallbacks(response, "openai", callbacks, signal);
     } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        return;
+      }
       onError(this.wrapError(error));
     }
   }
@@ -72,6 +83,7 @@ export class OpenAIProvider extends BaseProvider {
   private async streamChatCompletionResponses(
     messages: ChatMessage[],
     callbacks: StreamCallbacks,
+    signal?: AbortSignal,
   ): Promise<void> {
     const { onChunk, onComplete, onError } = callbacks;
 
@@ -111,11 +123,15 @@ export class OpenAIProvider extends BaseProvider {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
+        signal,
       });
 
       await this.validateResponse(response);
-      await this.parseResponsesStream(response, callbacks);
+      await this.parseResponsesStream(response, callbacks, signal);
     } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        return;
+      }
       onError(this.wrapError(error));
     }
   }
@@ -284,6 +300,7 @@ export class OpenAIProvider extends BaseProvider {
   private async parseResponsesStream(
     response: Response,
     callbacks: StreamCallbacks,
+    signal?: AbortSignal,
   ): Promise<void> {
     const { onChunk, onComplete, onError } = callbacks;
     const reader = this.getResponseReader(response);
@@ -293,6 +310,10 @@ export class OpenAIProvider extends BaseProvider {
 
     try {
       while (true) {
+        if (signal?.aborted) {
+          return;
+        }
+
         const result = await reader.read();
         if (result.done) break;
         const value = result.value as Uint8Array;
@@ -332,6 +353,9 @@ export class OpenAIProvider extends BaseProvider {
 
       onComplete(fullContent);
     } catch (error) {
+      if ((error as Error).name === "AbortError") {
+        return;
+      }
       onError(this.wrapError(error));
     }
   }

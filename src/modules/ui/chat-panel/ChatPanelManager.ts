@@ -21,6 +21,7 @@ import { createChatContainer } from "./ChatPanelBuilder";
 import {
   renderMessages as renderMessageElements,
   setRegenerateCallback,
+  setContinueCallback,
   setSwitchVersionCallback,
 } from "./MessageRenderer";
 import { renderMarkdownToElement } from "./MarkdownRenderer";
@@ -162,7 +163,7 @@ export function setContainerActiveSession(
 }
 
 /**
- * Update send button state for a specific container based on its active session
+ * Update send button and pause button state for a specific container based on its active session
  */
 export function updateSendButtonStateForContainer(
   container: HTMLElement,
@@ -171,6 +172,9 @@ export function updateSendButtonStateForContainer(
   const sendButton = container.querySelector(
     "#chat-send-button",
   ) as HTMLButtonElement;
+  const pauseButton = container.querySelector(
+    "#chat-pause-button",
+  ) as HTMLButtonElement;
 
   if (!sendButton) {
     ztoolkit.log("[updateSendButtonStateForContainer] Send button not found");
@@ -178,10 +182,13 @@ export function updateSendButtonStateForContainer(
   }
 
   if (!sessionInfo || !sessionInfo.sessionId) {
-    // No active session, button should be enabled
     sendButton.disabled = false;
+    sendButton.style.display = "flex";
     sendButton.style.opacity = "1";
     sendButton.style.cursor = "pointer";
+    if (pauseButton) {
+      pauseButton.style.display = "none";
+    }
     ztoolkit.log(
       "[updateSendButtonStateForContainer] No session, enabling button",
     );
@@ -192,9 +199,20 @@ export function updateSendButtonStateForContainer(
   const state = getSessionStreamingState(itemId, sessionId);
   const shouldDisable = state.isStreaming || state.isSending;
 
-  sendButton.disabled = shouldDisable;
-  sendButton.style.opacity = shouldDisable ? "0.5" : "1";
-  sendButton.style.cursor = shouldDisable ? "not-allowed" : "pointer";
+  if (state.isStreaming) {
+    sendButton.style.display = "none";
+    if (pauseButton) {
+      pauseButton.style.display = "flex";
+    }
+  } else {
+    sendButton.style.display = "flex";
+    sendButton.disabled = shouldDisable;
+    sendButton.style.opacity = shouldDisable ? "0.5" : "1";
+    sendButton.style.cursor = shouldDisable ? "not-allowed" : "pointer";
+    if (pauseButton) {
+      pauseButton.style.display = "none";
+    }
+  }
 
   ztoolkit.log(
     "[updateSendButtonStateForContainer] itemId:",
@@ -1007,6 +1025,23 @@ async function initializeChatContentCommon(
   setRegenerateCallback(async (messageId: string) => {
     const itemId = moduleCurrentItem?.id ?? 0;
     await manager.regenerateMessage(itemId, messageId);
+  });
+  setContinueCallback(async (messageId: string, messageContent: string) => {
+    const itemId = moduleCurrentItem?.id ?? 0;
+    const session = await manager.getActiveSession(itemId);
+    if (!session) return;
+
+    const msg = session.messages.find((m) => m.id === messageId);
+    if (!msg) return;
+
+    // Include the partial content in the continue prompt so the model knows what to continue from
+    const continuePrompt =
+      getString("chat-continue-prompt") ||
+      "Please continue your previous response.";
+    await manager.sendMessage(continuePrompt, {
+      item: { id: itemId } as Zotero.Item,
+      continueFromMessageId: messageId,
+    });
   });
   setSwitchVersionCallback((messageId: string, versionIndex: number) => {
     const itemId = moduleCurrentItem?.id ?? 0;
@@ -2215,6 +2250,15 @@ function setupChatManagerCallbacks(
           }
           // Update send button state for this container - MUST be called
           updateSendButtonStateForContainer(cont);
+
+          // Uncheck PDF attach checkbox after message complete
+          const attachPdfCheckbox = cont.querySelector(
+            "#chat-attach-pdf",
+          ) as HTMLInputElement;
+          if (attachPdfCheckbox) {
+            attachPdfCheckbox.checked = false;
+          }
+
           ztoolkit.log(
             "[onMessageComplete] Updated button state for container viewing session:",
             sessionId,

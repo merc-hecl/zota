@@ -16,12 +16,43 @@ import { PdfExtractor } from "./PdfExtractor";
 import { getProviderManager } from "../providers";
 import { getString } from "../../utils/locale";
 
+/**
+ * Get AbortController constructor safely for Zotero sandbox environment
+ */
+function getAbortController(): (new () => AbortController) | null {
+  try {
+    const globalAny = _globalThis as unknown as {
+      AbortController?: new () => AbortController;
+      ztoolkit?: { getGlobal: (name: string) => unknown };
+    };
+    const AbortControllerFromGlobal = globalAny.AbortController;
+    if (AbortControllerFromGlobal) {
+      return AbortControllerFromGlobal;
+    }
+    const ztoolkitGlobal = globalAny.ztoolkit;
+    if (ztoolkitGlobal?.getGlobal) {
+      const AbortControllerFromZtoolkit = ztoolkitGlobal.getGlobal(
+        "AbortController",
+      ) as (new () => AbortController) | null;
+      if (AbortControllerFromZtoolkit) {
+        return AbortControllerFromZtoolkit;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export class ChatManager {
   // In-memory cache: itemId -> current active session
   private activeSessions: Map<number, ChatSession> = new Map();
   private activeItemId: number | null = null;
   private storageService: StorageService;
   private pdfExtractor: PdfExtractor;
+
+  // AbortController for cancelling streaming requests
+  private currentAbortController: AbortController | null = null;
 
   // UI callbacks
   private onMessageUpdate?: (
@@ -68,6 +99,25 @@ export class ChatManager {
     this.onError = callbacks.onError;
     this.onPdfAttached = callbacks.onPdfAttached;
     this.onMessageComplete = callbacks.onMessageComplete;
+  }
+
+  /**
+   * Abort the current streaming request
+   * Preserves partial content and marks message as incomplete
+   */
+  abort(itemId?: number): void {
+    if (this.currentAbortController) {
+      ztoolkit.log("[ChatManager] Aborting current request");
+      this.currentAbortController.abort();
+      // Don't null immediately - let the callback handle it after abort completes
+    }
+  }
+
+  /**
+   * Check if there's an active streaming request
+   */
+  isStreaming(): boolean {
+    return this.currentAbortController !== null;
   }
 
   /**
@@ -133,6 +183,28 @@ export class ChatManager {
     const item = options.item;
     let itemId = item?.id ?? 0;
     const isGlobalChat = !item || item.id === 0;
+
+    // Clear abort state from previous requests
+    if (this.currentAbortController) {
+      this.currentAbortController = null;
+    }
+
+    // If this is a new message (not continuing), clear isComplete from any previous aborted messages
+    if (!options.continueFromMessageId) {
+      const session = await this.getActiveSession(itemId);
+      if (session) {
+        let hasChanges = false;
+        for (const msg of session.messages) {
+          if (msg.role === "assistant" && msg.isComplete === false) {
+            delete msg.isComplete;
+            hasChanges = true;
+          }
+        }
+        if (hasChanges) {
+          await this.storageService.saveSession(session);
+        }
+      }
+    }
 
     ztoolkit.log(
       "[ChatManager] sendMessage called, itemId:",
@@ -353,6 +425,8 @@ export class ChatManager {
       selectedText: options.selectedText,
       images: options.images,
       documents: options.documents,
+      // Hide the continue prompt message from UI
+      isHidden: !!options.continueFromMessageId,
     };
 
     session.messages.push(userMessage);
@@ -363,14 +437,48 @@ export class ChatManager {
     this.onMessageUpdate?.(itemId, session.messages, session.id);
 
     // Create AI message placeholder
-    const assistantMessage: ChatMessage = {
-      id: this.generateId(),
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-    };
+    let assistantMessage: ChatMessage;
+    const continueFromMessageId = options.continueFromMessageId;
 
-    session.messages.push(assistantMessage);
+    if (continueFromMessageId) {
+      const existingMessage = session.messages.find(
+        (m) => m.id === continueFromMessageId,
+      );
+      if (existingMessage) {
+        ztoolkit.log(
+          "[ChatManager] Continuing from message:",
+          continueFromMessageId,
+          "content length:",
+          existingMessage.content.length,
+        );
+        // Use the existing message directly instead of creating a new one
+        // This way the content will be appended to the same message bubble
+        existingMessage.isComplete = undefined; // Reset isComplete since it's now being continued
+        assistantMessage = existingMessage;
+      } else {
+        assistantMessage = {
+          id: this.generateId(),
+          role: "assistant",
+          content: "",
+          timestamp: Date.now(),
+        };
+      }
+    } else {
+      assistantMessage = {
+        id: this.generateId(),
+        role: "assistant",
+        content: "",
+        timestamp: Date.now(),
+      };
+    }
+
+    // Only push if not continuing from existing message (message already exists)
+    if (
+      !continueFromMessageId ||
+      !session.messages.includes(assistantMessage)
+    ) {
+      session.messages.push(assistantMessage);
+    }
     this.onMessageUpdate?.(itemId, session.messages, session.id);
 
     // Log API request info
@@ -383,6 +491,20 @@ export class ChatManager {
 
     // Store session ID for callbacks
     const currentSessionId = session.id;
+
+    // Create AbortController for this request (use safe getter for Zotero sandbox)
+    const AbortControllerCtor = getAbortController();
+    this.currentAbortController = AbortControllerCtor
+      ? new AbortControllerCtor()
+      : null;
+    const signal = this.currentAbortController?.signal;
+
+    ztoolkit.log(
+      "[API Request] AbortController created:",
+      !!this.currentAbortController,
+      "signal:",
+      !!signal,
+    );
 
     // Check if streaming is enabled
     const isStreaming = this.isStreamingEnabled();
@@ -423,6 +545,7 @@ export class ChatManager {
             onComplete: async (fullContent: string) => {
               assistantMessage.content = fullContent;
               assistantMessage.timestamp = Date.now();
+              assistantMessage.isComplete = true;
               session.updatedAt = Date.now();
 
               // Generate AI title for first round of conversation if no title exists
@@ -455,7 +578,26 @@ export class ChatManager {
               resolve();
             },
             onError: async (error: Error) => {
-              ztoolkit.log("[API Error]", error.message);
+              ztoolkit.log("[API Error]", error.message, "name:", error.name);
+
+              if (error.name === "AbortError") {
+                ztoolkit.log(
+                  "[API] Request aborted, preserving partial content",
+                );
+                assistantMessage.isComplete = false;
+                ztoolkit.log(
+                  "[API] assistantMessage.isComplete set to:",
+                  assistantMessage.isComplete,
+                );
+                this.onMessageUpdate?.(
+                  itemId,
+                  session.messages,
+                  currentSessionId,
+                );
+                await this.storageService.saveSession(session);
+                resolve();
+                return;
+              }
 
               // Show error message
               session.messages.pop();
@@ -482,6 +624,7 @@ export class ChatManager {
           provider.streamChatCompletion(
             session.messages.slice(0, -1),
             callbacks,
+            signal,
           );
         } else {
           // Non-streaming mode
@@ -554,6 +697,7 @@ export class ChatManager {
     };
 
     await attemptRequest();
+    this.currentAbortController = null;
   }
 
   /**
@@ -594,6 +738,18 @@ export class ChatManager {
 
     const isStreaming = this.isStreamingEnabled();
     const currentSessionId = session.id;
+
+    // Create AbortController for this request (use safe getter for Zotero sandbox)
+    const AbortControllerCtor = getAbortController();
+    this.currentAbortController = AbortControllerCtor
+      ? new AbortControllerCtor()
+      : null;
+    const signal = this.currentAbortController?.signal;
+
+    ztoolkit.log(
+      "[Regenerate] AbortController created:",
+      !!this.currentAbortController,
+    );
 
     // Handle error message - convert to assistant message
     if (message.role === "error") {
@@ -686,7 +842,28 @@ export class ChatManager {
               resolve();
             },
             onError: async (error: Error) => {
-              ztoolkit.log("[Regenerate Error]", error.message);
+              ztoolkit.log(
+                "[Regenerate Error]",
+                error.message,
+                "name:",
+                error.name,
+              );
+
+              // Handle abort
+              if (error.name === "AbortError") {
+                ztoolkit.log(
+                  "[Regenerate] Request aborted, preserving partial content",
+                );
+                message.isComplete = false;
+                this.onMessageUpdate?.(
+                  itemId,
+                  session.messages,
+                  currentSessionId,
+                );
+                await this.storageService.saveSession(session);
+                resolve();
+                return;
+              }
 
               // Convert back to error message
               message.role = "error";
@@ -704,7 +881,11 @@ export class ChatManager {
             },
           };
 
-          provider.streamChatCompletion(contextMessages, callbacks);
+          provider.streamChatCompletion(
+            contextMessages,
+            callbacks,
+            this.currentAbortController?.signal,
+          );
         } else {
           this.setSessionSendingState(itemId, currentSessionId, true);
 
@@ -735,7 +916,28 @@ export class ChatManager {
               resolve();
             })
             .catch(async (error: Error) => {
-              ztoolkit.log("[Regenerate Error]", error.message);
+              ztoolkit.log(
+                "[Regenerate Error]",
+                error.message,
+                "name:",
+                error.name,
+              );
+
+              // Handle abort
+              if (error.name === "AbortError") {
+                ztoolkit.log(
+                  "[Regenerate] Request aborted, preserving partial content",
+                );
+                message.isComplete = false;
+                this.onMessageUpdate?.(
+                  itemId,
+                  session.messages,
+                  currentSessionId,
+                );
+                await this.storageService.saveSession(session);
+                resolve();
+                return;
+              }
 
               // Convert back to error message
               message.role = "error";
@@ -759,6 +961,9 @@ export class ChatManager {
     };
 
     await attemptRequest();
+
+    // Clear AbortController after request completes
+    this.currentAbortController = null;
   }
 
   /**

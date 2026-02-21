@@ -82,6 +82,7 @@ When writing mathematical formulas, you MUST follow these formatting rules:
   abstract streamChatCompletion(
     messages: ChatMessage[],
     callbacks: StreamCallbacks,
+    signal?: AbortSignal,
   ): Promise<void>;
 
   abstract chatCompletion(messages: ChatMessage[]): Promise<string>;
@@ -97,8 +98,9 @@ When writing mathematical formulas, you MUST follow these formatting rules:
     reader: ReadableStreamDefaultReader<Uint8Array>,
     format: SSEFormat,
     callbacks: SSEParserCallbacks,
+    signal?: AbortSignal,
   ): Promise<void> {
-    return parseSSEStream(reader, format, callbacks);
+    return parseSSEStream(reader, format, callbacks, signal);
   }
 
   /**
@@ -129,19 +131,25 @@ When writing mathematical formulas, you MUST follow these formatting rules:
     response: Response,
     format: SSEFormat,
     callbacks: StreamCallbacks,
+    signal?: AbortSignal,
   ): Promise<void> {
     const { onChunk, onComplete, onError } = callbacks;
     const reader = this.getResponseReader(response);
     let fullContent = "";
 
-    await this.parseSSE(reader, format, {
-      onText: (text) => {
-        fullContent += text;
-        onChunk(text);
+    await this.parseSSE(
+      reader,
+      format,
+      {
+        onText: (text) => {
+          fullContent += text;
+          onChunk(text);
+        },
+        onDone: () => onComplete(fullContent),
+        onError,
       },
-      onDone: () => onComplete(fullContent),
-      onError,
-    });
+      signal,
+    );
   }
 
   /**

@@ -200,6 +200,7 @@ export interface AIProvider {
   streamChatCompletion(
     messages: ChatMessage[],
     callbacks: StreamCallbacks,
+    signal?: AbortSignal,
   ): Promise<void>;
   chatCompletion(messages: ChatMessage[]): Promise<string>;
   testConnection(): Promise<boolean>;

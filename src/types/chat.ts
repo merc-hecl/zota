@@ -36,6 +36,10 @@ export interface ChatMessage {
   // For regenerated AI responses
   contentVersions?: ContentVersion[]; // All versions of content (for regenerated messages)
   currentVersionIndex?: number; // Current displayed version index (0-based)
+  // For aborted AI responses
+  isComplete?: boolean; // Whether the message completed naturally (true) or was aborted (false)
+  // For hidden messages (e.g., continue prompt messages)
+  isHidden?: boolean; // Whether to hide this message in the UI
 }
 
 // Chat session
@@ -119,6 +123,7 @@ export interface SendMessageOptions {
   selectedText?: string;
   images?: Array<{ id: string; base64: string; mimeType: string }>;
   documents?: DocumentReference[]; // Attached document references
+  continueFromMessageId?: string; // Message ID to continue from (for continue response feature)
 }
 
 // Stored session metadata

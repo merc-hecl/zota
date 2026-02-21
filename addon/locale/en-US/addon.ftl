@@ -35,6 +35,9 @@ chat-quote-label = Quote
 chat-image-label = Image
 chat-reference-label = Reference
 chat-text-quote-label = Text Quote
+chat-continue = Continue
+chat-pause = Stop generation
+chat-continue-prompt = Please continue from where you left off before, without repeating what has already been answered.
 
 # Document Reference
 chat-document-label = Documents

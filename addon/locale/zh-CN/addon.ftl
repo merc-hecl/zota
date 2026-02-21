@@ -35,6 +35,9 @@ chat-quote-label = 引用
 chat-image-label = 图片
 chat-reference-label = 引用
 chat-text-quote-label = 文字引用
+chat-continue = 继续
+chat-pause = 停止生成
+chat-continue-prompt = 请接续你之前的内容，不要重复之前已经回答的内容。
 
 # Document Reference
 chat-document-label = 文档
