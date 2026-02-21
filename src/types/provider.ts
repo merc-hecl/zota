@@ -37,7 +37,8 @@ export type ProviderType =
   | "deepseek"
   | "mistral"
   | "groq"
-  | "openrouter";
+  | "openrouter"
+  | "siliconflow";
 
 /**
  * Provider identifier for built-in providers
@@ -51,7 +52,8 @@ export type BuiltinProviderId =
   | "groq"
   | "openrouter"
   | "kimi"
-  | "glm";
+  | "glm"
+  | "siliconflow";
 
 /**
  * Base provider configuration

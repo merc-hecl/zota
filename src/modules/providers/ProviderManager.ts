@@ -19,6 +19,7 @@ import { DeepSeekProvider } from "./DeepSeekProvider";
 import { MistralProvider } from "./MistralProvider";
 import { GroqProvider } from "./GroqProvider";
 import { OpenRouterProvider } from "./OpenRouterProvider";
+import { SiliconFlowProvider } from "./SiliconFlowProvider";
 import { config } from "../../../package.json";
 
 export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
@@ -69,18 +70,7 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     defaultModelInfos: [],
     website: "https://platform.deepseek.com",
     type: "deepseek",
-    endpoints: [
-      {
-        label: "官方 (国内)",
-        baseUrl: "https://api.deepseek.com/v1",
-        website: "https://platform.deepseek.com",
-      },
-      {
-        label: "硅基流动",
-        baseUrl: "https://api.siliconflow.cn/v1",
-        website: "https://cloud.siliconflow.cn",
-      },
-    ],
+
   },
   mistral: {
     id: "mistral",
@@ -148,6 +138,27 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
         label: "海外",
         baseUrl: "https://api.z.ai/api/paas/v4",
         website: "https://chat.z.ai",
+      },
+    ],
+  },
+  siliconflow: {
+    id: "siliconflow",
+    name: "SiliconFlow",
+    defaultBaseUrl: "https://api.siliconflow.cn/v1",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://docs.siliconflow.cn/cn/userguide/introduction",
+    type: "siliconflow",
+    endpoints: [
+      {
+        label: "国内",
+        baseUrl: "https://api.siliconflow.cn/v1",
+        website: "https://docs.siliconflow.cn/cn/userguide/introduction",
+      },
+      {
+        label: "海外",
+        baseUrl: "https://api.siliconflow.com/v1",
+        website: "https://docs.siliconflow.com/en/userguide/introduction",
       },
     ],
   },
@@ -279,6 +290,7 @@ export class ProviderManager {
       "openrouter",
       "kimi",
       "glm",
+      "siliconflow",
     ];
 
     apiKeyProviders.forEach((id, index) => {
@@ -329,6 +341,8 @@ export class ProviderManager {
         return new GroqProvider(config as ApiKeyProviderConfig);
       case "openrouter":
         return new OpenRouterProvider(config as ApiKeyProviderConfig);
+      case "siliconflow":
+        return new SiliconFlowProvider(config as ApiKeyProviderConfig);
       case "openai-compatible":
         return new OpenAIProvider(config as ApiKeyProviderConfig);
       default:

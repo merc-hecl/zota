@@ -23,6 +23,7 @@ export { DeepSeekProvider } from "./DeepSeekProvider";
 export { MistralProvider } from "./MistralProvider";
 export { GroqProvider } from "./GroqProvider";
 export { OpenRouterProvider } from "./OpenRouterProvider";
+export { SiliconFlowProvider } from "./SiliconFlowProvider";
 
 export type {
   AIProvider,

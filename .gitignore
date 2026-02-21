@@ -2,6 +2,7 @@
 .DS_Store
 .googleapi.md
 .claudeapi.md
+.siliconflowapi.md
 
 # Node.js
 node_modules
