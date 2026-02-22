@@ -21,6 +21,7 @@ import { GroqProvider } from "./GroqProvider";
 import { OpenRouterProvider } from "./OpenRouterProvider";
 import { SiliconFlowProvider } from "./SiliconFlowProvider";
 import { MiniMaxProvider, MINIMAX_DEFAULT_MODELS } from "./MiniMaxProvider";
+import { XAIProvider } from "./XAIProvider";
 import { config } from "../../../package.json";
 
 export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
@@ -183,6 +184,15 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
       },
     ],
   },
+  xai: {
+    id: "xai",
+    name: "xAI",
+    defaultBaseUrl: "https://api.x.ai/v1",
+    defaultModels: [],
+    defaultModelInfos: [],
+    website: "https://docs.x.ai",
+    type: "xai",
+  },
 };
 
 const PREFS_KEY = `${config.prefsPrefix}.providersConfig`;
@@ -313,6 +323,7 @@ export class ProviderManager {
       "glm",
       "siliconflow",
       "minimax",
+      "xai",
     ];
 
     apiKeyProviders.forEach((id, index) => {
@@ -367,6 +378,8 @@ export class ProviderManager {
         return new SiliconFlowProvider(config as ApiKeyProviderConfig);
       case "minimax":
         return new MiniMaxProvider(config as ApiKeyProviderConfig);
+      case "xai":
+        return new XAIProvider(config as ApiKeyProviderConfig);
       case "openai-compatible":
         return new OpenAIProvider(config as ApiKeyProviderConfig);
       default:

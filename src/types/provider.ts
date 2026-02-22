@@ -39,7 +39,8 @@ export type ProviderType =
   | "groq"
   | "openrouter"
   | "siliconflow"
-  | "minimax";
+  | "minimax"
+  | "xai";
 
 /**
  * Provider identifier for built-in providers
@@ -55,7 +56,8 @@ export type BuiltinProviderId =
   | "kimi"
   | "glm"
   | "siliconflow"
-  | "minimax";
+  | "minimax"
+  | "xai";
 
 /**
  * Base provider configuration
