@@ -255,15 +255,16 @@ export class ProviderManager {
     const storedMap = new Map(storedConfigs.map((c) => [c.id, c]));
     const merged: ProviderConfig[] = [];
 
-    // Add all default built-in providers
+    // Add all default built-in providers (already sorted alphabetically)
     for (const defaultConfig of defaultConfigs) {
       const storedConfig = storedMap.get(defaultConfig.id);
       if (storedConfig) {
-        // Use stored config but update type if it changed
+        // Use stored config but update type and order from default
         merged.push({
           ...storedConfig,
           type: defaultConfig.type,
           name: defaultConfig.name,
+          order: defaultConfig.order,
           baseUrl: storedConfig.baseUrl || defaultConfig.baseUrl,
         });
       } else {
@@ -279,16 +280,13 @@ export class ProviderManager {
       }
     }
 
-    // Reorder to maintain consistent order
+    // Reorder: built-in first (by order), then custom (by original order)
     merged.sort((a, b) => {
-      // Built-in providers come first, sorted by order
       if (a.isBuiltin && b.isBuiltin) {
         return (a.order || 0) - (b.order || 0);
       }
-      // Built-in comes before custom
       if (a.isBuiltin && !b.isBuiltin) return -1;
       if (!a.isBuiltin && b.isBuiltin) return 1;
-      // Both custom, maintain original order
       return 0;
     });
 
@@ -326,7 +324,11 @@ export class ProviderManager {
       "xai",
     ];
 
-    apiKeyProviders.forEach((id, index) => {
+    const sortedProviders = apiKeyProviders.sort((a, b) =>
+      BUILTIN_PROVIDERS[a].name.localeCompare(BUILTIN_PROVIDERS[b].name),
+    );
+
+    sortedProviders.forEach((id, index) => {
       const meta = BUILTIN_PROVIDERS[id];
       configs.push({
         id: id,
