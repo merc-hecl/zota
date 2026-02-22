@@ -6,30 +6,29 @@
   onunload="Zotero.__addonInstance__.hooks.onPrefsEvent('unload', { window })"
 >
   <vbox flex="1" style="min-height: 500px; padding: 16px">
-    <!-- Provider Selection -->
-    <hbox align="center" style="margin-bottom: 16px">
-      <label
-        for="pref-active-provider-select"
-        data-l10n-id="pref-active-provider"
-        style="width: 100px; text-align: right; font-weight: bold"
-      ></label>
-      <menulist
-        id="pref-active-provider-select"
-        style="flex: 1; margin-left: 12px; min-width: 200px"
-      >
-        <menupopup id="pref-active-provider-popup"> </menupopup>
-      </menulist>
-      <button
-        id="pref-delete-provider"
-        data-l10n-id="pref-delete-provider"
-        style="margin-left: 12px; color: #c00; text-align: center"
-        pack="center"
-      ></button>
-    </hbox>
-
     <html:div style="display: flex; gap: 16px; flex-wrap: wrap">
-      <!-- Left Column -->
+      <!-- Provider Selection -->
       <html:div style="flex: 1; min-width: 280px">
+        <hbox align="center" style="margin-bottom: 16px">
+          <label
+            for="pref-active-provider-select"
+            data-l10n-id="pref-active-provider"
+            style="width: 100px; text-align: right; font-weight: bold"
+          ></label>
+          <menulist
+            id="pref-active-provider-select"
+            style="flex: 1; margin-left: 8px; min-width: 200px"
+          >
+            <menupopup id="pref-active-provider-popup"> </menupopup>
+          </menulist>
+          <button
+            id="pref-delete-provider"
+            data-l10n-id="pref-delete-provider"
+            style="margin-left: 8px; color: #c00; text-align: center"
+            pack="center"
+          ></button>
+        </hbox>
+
         <!-- Base URL (Endpoint) Dropdown -->
         <hbox align="center" style="margin-bottom: 8px">
           <label
