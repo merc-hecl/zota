@@ -14,6 +14,18 @@
 
 ## Features
 
+### Version 0.0.6 (2026-02-22)
+
+- Add **xAI**, **MiniMax** and **SiliconFlow** built-in providers.
+- Now you can **regenerate** the response of the last message and **switch** between different response versions.
+  - In the export chat history as **note** feature, the default export is the **latest** version of the response.
+- Now you can **abort** the response of the AI model and **continue** generating the response.
+  - But the continue generated response **cannot** guarantee to be perfect continuation of the aborted response.
+  - **Not recommended** to use in scenarios that require continuous conversation.
+- Now you can chat with the AI model about your PDF documents in the **Library** window.
+  - The chat history of **multiple entries** will be exported as **notes** in the **Library** window.
+- Now the images in the chat history can be displayed correctly in the note.
+
 ### Version 0.0.5 (2026-02-17)
 
 - **Multi built-in providers support**: Now can switch between different AI providers (e.g., OpenAI, Claude, Google Gemini) to get responses, and can take your own OpenAI-Compatible API endpoint.
@@ -24,7 +36,7 @@
 - **Add image upload support**: Now can upload images **from clipboard** or **drag-and-drop** into the chat panel to chat about images with the AI model that supports image input.
   ![image-upload](doc/screenshots/upload_image_en.png)
 - Add ~~**multi-endpoint** and~~ **multi-apikey** support: Now can configure multiple API endpoints and keys(and can set a nickname for each api key) to switch between different providers.
-  ![multi-endpoint](doc/screenshots/multiendpoint_en.png) ![multi-apikey](doc/screenshots/multiapikey_en.png)
+  ![multi-apikey](doc/screenshots/multiapikey_en.png)
 
 - **Float window**: Now the size and position of the float window should be remembered after closing.
 
