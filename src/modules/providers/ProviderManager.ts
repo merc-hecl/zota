@@ -20,6 +20,7 @@ import { MistralProvider } from "./MistralProvider";
 import { GroqProvider } from "./GroqProvider";
 import { OpenRouterProvider } from "./OpenRouterProvider";
 import { SiliconFlowProvider } from "./SiliconFlowProvider";
+import { MiniMaxProvider, MINIMAX_DEFAULT_MODELS } from "./MiniMaxProvider";
 import { config } from "../../../package.json";
 
 export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
@@ -161,6 +162,27 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
       },
     ],
   },
+  minimax: {
+    id: "minimax",
+    name: "MiniMax",
+    defaultBaseUrl: "https://api.minimaxi.com/anthropic",
+    defaultModels: MINIMAX_DEFAULT_MODELS.map((m) => m.modelId),
+    defaultModelInfos: MINIMAX_DEFAULT_MODELS,
+    website: "https://platform.minimaxi.com/docs/guides/models-intro",
+    type: "minimax",
+    endpoints: [
+      {
+        label: "国内",
+        baseUrl: "https://api.minimaxi.com/anthropic",
+        website: "https://platform.minimaxi.com/docs/guides/models-intro",
+      },
+      {
+        label: "海外",
+        baseUrl: "https://api.minimax.io/anthropic",
+        website: "https://platform.minimax.io/docs/guides/models-intro",
+      },
+    ],
+  },
 };
 
 const PREFS_KEY = `${config.prefsPrefix}.providersConfig`;
@@ -290,6 +312,7 @@ export class ProviderManager {
       "kimi",
       "glm",
       "siliconflow",
+      "minimax",
     ];
 
     apiKeyProviders.forEach((id, index) => {
@@ -342,6 +365,8 @@ export class ProviderManager {
         return new OpenRouterProvider(config as ApiKeyProviderConfig);
       case "siliconflow":
         return new SiliconFlowProvider(config as ApiKeyProviderConfig);
+      case "minimax":
+        return new MiniMaxProvider(config as ApiKeyProviderConfig);
       case "openai-compatible":
         return new OpenAIProvider(config as ApiKeyProviderConfig);
       default:
