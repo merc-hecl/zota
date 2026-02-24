@@ -48,6 +48,131 @@ export function setSwitchVersionCallback(
 }
 
 /**
+ * Create a thinking section with collapsible content
+ */
+function createThinkingSection(
+  doc: Document,
+  reasoningContent: string,
+  theme: ThemeColors,
+): HTMLElement {
+  const container = createElement(
+    doc,
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      marginBottom: "12px",
+      border: `1px solid ${theme.borderColor}`,
+      borderRadius: "8px",
+      overflow: "hidden",
+      background: theme.assistantBubbleBg,
+    },
+    { class: "chat-thinking-section" },
+  );
+
+  // Header with sparkle icon and collapse/expand functionality
+  const header = createElement(
+    doc,
+    "div",
+    {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "8px 12px",
+      background: "rgba(45, 90, 135, 0.08)",
+      cursor: "pointer",
+      userSelect: "none",
+      transition: "background 0.2s ease",
+    },
+    { class: "chat-thinking-header" },
+  );
+
+  // Sparkle icon
+  const sparkleIcon = createElement(doc, "img", {
+    width: "14px",
+    height: "14px",
+    opacity: "0.8",
+  });
+  (sparkleIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/sparkle.svg`;
+  header.appendChild(sparkleIcon);
+
+  // Header text
+  const headerText = createElement(
+    doc,
+    "span",
+    {
+      fontSize: "12px",
+      fontWeight: "600",
+      color: theme.textPrimary,
+      flex: "1",
+    },
+    { class: "chat-thinking-title" },
+  );
+  headerText.textContent = getString("chat-thinking-title");
+  header.appendChild(headerText);
+
+  // Chevron icon for expand/collapse
+  const chevronIcon = createElement(
+    doc,
+    "span",
+    {
+      fontSize: "10px",
+      opacity: "0.6",
+      transition: "transform 0.2s ease",
+    },
+    { class: "chat-thinking-chevron" },
+  );
+  chevronIcon.textContent = "▼";
+  header.appendChild(chevronIcon);
+
+  // Content container with markdown rendering
+  const contentContainer = createElement(
+    doc,
+    "div",
+    {
+      display: "block",
+      padding: "10px 12px",
+      fontSize: "13px",
+      lineHeight: "1.5",
+      color: theme.textSecondary,
+      background: "rgba(45, 90, 135, 0.03)",
+      maxHeight: "300px",
+      overflowY: "auto",
+      userSelect: "text",
+    },
+    { class: "chat-thinking-content" },
+  );
+
+  // Render reasoning content as markdown
+  renderMarkdownToElement(contentContainer, reasoningContent);
+
+  // Toggle functionality
+  let isExpanded = true;
+  header.addEventListener("click", () => {
+    isExpanded = !isExpanded;
+    contentContainer.style.display = isExpanded ? "block" : "none";
+    chevronIcon.style.transform = isExpanded
+      ? "rotate(0deg)"
+      : "rotate(-90deg)";
+    chevronIcon.textContent = isExpanded ? "▼" : "▶";
+  });
+
+  // Hover effect for header
+  header.addEventListener("mouseenter", () => {
+    header.style.background = "rgba(45, 90, 135, 0.15)";
+  });
+  header.addEventListener("mouseleave", () => {
+    header.style.background = "rgba(45, 90, 135, 0.08)";
+  });
+
+  container.appendChild(header);
+  container.appendChild(contentContainer);
+
+  return container;
+}
+
+/**
  * Format timestamp to "yy/mm/dd hh:mm:ss" format
  */
 function formatTimestamp(timestamp: number): string {
@@ -745,6 +870,20 @@ export function createMessageElement(
   }
 
   bubble.appendChild(content);
+
+  // Add thinking content section for assistant messages if reasoning content exists
+  if (msg.role === "assistant" && msg.reasoningContent) {
+    const thinkingSection = createThinkingSection(
+      doc,
+      msg.reasoningContent,
+      theme,
+    );
+    if (thinkingSection) {
+      // Insert thinking section before the main content
+      bubble.insertBefore(thinkingSection, content);
+    }
+  }
+
   wrapper.appendChild(bubble);
 
   // Create metadata row (timestamp + copy button)
@@ -785,8 +924,11 @@ export function createMessageElement(
     }
 
     if (showButtons) {
-      // Copy button
-      const copyBtn = createCopyButton(doc, rawContent);
+      // Copy button - includes both reasoning content and main content
+      const fullContent = msg.reasoningContent
+        ? `## Thinking Process\n\n${msg.reasoningContent}\n\n---\n\n${rawContent}`
+        : rawContent;
+      const copyBtn = createCopyButton(doc, fullContent);
       metaRow.appendChild(copyBtn);
 
       // Regenerate button

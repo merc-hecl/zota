@@ -16,6 +16,7 @@ declare namespace _ZoteroTypes {
       "zotaModelsCache": string;
       "panelMode": string;
       "keepWindowTop": boolean;
+      "thinkingModeEnabled": boolean;
     };
   }
 }

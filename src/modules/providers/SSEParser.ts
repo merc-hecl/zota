@@ -9,6 +9,7 @@ export interface SSEParserCallbacks {
   onText: (text: string) => void;
   onDone: () => void;
   onError?: (error: Error) => void;
+  onReasoningText?: (text: string) => void; // Callback for reasoning content chunks
 }
 
 /**
@@ -44,6 +45,29 @@ const contentExtractors: Record<SSEFormat, (parsed: unknown) => string | null> =
   };
 
 /**
+ * Reasoning content extractors for different API formats
+ * Returns reasoning_content if present in the response
+ */
+const reasoningExtractors: Record<
+  SSEFormat,
+  (parsed: unknown) => string | null
+> = {
+  openai: (parsed) => {
+    const data = parsed as {
+      choices?: Array<{ delta?: { reasoning_content?: string | null } }>;
+    };
+    const reasoning = data.choices?.[0]?.delta?.reasoning_content;
+    // Return null if reasoning_content is undefined or null
+    if (reasoning === undefined || reasoning === null) {
+      return null;
+    }
+    return reasoning;
+  },
+  anthropic: () => null, // Anthropic doesn't support reasoning_content in this format
+  gemini: () => null, // Gemini doesn't support reasoning_content in this format
+};
+
+/**
  * Check if the event indicates completion for different formats
  */
 const completionCheckers: Record<SSEFormat, (parsed: unknown) => boolean> = {
@@ -75,8 +99,9 @@ export async function parseSSEStream(
   callbacks: SSEParserCallbacks,
   signal?: AbortSignal,
 ): Promise<void> {
-  const { onText, onDone, onError } = callbacks;
+  const { onText, onDone, onError, onReasoningText } = callbacks;
   const extractContent = contentExtractors[format];
+  const extractReasoning = reasoningExtractors[format];
   const isComplete = completionCheckers[format];
   const decoder = new TextDecoder();
   let buffer = "";
@@ -186,13 +211,23 @@ export async function parseSSEStream(
 
           try {
             const parsed = JSON.parse(data);
+            ztoolkit.log("[SSEParser] Parsed data:", JSON.stringify(parsed));
             if (isComplete(parsed)) {
               onDone();
               return;
             }
+            // Extract regular content
             const text = extractContent(parsed);
             if (text) {
               onText(text);
+            }
+            // Extract reasoning content if present
+            const reasoningText = extractReasoning(parsed);
+            if (reasoningText) {
+              ztoolkit.log("[SSEParser] Got reasoning content:", reasoningText);
+              if (onReasoningText) {
+                onReasoningText(reasoningText);
+              }
             }
           } catch {
             // Ignore parse errors for this chunk

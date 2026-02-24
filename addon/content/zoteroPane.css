@@ -1686,3 +1686,132 @@
     border-color: #555;
   }
 }
+
+/* ========================================
+   Thinking Content Styles
+   ======================================== */
+
+/* Thinking section container */
+.thinking-section {
+  margin: 8px 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f8f9fa;
+  overflow: hidden;
+}
+
+/* Thinking section header */
+.thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f0f0f0;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+
+.thinking-header:hover {
+  background: #e8e8e8;
+}
+
+/* Sparkle icon in thinking header */
+.thinking-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Thinking section title */
+.thinking-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  flex: 1;
+}
+
+/* Toggle indicator for expand/collapse */
+.thinking-toggle {
+  font-size: 10px;
+  color: #888;
+  transition: transform 0.2s ease;
+}
+
+.thinking-toggle.expanded {
+  transform: rotate(90deg);
+}
+
+/* Thinking content area */
+.thinking-content {
+  padding: 12px;
+  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #555;
+  background: #fafafa;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Hidden state for collapsed thinking content */
+.thinking-content.collapsed {
+  display: none;
+}
+
+/* Scrollbar styling for thinking content */
+.thinking-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thinking-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thinking-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 2px;
+}
+
+.thinking-content::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Dark mode support for thinking content */
+@media (prefers-color-scheme: dark) {
+  .thinking-section {
+    border-color: #30363d;
+    background: #161b22;
+  }
+
+  .thinking-header {
+    background: #21262d;
+  }
+
+  .thinking-header:hover {
+    background: #30363d;
+  }
+
+  .thinking-title {
+    color: #8b949e;
+  }
+
+  .thinking-toggle {
+    color: #6e7681;
+  }
+
+  .thinking-content {
+    color: #c9d1d9;
+    background: #0d1117;
+  }
+
+  .thinking-content::-webkit-scrollbar-thumb {
+    background: #30363d;
+  }
+
+  .thinking-content::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+  }
+}

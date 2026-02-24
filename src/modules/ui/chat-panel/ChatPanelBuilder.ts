@@ -947,6 +947,41 @@ export function createChatContainer(
     `chrome://${config.addonRef}/content/icons/config.svg`;
   settingsBtn.appendChild(settingsIcon);
 
+  // Thinking mode toggle button
+  const thinkingBtn = createElement(
+    doc,
+    "button",
+    {
+      width: "28px",
+      height: "28px",
+      background: "transparent",
+      border: "none",
+      borderRadius: "6px",
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0",
+    },
+    { id: "chat-thinking-btn" },
+  );
+  thinkingBtn.title = getString("chat-enable-thinking");
+
+  // Thinking icon (default: disabled state)
+  const thinkingIcon = createElement(
+    doc,
+    "img",
+    {
+      width: "16px",
+      height: "16px",
+      opacity: "0.6",
+    },
+    { id: "chat-thinking-icon" },
+  );
+  (thinkingIcon as HTMLImageElement).src =
+    `chrome://${config.addonRef}/content/icons/disable-thinking.svg`;
+  thinkingBtn.appendChild(thinkingIcon);
+
   // Pin button - toggle window always on top
   const pinBtn = createElement(
     doc,
@@ -1016,6 +1051,7 @@ export function createChatContainer(
 
   leftContainer.appendChild(modelSelectorContainer);
   leftContainer.appendChild(settingsBtn);
+  leftContainer.appendChild(thinkingBtn);
   leftContainer.appendChild(pinBtn);
   leftContainer.appendChild(panelModeBtn);
 

@@ -38,6 +38,11 @@ chat-text-quote-label = Text Quote
 chat-continue = Continue
 chat-pause = Stop generation
 chat-continue-prompt = Please continue from where you left off before, without repeating what has already been answered.
+chat-enable-thinking = Enable thinking mode
+chat-disable-thinking = Disable thinking mode
+chat-thinking-title = Thinking
+chat-copy = Copy
+chat-copied = Copied!
 
 # Document Reference
 chat-document-label = Documents

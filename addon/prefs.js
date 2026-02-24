@@ -12,3 +12,4 @@ pref("zotaModelsCache", "[]");
 // UI Settings
 pref("panelMode", "sidebar");
 pref("keepWindowTop", false);
+pref("thinkingModeEnabled", false);

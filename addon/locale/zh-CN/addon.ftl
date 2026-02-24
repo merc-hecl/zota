@@ -38,6 +38,11 @@ chat-text-quote-label = 文字引用
 chat-continue = 继续
 chat-pause = 停止生成
 chat-continue-prompt = 请接续你之前的内容，不要重复之前已经回答的内容。
+chat-enable-thinking = 启用思考模式
+chat-disable-thinking = 关闭思考模式
+chat-thinking-title = 思考过程
+chat-copy = 复制
+chat-copied = 已复制！
 
 # Document Reference
 chat-document-label = 文档

@@ -1170,6 +1170,40 @@ export function setupEventHandlers(context: ChatPanelContext): void {
     });
   }
 
+  // Thinking mode toggle button
+  const thinkingBtn = container.querySelector(
+    "#chat-thinking-btn",
+  ) as HTMLButtonElement;
+  const thinkingIcon = container.querySelector(
+    "#chat-thinking-icon",
+  ) as HTMLImageElement;
+  if (thinkingBtn && thinkingIcon) {
+    // Initialize thinking mode state from preference
+    const thinkingModeEnabled = getPref("thinkingModeEnabled") as boolean;
+    updateThinkingButtonState(thinkingBtn, thinkingIcon, thinkingModeEnabled);
+
+    thinkingBtn.addEventListener("click", () => {
+      ztoolkit.log("Thinking button clicked");
+      // Toggle the preference
+      const currentEnabled = getPref("thinkingModeEnabled") as boolean;
+      const newEnabled = !currentEnabled;
+      setPref("thinkingModeEnabled", newEnabled);
+
+      // Update button state
+      updateThinkingButtonState(thinkingBtn, thinkingIcon, newEnabled);
+
+      ztoolkit.log(`Thinking mode ${newEnabled ? "enabled" : "disabled"}`);
+    });
+
+    // Hover effect
+    thinkingBtn.addEventListener("mouseenter", () => {
+      thinkingBtn.style.background = getCurrentTheme().dropdownItemHoverBg;
+    });
+    thinkingBtn.addEventListener("mouseleave", () => {
+      thinkingBtn.style.background = "transparent";
+    });
+  }
+
   // Panel mode toggle button - switch between sidebar and floating mode
   const panelModeBtn = container.querySelector(
     "#chat-panel-mode-btn",
@@ -1262,6 +1296,29 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         : `chrome://${config.addonRef}/content/icons/pin-off.svg`;
       pinIcon.style.opacity = isPinned ? "1" : "0.6";
     }
+  }
+
+  // Helper function to update thinking button state
+  function updateThinkingButtonState(
+    button: HTMLElement,
+    icon: HTMLImageElement,
+    isEnabled: boolean,
+  ) {
+    if (!button || !icon) return;
+
+    // Update button opacity
+    button.style.opacity = isEnabled ? "1" : "0.6";
+
+    // Update button title based on state
+    button.title = getString(
+      isEnabled ? "chat-disable-thinking" : "chat-enable-thinking",
+    );
+
+    // Update thinking icon
+    icon.src = isEnabled
+      ? `chrome://${config.addonRef}/content/icons/enable-thinking.svg`
+      : `chrome://${config.addonRef}/content/icons/disable-thinking.svg`;
+    icon.style.opacity = isEnabled ? "1" : "0.6";
   }
 
   // Close button - close the floating window

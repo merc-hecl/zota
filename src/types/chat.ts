@@ -40,6 +40,8 @@ export interface ChatMessage {
   isComplete?: boolean; // Whether the message completed naturally (true) or was aborted (false)
   // For hidden messages (e.g., continue prompt messages)
   isHidden?: boolean; // Whether to hide this message in the UI
+  // For reasoning/thinking content from AI
+  reasoningContent?: string; // Reasoning/thinking content from AI models that support it
 }
 
 // Chat session
@@ -98,6 +100,7 @@ export interface StreamCallbacks {
   onChunk: (chunk: string) => void;
   onComplete: (fullContent: string) => void;
   onError: (error: Error) => void;
+  onReasoningChunk?: (chunk: string) => void; // Callback for reasoning content chunks
 }
 
 // Chat manager callbacks with session identification

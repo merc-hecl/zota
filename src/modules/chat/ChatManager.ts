@@ -13,8 +13,9 @@ import type {
 import type { ApiKeyProviderConfig } from "../../types/provider";
 import { StorageService } from "./StorageService";
 import { PdfExtractor } from "./PdfExtractor";
-import { getProviderManager } from "../providers";
+import { getProviderManager, SiliconFlowProvider } from "../providers";
 import { getString } from "../../utils/locale";
+import { getPref } from "../../utils/prefs";
 
 /**
  * Get AbortController constructor safely for Zotero sandbox environment
@@ -515,6 +516,14 @@ export class ChatManager {
     const SAVE_INTERVAL_MS = 500; // Save at most every 500ms
     const SAVE_EVERY_N_CHUNKS = 10; // Or every 10 chunks
 
+    // Check thinking mode preference
+    const thinkingModeEnabled = getPref("thinkingModeEnabled") as boolean;
+
+    // Set thinking mode for SiliconFlow provider
+    if (provider instanceof SiliconFlowProvider) {
+      provider.setThinkingMode(thinkingModeEnabled);
+    }
+
     // Call API
     const attemptRequest = async (): Promise<void> => {
       return new Promise((resolve) => {
@@ -541,6 +550,31 @@ export class ChatManager {
                 assistantMessage.content,
                 currentSessionId,
               );
+            },
+            onReasoningChunk: (chunk: string) => {
+              // Accumulate reasoning content
+              if (!assistantMessage.reasoningContent) {
+                assistantMessage.reasoningContent = "";
+              }
+              assistantMessage.reasoningContent += chunk;
+              ztoolkit.log(
+                "[ChatManager] Received reasoning chunk, current length:",
+                assistantMessage.reasoningContent.length,
+              );
+
+              // Throttle UI updates for reasoning content (every 500ms or every 5 chunks)
+              const now = Date.now();
+              const shouldUpdateUI =
+                now - lastSaveTime > SAVE_INTERVAL_MS ||
+                (assistantMessage.reasoningContent?.length || 0) % 50 === 0;
+
+              if (shouldUpdateUI) {
+                this.onMessageUpdate?.(
+                  itemId,
+                  session.messages,
+                  currentSessionId,
+                );
+              }
             },
             onComplete: async (fullContent: string) => {
               assistantMessage.content = fullContent;
@@ -789,6 +823,14 @@ export class ChatManager {
     const SAVE_INTERVAL_MS = 500;
     const SAVE_EVERY_N_CHUNKS = 10;
 
+    // Check thinking mode preference
+    const thinkingModeEnabled = getPref("thinkingModeEnabled") as boolean;
+
+    // Set thinking mode for SiliconFlow provider
+    if (provider instanceof SiliconFlowProvider) {
+      provider.setThinkingMode(thinkingModeEnabled);
+    }
+
     // Get messages up to this point for context (excluding the message being regenerated)
     const contextMessages = session.messages.slice(0, messageIndex);
 
@@ -816,6 +858,31 @@ export class ChatManager {
                 message.content,
                 currentSessionId,
               );
+            },
+            onReasoningChunk: (chunk: string) => {
+              // Accumulate reasoning content
+              if (!message.reasoningContent) {
+                message.reasoningContent = "";
+              }
+              message.reasoningContent += chunk;
+              ztoolkit.log(
+                "[ChatManager] Received reasoning chunk (regenerate), current length:",
+                message.reasoningContent.length,
+              );
+
+              // Throttle UI updates for reasoning content
+              const now = Date.now();
+              const shouldUpdateUI =
+                now - lastSaveTime > SAVE_INTERVAL_MS ||
+                (message.reasoningContent?.length || 0) % 50 === 0;
+
+              if (shouldUpdateUI) {
+                this.onMessageUpdate?.(
+                  itemId,
+                  session.messages,
+                  currentSessionId,
+                );
+              }
             },
             onComplete: async (fullContent: string) => {
               message.content = fullContent;

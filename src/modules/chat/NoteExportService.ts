@@ -95,6 +95,12 @@ export class NoteExportService {
             message.contentVersions[message.contentVersions.length - 1].content;
         }
         answer = answer.trim();
+
+        // Include reasoning content if present
+        if (message.reasoningContent && message.reasoningContent.trim()) {
+          markdown += `<details><summary>Thinking Process</summary>\n\n${message.reasoningContent.trim()}\n\n</details>\n\n`;
+        }
+
         markdown += `${answer}\n\n---\n\n`;
       } else if (message.role === "error") {
         markdown += `> ⚠️ Error: ${message.content.trim()}\n\n---\n\n`;

@@ -25,6 +25,9 @@ export default defineConfig({
     },
     prefs: {
       prefix: pkg.config.prefsPrefix,
+      defaults: {
+        thinkingModeEnabled: false,
+      },
     },
     esbuildOptions: [
       {
