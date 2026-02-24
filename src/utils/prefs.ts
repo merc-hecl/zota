@@ -34,3 +34,22 @@ export function setPref<K extends keyof PluginPrefsMap>(
 export function clearPref(key: string) {
   return Zotero.Prefs.clear(`${PREFS_PREFIX}.${key}`, true);
 }
+
+/**
+ * Get Claude thinking effort preference (bypasses strict typing)
+ */
+export function getClaudeThinkingEffort(): string {
+  return (
+    (Zotero.Prefs.get(
+      `${PREFS_PREFIX}.claudeThinkingEffort`,
+      true,
+    ) as string) || "none"
+  );
+}
+
+/**
+ * Set Claude thinking effort preference (bypasses strict typing)
+ */
+export function setClaudeThinkingEffort(value: string): void {
+  Zotero.Prefs.set(`${PREFS_PREFIX}.claudeThinkingEffort`, value, true);
+}

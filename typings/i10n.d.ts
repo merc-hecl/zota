@@ -4,6 +4,8 @@
 // @ts-nocheck
 export type FluentMessageId =
   | 'chat-attach-pdf'
+  | 'chat-claude-thinking-effort'
+  | 'chat-claude-thinking-effort-title'
   | 'chat-close'
   | 'chat-configure-provider'
   | 'chat-continue'

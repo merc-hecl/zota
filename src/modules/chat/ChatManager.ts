@@ -18,9 +18,10 @@ import {
   SiliconFlowProvider,
   DeepSeekProvider,
   OpenAIProvider,
+  AnthropicProvider,
 } from "../providers";
 import { getString } from "../../utils/locale";
-import { getPref } from "../../utils/prefs";
+import { getPref, getClaudeThinkingEffort } from "../../utils/prefs";
 
 /**
  * Get AbortController constructor safely for Zotero sandbox environment
@@ -545,6 +546,14 @@ export class ChatManager {
       );
     }
 
+    // Set thinking effort for Anthropic/Claude provider
+    if (provider instanceof AnthropicProvider) {
+      const thinkingEffort = (getClaudeThinkingEffort() as string) || "none";
+      provider.setThinkingEffort(
+        thinkingEffort as "none" | "low" | "medium" | "high",
+      );
+    }
+
     // Call API
     const attemptRequest = async (): Promise<void> => {
       return new Promise((resolve) => {
@@ -857,6 +866,14 @@ export class ChatManager {
       provider.setThinkingMode(thinkingModeEnabled);
       const currentModel = (getPref("model") as string) || "";
       provider.setCurrentModel(currentModel);
+    }
+
+    // Set thinking effort for Anthropic/Claude provider
+    if (provider instanceof AnthropicProvider) {
+      const thinkingEffort = (getClaudeThinkingEffort() as string) || "none";
+      provider.setThinkingEffort(
+        thinkingEffort as "none" | "low" | "medium" | "high",
+      );
     }
 
     // Get messages up to this point for context (excluding the message being regenerated)

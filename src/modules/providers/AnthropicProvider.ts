@@ -6,7 +6,23 @@
 import { BaseProvider } from "./BaseProvider";
 import type { ChatMessage, StreamCallbacks } from "../../types/chat";
 
+export type ClaudeThinkingEffort = "none" | "low" | "medium" | "high" | "max";
+
 export class AnthropicProvider extends BaseProvider {
+  private _thinkingEffort: ClaudeThinkingEffort = "none";
+
+  setThinkingEffort(effort: ClaudeThinkingEffort): void {
+    this._thinkingEffort = effort;
+  }
+
+  getThinkingEffort(): ClaudeThinkingEffort {
+    return this._thinkingEffort;
+  }
+
+  isThinkingEnabled(): boolean {
+    return this._thinkingEffort !== "none";
+  }
+
   async streamChatCompletion(
     messages: ChatMessage[],
     callbacks: StreamCallbacks,
@@ -30,6 +46,11 @@ export class AnthropicProvider extends BaseProvider {
         messages: anthropicMessages,
         stream: true,
       };
+
+      if (this._thinkingEffort !== "none") {
+        requestBody.thinking = { type: "adaptive" };
+        requestBody.output_config = { effort: this._thinkingEffort };
+      }
 
       const response = await fetch(`${this._config.baseUrl}/messages`, {
         method: "POST",
@@ -66,6 +87,11 @@ export class AnthropicProvider extends BaseProvider {
       system: systemPrompt,
       messages: anthropicMessages,
     };
+
+    if (this._thinkingEffort !== "none") {
+      requestBody.thinking = { type: "adaptive" };
+      requestBody.output_config = { effort: this._thinkingEffort };
+    }
 
     const response = await fetch(`${this._config.baseUrl}/messages`, {
       method: "POST",

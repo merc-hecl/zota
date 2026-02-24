@@ -43,6 +43,8 @@ chat-disable-thinking = Disable thinking mode
 chat-thinking-title = Thinking
 chat-openai-reasoning-effort = Set reasoning effort
 chat-openai-reasoning-effort-title = Reasoning Effort
+chat-claude-thinking-effort = Set thinking effort
+chat-claude-thinking-effort-title = Thinking Effort
 chat-copy = Copy
 chat-copied = Copied!
 
