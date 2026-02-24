@@ -1134,7 +1134,18 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         "#chat-thinking-icon",
       ) as HTMLImageElement;
 
-      if (isDeepSeekReasoner) {
+      // Check if active provider is OpenAI
+      const providerManager = getProviderManager();
+      const activeProvider = providerManager.getActiveProvider();
+      const isOpenAI = activeProvider?.getName?.() === "OpenAI";
+
+      if (isOpenAI) {
+        // For OpenAI: always show enabled icon and effort slider
+        if (thinkingBtn && thinkingIcon) {
+          updateThinkingButtonState(thinkingBtn, thinkingIcon, true);
+          thinkingBtn.title = getString("chat-openai-reasoning-effort");
+        }
+      } else if (isDeepSeekReasoner) {
         // Auto-enable thinking mode for deepseek-reasoner
         setPref("thinkingModeEnabled", true);
         if (thinkingBtn && thinkingIcon) {
@@ -1209,21 +1220,54 @@ export function setupEventHandlers(context: ChatPanelContext): void {
     "#chat-thinking-icon",
   ) as HTMLImageElement;
   if (thinkingBtn && thinkingIcon) {
-    // Initialize thinking mode state from preference
-    const thinkingModeEnabled = getPref("thinkingModeEnabled") as boolean;
-    updateThinkingButtonState(thinkingBtn, thinkingIcon, thinkingModeEnabled);
+    // Update thinking button state based on current provider
+    const updateThinkingButtonForProvider = () => {
+      const providerManager = getProviderManager();
+      const activeProvider = providerManager.getActiveProvider();
+      const providerName = activeProvider?.getName?.() || "";
+      ztoolkit.log(
+        "[ChatPanelEvents] Current provider:",
+        providerName,
+        "isOpenAI:",
+        providerName === "OpenAI",
+      );
 
-    thinkingBtn.addEventListener("click", () => {
-      ztoolkit.log("Thinking button clicked");
-      // Toggle the preference
-      const currentEnabled = getPref("thinkingModeEnabled") as boolean;
-      const newEnabled = !currentEnabled;
-      setPref("thinkingModeEnabled", newEnabled);
+      if (providerName === "OpenAI") {
+        // For OpenAI: always show enabled icon and show effort slider on click
+        updateThinkingButtonState(thinkingBtn, thinkingIcon, true);
+        thinkingBtn.title = getString("chat-openai-reasoning-effort");
+      } else {
+        // For other providers: toggle thinking mode
+        const thinkingModeEnabled = getPref("thinkingModeEnabled") as boolean;
+        updateThinkingButtonState(
+          thinkingBtn,
+          thinkingIcon,
+          thinkingModeEnabled,
+        );
+      }
+    };
 
-      // Update button state
-      updateThinkingButtonState(thinkingBtn, thinkingIcon, newEnabled);
+    // Initialize button state based on current provider
+    updateThinkingButtonForProvider();
 
-      ztoolkit.log(`Thinking mode ${newEnabled ? "enabled" : "disabled"}`);
+    // Handle click - check provider each time
+    thinkingBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const providerManager = getProviderManager();
+      const activeProvider = providerManager.getActiveProvider();
+      const providerName = activeProvider?.getName?.() || "";
+
+      if (providerName === "OpenAI") {
+        ztoolkit.log("OpenAI reasoning button clicked");
+        showReasoningEffortPopover(thinkingBtn, container);
+      } else {
+        ztoolkit.log("Thinking button clicked");
+        const currentEnabled = getPref("thinkingModeEnabled") as boolean;
+        const newEnabled = !currentEnabled;
+        setPref("thinkingModeEnabled", newEnabled);
+        updateThinkingButtonState(thinkingBtn, thinkingIcon, newEnabled);
+        ztoolkit.log(`Thinking mode ${newEnabled ? "enabled" : "disabled"}`);
+      }
     });
 
     // Hover effect
@@ -2314,4 +2358,99 @@ function updateThinkingButtonState(
     ? `chrome://${config.addonRef}/content/icons/enable-thinking.svg`
     : `chrome://${config.addonRef}/content/icons/disable-thinking.svg`;
   icon.style.opacity = isEnabled ? "1" : "0.6";
+}
+
+const REASONING_EFFORT_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "xhigh", label: "X-High" },
+];
+
+function showReasoningEffortPopover(
+  button: HTMLElement,
+  container: HTMLElement,
+): void {
+  const existingPopover = container.querySelector(
+    "#reasoning-effort-popover",
+  ) as HTMLElement;
+  if (existingPopover) {
+    existingPopover.remove();
+    return;
+  }
+
+  const doc = container.ownerDocument!;
+  const currentEffort =
+    (getPref("openaiReasoningEffort") as string) || "medium";
+
+  const popover = createElement(doc, "div", {
+    position: "absolute",
+    bottom: "50px",
+    right: "10px",
+    background: getCurrentTheme().dropdownBg,
+    border: `1px solid ${getCurrentTheme().borderColor}`,
+    borderRadius: "8px",
+    padding: "12px",
+    zIndex: "1000",
+    minWidth: "180px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+  });
+  popover.id = "reasoning-effort-popover";
+
+  const title = createElement(doc, "div", {
+    fontSize: "13px",
+    fontWeight: "600",
+    marginBottom: "10px",
+    color: getCurrentTheme().textPrimary,
+  });
+  title.textContent = getString("chat-openai-reasoning-effort-title");
+  popover.appendChild(title);
+
+  for (const option of REASONING_EFFORT_OPTIONS) {
+    const label = createElement(doc, "label", {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "6px 4px",
+      cursor: "pointer",
+      color: getCurrentTheme().textPrimary,
+      fontSize: "12px",
+    });
+
+    const radio = createElement(doc, "input", {
+      cursor: "pointer",
+    }) as HTMLInputElement;
+    radio.type = "radio";
+    radio.name = "reasoning-effort";
+    radio.value = option.value;
+
+    if (option.value === currentEffort) {
+      radio.checked = true;
+    }
+
+    radio.addEventListener("change", () => {
+      setPref("openaiReasoningEffort", option.value);
+      ztoolkit.log(`OpenAI reasoning effort set to: ${option.value}`);
+      popover.remove();
+    });
+
+    label.appendChild(radio);
+    const span = createElement(doc, "span");
+    span.textContent = option.label;
+    label.appendChild(span);
+    popover.appendChild(label);
+  }
+
+  button.parentElement?.appendChild(popover);
+
+  setTimeout(() => {
+    const clickOutsideHandler = (e: MouseEvent) => {
+      if (!popover.contains(e.target as Node) && e.target !== button) {
+        popover.remove();
+        container.removeEventListener("click", clickOutsideHandler);
+      }
+    };
+    container.addEventListener("click", clickOutsideHandler);
+  }, 0);
 }

@@ -35,6 +35,8 @@ export type FluentMessageId =
   | 'chat-no-messages'
   | 'chat-no-models'
   | 'chat-open-settings'
+  | 'chat-openai-reasoning-effort'
+  | 'chat-openai-reasoning-effort-title'
   | 'chat-pause'
   | 'chat-pin'
   | 'chat-prev-version'

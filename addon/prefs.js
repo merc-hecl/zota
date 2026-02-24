@@ -13,3 +13,4 @@ pref("zotaModelsCache", "[]");
 pref("panelMode", "sidebar");
 pref("keepWindowTop", false);
 pref("thinkingModeEnabled", false);
+pref("openaiReasoningEffort", "medium");

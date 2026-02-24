@@ -17,6 +17,7 @@ declare namespace _ZoteroTypes {
       "panelMode": string;
       "keepWindowTop": boolean;
       "thinkingModeEnabled": boolean;
+      "openaiReasoningEffort": string;
     };
   }
 }

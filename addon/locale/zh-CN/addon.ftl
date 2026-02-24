@@ -41,6 +41,8 @@ chat-continue-prompt = 请接续你之前的内容，不要重复之前已经回
 chat-enable-thinking = 启用思考模式
 chat-disable-thinking = 关闭思考模式
 chat-thinking-title = 思考过程
+chat-openai-reasoning-effort = 设置推理强度
+chat-openai-reasoning-effort-title = 推理强度
 chat-copy = 复制
 chat-copied = 已复制！
 

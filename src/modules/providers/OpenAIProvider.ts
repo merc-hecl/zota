@@ -1,12 +1,29 @@
 /**
  * OpenAIProvider - OpenAI compatible API implementation
  * Supports both /v1/chat/completions and /v1/responses endpoints
+ * Includes reasoning mode support via reasoning_effort (Chat Completions) or reasoning (Responses)
  */
 
 import { BaseProvider } from "./BaseProvider";
 import type { ChatMessage, StreamCallbacks } from "../../types/chat";
 
+export type ReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
+
 export class OpenAIProvider extends BaseProvider {
+  private _reasoningEffort: ReasoningEffort = "medium";
+
+  setReasoningEffort(effort: ReasoningEffort): void {
+    this._reasoningEffort = effort;
+  }
+
+  getReasoningEffort(): ReasoningEffort {
+    return this._reasoningEffort;
+  }
+
+  isReasoningEnabled(): boolean {
+    return this._reasoningEffort !== "none";
+  }
+
   private isResponsesEndpoint(): boolean {
     const baseUrl = this._config.baseUrl || "";
     return baseUrl.includes("/v1/responses") || baseUrl.includes("/responses");
@@ -60,6 +77,10 @@ export class OpenAIProvider extends BaseProvider {
         requestBody.max_tokens = this._config.maxTokens;
       }
 
+      if (this.isReasoningEnabled()) {
+        requestBody.reasoning_effort = this._reasoningEffort;
+      }
+
       const response = await fetch(`${this._config.baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
@@ -110,6 +131,10 @@ export class OpenAIProvider extends BaseProvider {
 
       if (this._config.temperature !== undefined) {
         requestBody.temperature = this._config.temperature;
+      }
+
+      if (this.isReasoningEnabled()) {
+        requestBody.reasoning = { effort: this._reasoningEffort };
       }
 
       const baseUrl = this._config.baseUrl.endsWith("/v1")
@@ -169,6 +194,10 @@ export class OpenAIProvider extends BaseProvider {
       requestBody.max_tokens = this._config.maxTokens;
     }
 
+    if (this.isReasoningEnabled()) {
+      requestBody.reasoning_effort = this._reasoningEffort;
+    }
+
     const response = await fetch(`${this._config.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
@@ -209,6 +238,10 @@ export class OpenAIProvider extends BaseProvider {
 
     if (this._config.temperature !== undefined) {
       requestBody.temperature = this._config.temperature;
+    }
+
+    if (this.isReasoningEnabled()) {
+      requestBody.reasoning = { effort: this._reasoningEffort };
     }
 
     const baseUrl = this._config.baseUrl.endsWith("/v1")

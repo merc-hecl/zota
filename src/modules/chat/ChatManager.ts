@@ -17,6 +17,7 @@ import {
   getProviderManager,
   SiliconFlowProvider,
   DeepSeekProvider,
+  OpenAIProvider,
 } from "../providers";
 import { getString } from "../../utils/locale";
 import { getPref } from "../../utils/prefs";
@@ -533,6 +534,15 @@ export class ChatManager {
       provider.setThinkingMode(thinkingModeEnabled);
       const currentModel = (getPref("model") as string) || "";
       provider.setCurrentModel(currentModel);
+    }
+
+    // Set reasoning effort for OpenAI provider
+    if (provider instanceof OpenAIProvider) {
+      const reasoningEffort =
+        (getPref("openaiReasoningEffort") as string) || "medium";
+      provider.setReasoningEffort(
+        reasoningEffort as "none" | "low" | "medium" | "high" | "xhigh",
+      );
     }
 
     // Call API

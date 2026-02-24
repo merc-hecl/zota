@@ -41,6 +41,8 @@ chat-continue-prompt = Please continue from where you left off before, without r
 chat-enable-thinking = Enable thinking mode
 chat-disable-thinking = Disable thinking mode
 chat-thinking-title = Thinking
+chat-openai-reasoning-effort = Set reasoning effort
+chat-openai-reasoning-effort-title = Reasoning Effort
 chat-copy = Copy
 chat-copied = Copied!
 
