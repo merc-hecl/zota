@@ -13,7 +13,11 @@ import type {
 import type { ApiKeyProviderConfig } from "../../types/provider";
 import { StorageService } from "./StorageService";
 import { PdfExtractor } from "./PdfExtractor";
-import { getProviderManager, SiliconFlowProvider } from "../providers";
+import {
+  getProviderManager,
+  SiliconFlowProvider,
+  DeepSeekProvider,
+} from "../providers";
 import { getString } from "../../utils/locale";
 import { getPref } from "../../utils/prefs";
 
@@ -524,6 +528,13 @@ export class ChatManager {
       provider.setThinkingMode(thinkingModeEnabled);
     }
 
+    // Set thinking mode and current model for DeepSeek provider
+    if (provider instanceof DeepSeekProvider) {
+      provider.setThinkingMode(thinkingModeEnabled);
+      const currentModel = (getPref("model") as string) || "";
+      provider.setCurrentModel(currentModel);
+    }
+
     // Call API
     const attemptRequest = async (): Promise<void> => {
       return new Promise((resolve) => {
@@ -829,6 +840,13 @@ export class ChatManager {
     // Set thinking mode for SiliconFlow provider
     if (provider instanceof SiliconFlowProvider) {
       provider.setThinkingMode(thinkingModeEnabled);
+    }
+
+    // Set thinking mode and current model for DeepSeek provider
+    if (provider instanceof DeepSeekProvider) {
+      provider.setThinkingMode(thinkingModeEnabled);
+      const currentModel = (getPref("model") as string) || "";
+      provider.setCurrentModel(currentModel);
     }
 
     // Get messages up to this point for context (excluding the message being regenerated)

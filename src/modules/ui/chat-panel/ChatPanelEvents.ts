@@ -1122,6 +1122,37 @@ export function setupEventHandlers(context: ChatPanelContext): void {
     const unsubscribeModelChange = modelStateManager.onModelChange(() => {
       // Update display when model changes from other sources
       updateModelSelectorDisplay(container);
+
+      // Sync thinking button state for DeepSeek models
+      const currentModel = modelStateManager.getCurrentModel();
+      const isDeepSeekReasoner = currentModel === "deepseek-reasoner";
+      const isDeepSeekChat = currentModel === "deepseek-chat";
+      const thinkingBtn = container.querySelector(
+        "#chat-thinking-btn",
+      ) as HTMLButtonElement;
+      const thinkingIcon = container.querySelector(
+        "#chat-thinking-icon",
+      ) as HTMLImageElement;
+
+      if (isDeepSeekReasoner) {
+        // Auto-enable thinking mode for deepseek-reasoner
+        setPref("thinkingModeEnabled", true);
+        if (thinkingBtn && thinkingIcon) {
+          updateThinkingButtonState(thinkingBtn, thinkingIcon, true);
+        }
+        ztoolkit.log(
+          "[ChatPanelEvents] Auto-enabled thinking mode for deepseek-reasoner (from model change)",
+        );
+      } else if (isDeepSeekChat) {
+        // Auto-disable thinking mode for deepseek-chat
+        setPref("thinkingModeEnabled", false);
+        if (thinkingBtn && thinkingIcon) {
+          updateThinkingButtonState(thinkingBtn, thinkingIcon, false);
+        }
+        ztoolkit.log(
+          "[ChatPanelEvents] Auto-disabled thinking mode for deepseek-chat (from model change)",
+        );
+      }
     });
 
     // Store unsubscribe function for cleanup
@@ -1296,29 +1327,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         : `chrome://${config.addonRef}/content/icons/pin-off.svg`;
       pinIcon.style.opacity = isPinned ? "1" : "0.6";
     }
-  }
-
-  // Helper function to update thinking button state
-  function updateThinkingButtonState(
-    button: HTMLElement,
-    icon: HTMLImageElement,
-    isEnabled: boolean,
-  ) {
-    if (!button || !icon) return;
-
-    // Update button opacity
-    button.style.opacity = isEnabled ? "1" : "0.6";
-
-    // Update button title based on state
-    button.title = getString(
-      isEnabled ? "chat-disable-thinking" : "chat-enable-thinking",
-    );
-
-    // Update thinking icon
-    icon.src = isEnabled
-      ? `chrome://${config.addonRef}/content/icons/enable-thinking.svg`
-      : `chrome://${config.addonRef}/content/icons/disable-thinking.svg`;
-    icon.style.opacity = isEnabled ? "1" : "0.6";
   }
 
   // Close button - close the floating window
@@ -1697,9 +1705,25 @@ function populateModelDropdown(
   dropdown.textContent = "";
 
   const providerManager = getProviderManager();
-  const providers = providerManager.getConfiguredProviders();
   const activeProviderId = providerManager.getActiveProviderId();
   const currentModel = getPref("model") as string;
+
+  // Only show models from the active provider
+  const activeProvider = providerManager.getActiveProvider();
+  if (!activeProvider) {
+    // No active provider - show message
+    const noProviders = createElement(doc, "div", {
+      padding: "12px",
+      fontSize: "12px",
+      color: theme.textMuted,
+      textAlign: "center",
+    });
+    noProviders.textContent = getString("chat-configure-provider");
+    dropdown.appendChild(noProviders);
+    return;
+  }
+
+  const providers = [activeProvider];
 
   for (const provider of providers) {
     // Provider section header - show "Model List" instead of provider name
@@ -1792,6 +1816,36 @@ function populateModelDropdown(
           // Update display and close dropdown
           updateModelSelectorDisplay(container);
           dropdown.style.display = "none";
+
+          // Handle DeepSeek model-specific thinking mode defaults
+          const isDeepSeekReasoner = model === "deepseek-reasoner";
+          const isDeepSeekChat = model === "deepseek-chat";
+          const thinkingBtn = container.querySelector(
+            "#chat-thinking-btn",
+          ) as HTMLButtonElement;
+          const thinkingIcon = container.querySelector(
+            "#chat-thinking-icon",
+          ) as HTMLImageElement;
+
+          if (isDeepSeekReasoner) {
+            // Auto-enable thinking mode for deepseek-reasoner
+            setPref("thinkingModeEnabled", true);
+            if (thinkingBtn && thinkingIcon) {
+              updateThinkingButtonState(thinkingBtn, thinkingIcon, true);
+            }
+            ztoolkit.log(
+              "[ChatPanelEvents] Auto-enabled thinking mode for deepseek-reasoner",
+            );
+          } else if (isDeepSeekChat) {
+            // Auto-disable thinking mode for deepseek-chat
+            setPref("thinkingModeEnabled", false);
+            if (thinkingBtn && thinkingIcon) {
+              updateThinkingButtonState(thinkingBtn, thinkingIcon, false);
+            }
+            ztoolkit.log(
+              "[ChatPanelEvents] Auto-disabled thinking mode for deepseek-chat",
+            );
+          }
 
           ztoolkit.log(`Model switched to: ${config.id}/${model}`);
         });
@@ -2234,4 +2288,30 @@ function updateUnifiedReferenceDisplayForDocuments(
   documentSection.appendChild(header);
   documentSection.appendChild(documentList);
   unifiedContainer.appendChild(documentSection);
+}
+
+/**
+ * Helper function to update thinking button state
+ * Exported for use in model change callbacks
+ */
+function updateThinkingButtonState(
+  button: HTMLElement,
+  icon: HTMLImageElement,
+  isEnabled: boolean,
+): void {
+  if (!button || !icon) return;
+
+  // Update button opacity
+  button.style.opacity = isEnabled ? "1" : "0.6";
+
+  // Update button title based on state
+  button.title = getString(
+    isEnabled ? "chat-disable-thinking" : "chat-enable-thinking",
+  );
+
+  // Update thinking icon
+  icon.src = isEnabled
+    ? `chrome://${config.addonRef}/content/icons/enable-thinking.svg`
+    : `chrome://${config.addonRef}/content/icons/disable-thinking.svg`;
+  icon.style.opacity = isEnabled ? "1" : "0.6";
 }
