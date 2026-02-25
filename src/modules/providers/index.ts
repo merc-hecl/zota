@@ -20,6 +20,7 @@ export { OpenAIProvider } from "./OpenAIProvider";
 export { AnthropicProvider } from "./AnthropicProvider";
 export { GeminiProvider } from "./GeminiProvider";
 export { DeepSeekProvider } from "./DeepSeekProvider";
+export { KimiProvider } from "./KimiProvider";
 export { MistralProvider } from "./MistralProvider";
 export { GroqProvider } from "./GroqProvider";
 export { OpenRouterProvider } from "./OpenRouterProvider";

@@ -1133,6 +1133,8 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       const currentModel = modelStateManager.getCurrentModel();
       const isDeepSeekReasoner = currentModel === "deepseek-reasoner";
       const isDeepSeekChat = currentModel === "deepseek-chat";
+      const isKimiThinking = currentModel.startsWith("kimi-k2");
+      const isKimi = currentModel.startsWith("kimi-");
       const thinkingBtn = container.querySelector(
         "#chat-thinking-btn",
       ) as HTMLButtonElement;
@@ -1186,6 +1188,24 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         }
         ztoolkit.log(
           "[ChatPanelEvents] Auto-disabled thinking mode for deepseek-chat (from model change)",
+        );
+      } else if (isKimiThinking) {
+        // Auto-enable thinking mode for kimi-k2 series models
+        setPref("thinkingModeEnabled", true);
+        if (thinkingBtn && thinkingIcon) {
+          updateThinkingButtonState(thinkingBtn, thinkingIcon, true);
+        }
+        ztoolkit.log(
+          "[ChatPanelEvents] Auto-enabled thinking mode for kimi-k2 (from model change)",
+        );
+      } else if (isKimi) {
+        // Auto-disable thinking mode for other kimi models (if any)
+        setPref("thinkingModeEnabled", false);
+        if (thinkingBtn && thinkingIcon) {
+          updateThinkingButtonState(thinkingBtn, thinkingIcon, false);
+        }
+        ztoolkit.log(
+          "[ChatPanelEvents] Auto-disabled thinking mode for kimi (from model change)",
         );
       }
     });
@@ -1904,6 +1924,8 @@ function populateModelDropdown(
           // Handle DeepSeek model-specific thinking mode defaults
           const isDeepSeekReasoner = model === "deepseek-reasoner";
           const isDeepSeekChat = model === "deepseek-chat";
+          const isKimiThinking = model.startsWith("kimi-k2");
+          const isKimi = model.startsWith("kimi-");
           const thinkingBtn = container.querySelector(
             "#chat-thinking-btn",
           ) as HTMLButtonElement;
@@ -1928,6 +1950,24 @@ function populateModelDropdown(
             }
             ztoolkit.log(
               "[ChatPanelEvents] Auto-disabled thinking mode for deepseek-chat",
+            );
+          } else if (isKimiThinking) {
+            // Auto-enable thinking mode for kimi-k2 series models
+            setPref("thinkingModeEnabled", true);
+            if (thinkingBtn && thinkingIcon) {
+              updateThinkingButtonState(thinkingBtn, thinkingIcon, true);
+            }
+            ztoolkit.log(
+              "[ChatPanelEvents] Auto-enabled thinking mode for kimi-k2",
+            );
+          } else if (isKimi) {
+            // Auto-disable thinking mode for other kimi models (if any)
+            setPref("thinkingModeEnabled", false);
+            if (thinkingBtn && thinkingIcon) {
+              updateThinkingButtonState(thinkingBtn, thinkingIcon, false);
+            }
+            ztoolkit.log(
+              "[ChatPanelEvents] Auto-disabled thinking mode for kimi",
             );
           }
 

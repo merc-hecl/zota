@@ -35,6 +35,7 @@ export type ProviderType =
   | "gemini"
   | "openai-compatible"
   | "deepseek"
+  | "kimi"
   | "mistral"
   | "groq"
   | "openrouter"

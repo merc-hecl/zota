@@ -17,6 +17,7 @@ import {
   getProviderManager,
   SiliconFlowProvider,
   DeepSeekProvider,
+  KimiProvider,
   OpenAIProvider,
   AnthropicProvider,
 } from "../providers";
@@ -537,6 +538,13 @@ export class ChatManager {
       provider.setCurrentModel(currentModel);
     }
 
+    // Set thinking mode and current model for Kimi provider
+    if (provider instanceof KimiProvider) {
+      provider.setThinkingMode(thinkingModeEnabled);
+      const currentModel = (getPref("model") as string) || "";
+      provider.setCurrentModel(currentModel);
+    }
+
     // Set reasoning effort for OpenAI provider
     if (provider instanceof OpenAIProvider) {
       const reasoningEffort =
@@ -587,10 +595,6 @@ export class ChatManager {
                 assistantMessage.reasoningContent = "";
               }
               assistantMessage.reasoningContent += chunk;
-              ztoolkit.log(
-                "[ChatManager] Received reasoning chunk, current length:",
-                assistantMessage.reasoningContent.length,
-              );
 
               // Throttle UI updates for reasoning content (every 500ms or every 5 chunks)
               const now = Date.now();
@@ -868,6 +872,13 @@ export class ChatManager {
       provider.setCurrentModel(currentModel);
     }
 
+    // Set thinking mode and current model for Kimi provider
+    if (provider instanceof KimiProvider) {
+      provider.setThinkingMode(thinkingModeEnabled);
+      const currentModel = (getPref("model") as string) || "";
+      provider.setCurrentModel(currentModel);
+    }
+
     // Set thinking effort for Anthropic/Claude provider
     if (provider instanceof AnthropicProvider) {
       const thinkingEffort = (getClaudeThinkingEffort() as string) || "none";
@@ -910,10 +921,6 @@ export class ChatManager {
                 message.reasoningContent = "";
               }
               message.reasoningContent += chunk;
-              ztoolkit.log(
-                "[ChatManager] Received reasoning chunk (regenerate), current length:",
-                message.reasoningContent.length,
-              );
 
               // Throttle UI updates for reasoning content
               const now = Date.now();

@@ -16,6 +16,7 @@ import { OpenAIProvider } from "./OpenAIProvider";
 import { AnthropicProvider } from "./AnthropicProvider";
 import { GeminiProvider } from "./GeminiProvider";
 import { DeepSeekProvider } from "./DeepSeekProvider";
+import { KimiProvider } from "./KimiProvider";
 import { MistralProvider } from "./MistralProvider";
 import { GroqProvider } from "./GroqProvider";
 import { OpenRouterProvider } from "./OpenRouterProvider";
@@ -107,7 +108,7 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     defaultModels: [],
     defaultModelInfos: [],
     website: "https://platform.moonshot.cn",
-    type: "openai-compatible",
+    type: "kimi",
     endpoints: [
       {
         label: "国内",
@@ -370,6 +371,8 @@ export class ProviderManager {
         return new GeminiProvider(config as ApiKeyProviderConfig);
       case "deepseek":
         return new DeepSeekProvider(config as ApiKeyProviderConfig);
+      case "kimi":
+        return new KimiProvider(config as ApiKeyProviderConfig);
       case "mistral":
         return new MistralProvider(config as ApiKeyProviderConfig);
       case "groq":
