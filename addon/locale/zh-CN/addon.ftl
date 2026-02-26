@@ -43,8 +43,8 @@ chat-disable-thinking = 关闭思考模式
 chat-thinking-title = 思考过程
 chat-openai-reasoning-effort = 设置推理强度
 chat-openai-reasoning-effort-title = 推理强度
-chat-claude-thinking-effort = 设置思考强度
-chat-claude-thinking-effort-title = 思考强度
+chat-thinking-effort = 设置思考强度
+chat-thinking-effort-title = 思考强度
 chat-copy = 复制
 chat-copied = 已复制！
 

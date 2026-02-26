@@ -21,9 +21,14 @@ import {
   GLMProvider,
   OpenAIProvider,
   AnthropicProvider,
+  GeminiProvider,
 } from "../providers";
 import { getString } from "../../utils/locale";
-import { getPref, getClaudeThinkingEffort } from "../../utils/prefs";
+import {
+  getPref,
+  getClaudeThinkingEffort,
+  getGeminiThinkingEffort,
+} from "../../utils/prefs";
 
 /**
  * Get AbortController constructor safely for Zotero sandbox environment
@@ -570,6 +575,14 @@ export class ChatManager {
       );
     }
 
+    // Set thinking effort for Gemini provider
+    if (provider instanceof GeminiProvider) {
+      const thinkingEffort = (getGeminiThinkingEffort() as string) || "none";
+      provider.setThinkingEffort(
+        thinkingEffort as "none" | "low" | "medium" | "high",
+      );
+    }
+
     // Call API
     const attemptRequest = async (): Promise<void> => {
       return new Promise((resolve) => {
@@ -897,6 +910,14 @@ export class ChatManager {
     // Set thinking effort for Anthropic/Claude provider
     if (provider instanceof AnthropicProvider) {
       const thinkingEffort = (getClaudeThinkingEffort() as string) || "none";
+      provider.setThinkingEffort(
+        thinkingEffort as "none" | "low" | "medium" | "high",
+      );
+    }
+
+    // Set thinking effort for Gemini provider
+    if (provider instanceof GeminiProvider) {
+      const thinkingEffort = (getGeminiThinkingEffort() as string) || "none";
       provider.setThinkingEffort(
         thinkingEffort as "none" | "low" | "medium" | "high",
       );

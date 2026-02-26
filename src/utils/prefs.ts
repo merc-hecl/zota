@@ -53,3 +53,22 @@ export function getClaudeThinkingEffort(): string {
 export function setClaudeThinkingEffort(value: string): void {
   Zotero.Prefs.set(`${PREFS_PREFIX}.claudeThinkingEffort`, value, true);
 }
+
+/**
+ * Get Gemini thinking effort preference (bypasses strict typing)
+ */
+export function getGeminiThinkingEffort(): string {
+  return (
+    (Zotero.Prefs.get(
+      `${PREFS_PREFIX}.geminiThinkingEffort`,
+      true,
+    ) as string) || "none"
+  );
+}
+
+/**
+ * Set Gemini thinking effort preference (bypasses strict typing)
+ */
+export function setGeminiThinkingEffort(value: string): void {
+  Zotero.Prefs.set(`${PREFS_PREFIX}.geminiThinkingEffort`, value, true);
+}

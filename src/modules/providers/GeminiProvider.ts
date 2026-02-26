@@ -5,7 +5,35 @@
 import { BaseProvider } from "./BaseProvider";
 import type { ChatMessage, StreamCallbacks } from "../../types/chat";
 
+export type GeminiThinkingEffort = "none" | "low" | "medium" | "high";
+
 export class GeminiProvider extends BaseProvider {
+  private _thinkingEffort: GeminiThinkingEffort = "none";
+
+  setThinkingEffort(effort: GeminiThinkingEffort): void {
+    this._thinkingEffort = effort;
+  }
+
+  getThinkingEffort(): GeminiThinkingEffort {
+    return this._thinkingEffort;
+  }
+
+  isThinkingEnabled(): boolean {
+    return this._thinkingEffort !== "none";
+  }
+
+  private getThoughtsTokenLimit(): number {
+    switch (this._thinkingEffort) {
+      case "low":
+        return 1024;
+      case "medium":
+        return 4096;
+      case "high":
+        return 16384;
+      default:
+        return 1024;
+    }
+  }
   async streamChatCompletion(
     messages: ChatMessage[],
     callbacks: StreamCallbacks,
@@ -29,6 +57,13 @@ export class GeminiProvider extends BaseProvider {
 
       if (this._config.maxTokens && this._config.maxTokens > 0) {
         generationConfig.maxOutputTokens = this._config.maxTokens;
+      }
+
+      if (this._thinkingEffort !== "none") {
+        generationConfig.thinking_config = {
+          thinking: { type: "thoughts", include_thoughts: true },
+          thoughts_token_limit: this.getThoughtsTokenLimit(),
+        };
       }
 
       const requestBody: Record<string, unknown> = {
@@ -72,6 +107,13 @@ export class GeminiProvider extends BaseProvider {
 
     if (this._config.maxTokens && this._config.maxTokens > 0) {
       generationConfig.maxOutputTokens = this._config.maxTokens;
+    }
+
+    if (this._thinkingEffort !== "none") {
+      generationConfig.thinking_config = {
+        thinking: { type: "thoughts", include_thoughts: true },
+        thoughts_token_limit: this.getThoughtsTokenLimit(),
+      };
     }
 
     const requestBody: Record<string, unknown> = {

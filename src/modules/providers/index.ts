@@ -19,6 +19,7 @@ export { BaseProvider } from "./BaseProvider";
 export { OpenAIProvider } from "./OpenAIProvider";
 export { AnthropicProvider } from "./AnthropicProvider";
 export { GeminiProvider } from "./GeminiProvider";
+export type { GeminiThinkingEffort } from "./GeminiProvider";
 export { DeepSeekProvider } from "./DeepSeekProvider";
 export { KimiProvider } from "./KimiProvider";
 export { MistralProvider } from "./MistralProvider";

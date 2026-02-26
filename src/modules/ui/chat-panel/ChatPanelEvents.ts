@@ -27,12 +27,16 @@ import {
   getModelStateManager,
   type ApiKeyProviderConfig,
   AnthropicProvider,
+  GeminiProvider,
+  type GeminiThinkingEffort,
 } from "../../providers";
 import {
   getPref,
   setPref,
   getClaudeThinkingEffort,
   setClaudeThinkingEffort,
+  getGeminiThinkingEffort,
+  setGeminiThinkingEffort,
 } from "../../../utils/prefs";
 import { formatModelLabel } from "../../preferences/ModelsFetcher";
 import type { PanelMode } from "./ChatPanelManager";
@@ -1168,7 +1172,7 @@ export function setupEventHandlers(context: ChatPanelContext): void {
             isThinkingEnabled,
           );
           thinkingBtn.title = isThinkingEnabled
-            ? getString("chat-claude-thinking-effort")
+            ? getString("chat-thinking-effort")
             : getString("chat-enable-thinking");
         }
       } else if (isDeepSeekReasoner) {
@@ -1272,6 +1276,7 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       const isClaude =
         providerName === "Anthropic" || providerName === "Claude";
       const isOpenAI = providerName === "OpenAI";
+      const isGemini = providerName === "Google" || providerName === "Gemini";
       ztoolkit.log(
         "[ChatPanelEvents] Current provider:",
         providerName,
@@ -1279,6 +1284,8 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         isOpenAI,
         "isClaude:",
         isClaude,
+        "isGemini:",
+        isGemini,
       );
 
       if (isOpenAI) {
@@ -1291,7 +1298,15 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         const isThinkingEnabled = thinkingEffort !== "none";
         updateThinkingButtonState(thinkingBtn, thinkingIcon, isThinkingEnabled);
         thinkingBtn.title = isThinkingEnabled
-          ? getString("chat-claude-thinking-effort")
+          ? getString("chat-thinking-effort")
+          : getString("chat-enable-thinking");
+      } else if (isGemini) {
+        // For Gemini: show thinking state based on saved effort
+        const thinkingEffort = (getGeminiThinkingEffort() as string) || "none";
+        const isThinkingEnabled = thinkingEffort !== "none";
+        updateThinkingButtonState(thinkingBtn, thinkingIcon, isThinkingEnabled);
+        thinkingBtn.title = isThinkingEnabled
+          ? getString("chat-thinking-effort")
           : getString("chat-enable-thinking");
       } else {
         // For other providers: toggle thinking mode
@@ -1320,6 +1335,9 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       } else if (providerName === "Anthropic" || providerName === "Claude") {
         ztoolkit.log("Claude/Anthropic thinking button clicked");
         showClaudeThinkingEffortPopover(thinkingBtn, container);
+      } else if (providerName === "Google" || providerName === "Gemini") {
+        ztoolkit.log("Gemini thinking button clicked");
+        showGeminiThinkingEffortPopover(thinkingBtn, container);
       } else {
         ztoolkit.log("Thinking button clicked");
         const currentEnabled = getPref("thinkingModeEnabled") as boolean;
@@ -2535,6 +2553,120 @@ function showReasoningEffortPopover(
   }, 0);
 }
 
+const GEMINI_THINKING_EFFORT_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+];
+
+function showGeminiThinkingEffortPopover(
+  button: HTMLElement,
+  container: HTMLElement,
+): void {
+  const existingPopover = container.querySelector(
+    "#gemini-thinking-effort-popover",
+  ) as HTMLElement;
+  if (existingPopover) {
+    existingPopover.remove();
+    return;
+  }
+
+  const doc = container.ownerDocument!;
+  const currentEffort = (getGeminiThinkingEffort() as string) || "none";
+
+  const popover = createElement(doc, "div", {
+    position: "absolute",
+    bottom: "50px",
+    right: "10px",
+    background: getCurrentTheme().dropdownBg,
+    border: `1px solid ${getCurrentTheme().borderColor}`,
+    borderRadius: "8px",
+    padding: "12px",
+    zIndex: "1000",
+    minWidth: "180px",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+  });
+  popover.id = "gemini-thinking-effort-popover";
+
+  const title = createElement(doc, "div", {
+    fontSize: "13px",
+    fontWeight: "600",
+    marginBottom: "10px",
+    color: getCurrentTheme().textPrimary,
+  });
+  title.textContent = getString("chat-thinking-effort-title");
+  popover.appendChild(title);
+
+  for (const option of GEMINI_THINKING_EFFORT_OPTIONS) {
+    const label = createElement(doc, "label", {
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "6px 4px",
+      cursor: "pointer",
+      color: getCurrentTheme().textPrimary,
+      fontSize: "12px",
+    });
+
+    const radio = createElement(doc, "input", {
+      cursor: "pointer",
+    }) as HTMLInputElement;
+    radio.type = "radio";
+    radio.name = "gemini-thinking-effort";
+    radio.value = option.value;
+
+    if (option.value === currentEffort) {
+      radio.checked = true;
+    }
+
+    radio.addEventListener("change", () => {
+      setGeminiThinkingEffort(option.value);
+      const isThinkingEnabled = option.value !== "none";
+
+      const thinkingBtn = container.querySelector(
+        "#chat-thinking-btn",
+      ) as HTMLButtonElement;
+      const thinkingIcon = container.querySelector(
+        "#chat-thinking-icon",
+      ) as HTMLImageElement;
+      if (thinkingBtn && thinkingIcon) {
+        updateThinkingButtonState(thinkingBtn, thinkingIcon, isThinkingEnabled);
+        thinkingBtn.title = isThinkingEnabled
+          ? getString("chat-thinking-effort")
+          : getString("chat-enable-thinking");
+      }
+
+      const providerManager = getProviderManager();
+      const activeProvider = providerManager.getActiveProvider();
+      if (activeProvider instanceof GeminiProvider) {
+        activeProvider.setThinkingEffort(option.value as GeminiThinkingEffort);
+      }
+
+      ztoolkit.log(`Gemini thinking effort set to: ${option.value}`);
+      popover.remove();
+    });
+
+    label.appendChild(radio);
+    const span = createElement(doc, "span");
+    span.textContent = option.label;
+    label.appendChild(span);
+    popover.appendChild(label);
+  }
+
+  button.parentElement?.appendChild(popover);
+
+  setTimeout(() => {
+    const clickOutsideHandler = (e: MouseEvent) => {
+      if (!popover.contains(e.target as Node) && e.target !== button) {
+        popover.remove();
+        container.removeEventListener("click", clickOutsideHandler);
+      }
+    };
+    container.addEventListener("click", clickOutsideHandler);
+  }, 0);
+}
+
 const CLAUDE_THINKING_EFFORT_OPTIONS = [
   { value: "none", label: "None" },
   { value: "low", label: "Low" },
@@ -2577,7 +2709,7 @@ function showClaudeThinkingEffortPopover(
     marginBottom: "10px",
     color: getCurrentTheme().textPrimary,
   });
-  title.textContent = getString("chat-claude-thinking-effort-title");
+  title.textContent = getString("chat-thinking-effort-title");
   popover.appendChild(title);
 
   for (const option of CLAUDE_THINKING_EFFORT_OPTIONS) {
@@ -2615,7 +2747,7 @@ function showClaudeThinkingEffortPopover(
       if (thinkingBtn && thinkingIcon) {
         updateThinkingButtonState(thinkingBtn, thinkingIcon, isThinkingEnabled);
         thinkingBtn.title = isThinkingEnabled
-          ? getString("chat-claude-thinking-effort")
+          ? getString("chat-thinking-effort")
           : getString("chat-enable-thinking");
       }
 
