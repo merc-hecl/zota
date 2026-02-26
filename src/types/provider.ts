@@ -41,7 +41,8 @@ export type ProviderType =
   | "openrouter"
   | "siliconflow"
   | "minimax"
-  | "xai";
+  | "xai"
+  | "glm";
 
 /**
  * Provider identifier for built-in providers

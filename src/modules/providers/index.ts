@@ -27,6 +27,7 @@ export { OpenRouterProvider } from "./OpenRouterProvider";
 export { SiliconFlowProvider } from "./SiliconFlowProvider";
 export { MiniMaxProvider, MINIMAX_DEFAULT_MODELS } from "./MiniMaxProvider";
 export { XAIProvider } from "./XAIProvider";
+export { GLMProvider } from "./GLMProvider";
 
 export type {
   AIProvider,

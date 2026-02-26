@@ -18,6 +18,7 @@ import {
   SiliconFlowProvider,
   DeepSeekProvider,
   KimiProvider,
+  GLMProvider,
   OpenAIProvider,
   AnthropicProvider,
 } from "../providers";
@@ -545,6 +546,13 @@ export class ChatManager {
       provider.setCurrentModel(currentModel);
     }
 
+    // Set thinking mode and current model for GLM provider
+    if (provider instanceof GLMProvider) {
+      provider.setThinkingMode(thinkingModeEnabled);
+      const currentModel = (getPref("model") as string) || "";
+      provider.setCurrentModel(currentModel);
+    }
+
     // Set reasoning effort for OpenAI provider
     if (provider instanceof OpenAIProvider) {
       const reasoningEffort =
@@ -874,6 +882,13 @@ export class ChatManager {
 
     // Set thinking mode and current model for Kimi provider
     if (provider instanceof KimiProvider) {
+      provider.setThinkingMode(thinkingModeEnabled);
+      const currentModel = (getPref("model") as string) || "";
+      provider.setCurrentModel(currentModel);
+    }
+
+    // Set thinking mode and current model for GLM provider
+    if (provider instanceof GLMProvider) {
       provider.setThinkingMode(thinkingModeEnabled);
       const currentModel = (getPref("model") as string) || "";
       provider.setCurrentModel(currentModel);

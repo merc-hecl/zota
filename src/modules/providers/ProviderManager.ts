@@ -23,6 +23,7 @@ import { OpenRouterProvider } from "./OpenRouterProvider";
 import { SiliconFlowProvider } from "./SiliconFlowProvider";
 import { MiniMaxProvider, MINIMAX_DEFAULT_MODELS } from "./MiniMaxProvider";
 import { XAIProvider } from "./XAIProvider";
+import { GLMProvider } from "./GLMProvider";
 import { config } from "../../../package.json";
 
 export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
@@ -385,6 +386,8 @@ export class ProviderManager {
         return new MiniMaxProvider(config as ApiKeyProviderConfig);
       case "xai":
         return new XAIProvider(config as ApiKeyProviderConfig);
+      case "glm":
+        return new GLMProvider(config as ApiKeyProviderConfig);
       case "openai-compatible":
         return new OpenAIProvider(config as ApiKeyProviderConfig);
       default:
