@@ -14,6 +14,10 @@
 
 ## Features
 
+### Version 0.0.7 (2026-03-01)
+
+- Add thinking mode support to built-in providers.
+
 ### Version 0.0.6 (2026-02-22)
 
 - Add **xAI**, **MiniMax** and **SiliconFlow** built-in providers.
