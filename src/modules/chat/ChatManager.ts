@@ -19,6 +19,7 @@ import {
   DeepSeekProvider,
   KimiProvider,
   GLMProvider,
+  MiniMaxProvider,
   OpenAIProvider,
   AnthropicProvider,
   GeminiProvider,
@@ -558,6 +559,11 @@ export class ChatManager {
       provider.setCurrentModel(currentModel);
     }
 
+    // Set thinking mode for MiniMax provider
+    if (provider instanceof MiniMaxProvider) {
+      provider.setThinkingMode(thinkingModeEnabled);
+    }
+
     // Set reasoning effort for OpenAI provider
     if (provider instanceof OpenAIProvider) {
       const reasoningEffort =
@@ -905,6 +911,11 @@ export class ChatManager {
       provider.setThinkingMode(thinkingModeEnabled);
       const currentModel = (getPref("model") as string) || "";
       provider.setCurrentModel(currentModel);
+    }
+
+    // Set thinking mode for MiniMax provider
+    if (provider instanceof MiniMaxProvider) {
+      provider.setThinkingMode(thinkingModeEnabled);
     }
 
     // Set thinking effort for Anthropic/Claude provider

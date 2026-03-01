@@ -4,8 +4,6 @@
 // @ts-nocheck
 export type FluentMessageId =
   | 'chat-attach-pdf'
-  | 'chat-claude-thinking-effort'
-  | 'chat-claude-thinking-effort-title'
   | 'chat-close'
   | 'chat-configure-provider'
   | 'chat-continue'
@@ -25,8 +23,6 @@ export type FluentMessageId =
   | 'chat-enable-thinking'
   | 'chat-error-no-provider'
   | 'chat-export-note'
-  | 'chat-gemini-thinking-effort'
-  | 'chat-gemini-thinking-effort-title'
   | 'chat-history'
   | 'chat-image-label'
   | 'chat-input-placeholder'
