@@ -299,6 +299,33 @@ export class NoteExportService {
   }
 
   /**
+   * Find existing note by title
+   * Searches for notes under parentItem that start with the given title
+   */
+  private async findExistingNote(
+    parentItem: Zotero.Item,
+    noteTitle: string,
+  ): Promise<Zotero.Item | null> {
+    try {
+      const childItems = await (parentItem as any).getChildItems();
+      for (const item of childItems) {
+        if (item.isNote()) {
+          const noteContent = item.getNote();
+          if (
+            noteContent &&
+            noteContent.includes(`<h1>${this.escapeHtml(noteTitle)}</h1>`)
+          ) {
+            return item;
+          }
+        }
+      }
+    } catch (error) {
+      ztoolkit.log("[NoteExportService] Error finding existing note:", error);
+    }
+    return null;
+  }
+
+  /**
    * Export session as a Zotero note item
    */
   async exportSessionAsNote(
@@ -317,7 +344,6 @@ export class NoteExportService {
             if (parentId) {
               parentItem = await Zotero.Items.getAsync(parentId);
             } else {
-              // PDF has no parent item, create one
               parentItem = await this.createParentItem(targetItem);
             }
           } else {
@@ -332,17 +358,24 @@ export class NoteExportService {
       let noteItem: Zotero.Item;
 
       if (parentItem) {
-        noteItem = new Zotero.Item("note");
-        noteItem.setNote(noteContent);
-        noteItem.parentID = parentItem.id;
-        await noteItem.saveTx();
-
-        ztoolkit.log(
-          "Note created and attached to item:",
-          parentItem.id,
-          "note id:",
-          noteItem.id,
-        );
+        const existingNote = await this.findExistingNote(parentItem, noteTitle);
+        if (existingNote) {
+          existingNote.setNote(noteContent);
+          await existingNote.saveTx();
+          noteItem = existingNote;
+          ztoolkit.log("Note updated:", parentItem.id, "note id:", noteItem.id);
+        } else {
+          noteItem = new Zotero.Item("note");
+          noteItem.setNote(noteContent);
+          noteItem.parentID = parentItem.id;
+          await noteItem.saveTx();
+          ztoolkit.log(
+            "Note created and attached to item:",
+            parentItem.id,
+            "note id:",
+            noteItem.id,
+          );
+        }
       } else {
         noteItem = new Zotero.Item("note");
         noteItem.setNote(noteContent);
