@@ -2260,13 +2260,31 @@ function updateToolbarButtonState(pressed: boolean): void {
 }
 
 /**
+ * Get current tab type
+ */
+function getCurrentTabType(): string | null {
+  const mainWindow = Zotero.getMainWindow() as Window & {
+    Zotero_Tabs?: { selectedType: string };
+  };
+  return mainWindow.Zotero_Tabs?.selectedType ?? null;
+}
+
+/**
  * Sync sidebar state based on panel visibility and mode
  */
 function syncSidebarState(): void {
+  const currentTabType = getCurrentTabType();
+  const isReaderView = currentTabType === "reader";
+
   if (isPanelShown() && currentPanelMode === "sidebar") {
-    // Sidebar panel is open - update position
-    updateSidebarContainerPosition();
-    refreshChatForCurrentItem();
+    if (isReaderView) {
+      // Sidebar panel is open and in reader view - update position
+      updateSidebarContainerPosition();
+      refreshChatForCurrentItem();
+    } else {
+      // Not in reader view (e.g., note view) - hide panel and collapse sidebar
+      hideSidebarPanel();
+    }
   } else if (!isPanelShown() && currentPanelMode === "sidebar") {
     // Sidebar panel is closed - collapse sidebar
     collapseSidebar();
