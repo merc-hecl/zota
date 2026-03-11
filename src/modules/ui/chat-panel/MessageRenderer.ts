@@ -1021,8 +1021,6 @@ export function renderMessages(
   const doc = chatHistory.ownerDocument;
   if (!doc) return;
 
-  ztoolkit.log("renderMessages called, count:", messages.length);
-
   // Remove only message elements, preserve emptyState
   const messageElements = chatHistory.querySelectorAll(
     ".chat-message, .message-wrapper",

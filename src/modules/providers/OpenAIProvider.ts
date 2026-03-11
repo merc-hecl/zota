@@ -54,11 +54,6 @@ export class OpenAIProvider extends BaseProvider {
     }
 
     try {
-      ztoolkit.log(
-        "[OpenAIProvider] streamChatCompletionCompletions called, signal:",
-        !!signal,
-      );
-
       const apiMessages = this.formatOpenAIMessages(messages);
       const systemPrompt = this.buildSystemPrompt(this._config.systemPrompt);
       apiMessages.unshift({

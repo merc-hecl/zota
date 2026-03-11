@@ -217,28 +217,14 @@ export class ProviderManager {
   private loadFromPrefs(): void {
     try {
       const stored = Zotero.Prefs.get(PREFS_KEY, true) as string | undefined;
-      ztoolkit.log(
-        "[ProviderManager] Loading from prefs, stored:",
-        stored ? "has data" : "empty",
-      );
 
       if (stored) {
         const data: ProviderStorageData = JSON.parse(stored);
         const providers = data.providers || [];
-        ztoolkit.log(
-          "[ProviderManager] Parsed providers:",
-          providers.map((p) => p.id),
-        );
 
         this.activeProviderId = data.activeProviderId || "openai";
-        // Merge with default configs to include new built-in providers
         this.configs = this.mergeWithDefaultConfigs(providers);
-        ztoolkit.log(
-          "[ProviderManager] Loaded configs:",
-          this.configs.map((c) => ({ id: c.id, enabled: c.enabled })),
-        );
       } else {
-        ztoolkit.log("[ProviderManager] No stored config, using defaults");
         this.configs = this.getDefaultConfigs();
       }
     } catch (e) {

@@ -145,21 +145,10 @@ export function setContainerActiveSession(
 ): void {
   const viewId = getViewIdForContainer(container);
   if (!viewId) {
-    ztoolkit.log(
-      "[setContainerActiveSession] Could not identify container type",
-      "containerId:",
-      container.id,
-    );
     return;
   }
 
   setViewSession(viewId, itemId, sessionId);
-  ztoolkit.log(
-    "[setContainerActiveSession] Updated view",
-    viewId,
-    "to session:",
-    sessionId,
-  );
 }
 
 /**
@@ -177,7 +166,6 @@ export function updateSendButtonStateForContainer(
   ) as HTMLButtonElement;
 
   if (!sendButton) {
-    ztoolkit.log("[updateSendButtonStateForContainer] Send button not found");
     return;
   }
 
@@ -189,9 +177,6 @@ export function updateSendButtonStateForContainer(
     if (pauseButton) {
       pauseButton.style.display = "none";
     }
-    ztoolkit.log(
-      "[updateSendButtonStateForContainer] No session, enabling button",
-    );
     return;
   }
 
@@ -213,19 +198,6 @@ export function updateSendButtonStateForContainer(
       pauseButton.style.display = "none";
     }
   }
-
-  ztoolkit.log(
-    "[updateSendButtonStateForContainer] itemId:",
-    itemId,
-    "sessionId:",
-    sessionId,
-    "isStreaming:",
-    state.isStreaming,
-    "isSending:",
-    state.isSending,
-    "disabled:",
-    shouldDisable,
-  );
 }
 
 /**
@@ -412,8 +384,6 @@ export function setPanelMode(mode: PanelMode): void {
       openFloatingWindow();
     }
   }
-
-  ztoolkit.log(`Panel mode changed to: ${mode}`);
 }
 
 /**
@@ -471,13 +441,6 @@ function handleTextSelected(text: string, documentId: number): void {
   pendingSelectedTextDocumentId = documentId;
   // Reset cancelled flag when new text is selected
   isQuoteCancelled = false;
-
-  ztoolkit.log(
-    "[TextSelection] Text selected from document:",
-    documentId,
-    "Text length:",
-    text.length,
-  );
 
   // Get current images for the document
   const currentImages = getImages(documentId);
@@ -902,7 +865,6 @@ function openFloatingWindow(): void {
 
   // Wait for window to load, then initialize content
   floatingWindow.addEventListener("load", () => {
-    ztoolkit.log("Floating window load event fired");
     initializeFloatingWindowContent();
 
     // Setup window resize/move listeners to save bounds
@@ -932,8 +894,6 @@ function openFloatingWindow(): void {
 
     // Handle window close - only after content is loaded
     floatingWindow?.addEventListener("unload", () => {
-      ztoolkit.log("Floating window unload event");
-
       // Save final bounds before closing
       saveBounds();
 
@@ -952,8 +912,6 @@ function openFloatingWindow(): void {
       }
     });
   });
-
-  ztoolkit.log("Floating window opened");
 }
 
 /**
@@ -1017,7 +975,6 @@ async function initializeChatContentCommon(
 ): Promise<void> {
   // Register view in state manager
   registerView(viewId, container);
-  ztoolkit.log(`[Init] Registered view: ${viewId}`);
 
   const context = createContext(container, viewId);
 
@@ -1232,10 +1189,6 @@ async function initializeChatContentCommon(
 
   // Subscribe to session deletion events to refresh history
   const unsubscribeSessionsDeleted = onSessionsDeleted((deletedItemIds) => {
-    ztoolkit.log(
-      "[ChatPanelManager] Sessions deleted for items:",
-      deletedItemIds,
-    );
     // Trigger history refresh in all views
     triggerHistoryRefresh();
   });
@@ -1260,9 +1213,6 @@ async function refreshChatForContainer(container: HTMLElement): Promise<void> {
     // Library view - use global chat (itemId = 0)
     // This ensures we show library/global chat when switching from reader to library
     moduleCurrentItem = { id: 0 } as Zotero.Item;
-    ztoolkit.log(
-      "[refreshChatForContainer] No active reader, switching to library view (itemId = 0)",
-    );
   }
 
   const itemToUse = moduleCurrentItem;
@@ -1682,13 +1632,6 @@ async function initializeFloatingChatContent(): Promise<void> {
             pendingSelectedTextDocumentId !== null &&
             currentDocId !== pendingSelectedTextDocumentId
           ) {
-            ztoolkit.log(
-              "[DocumentSwitch] Document changed from",
-              pendingSelectedTextDocumentId,
-              "to",
-              currentDocId,
-              "- clearing unified reference (floating)",
-            );
             pendingSelectedText = null;
             pendingSelectedTextDocumentId = null;
             // Clear unified reference display in both containers
@@ -1852,13 +1795,6 @@ function showSidebarPanel(): void {
             pendingSelectedTextDocumentId !== null &&
             currentDocId !== pendingSelectedTextDocumentId
           ) {
-            ztoolkit.log(
-              "[DocumentSwitch] Document changed from",
-              pendingSelectedTextDocumentId,
-              "to",
-              currentDocId,
-              "- clearing unified reference",
-            );
             pendingSelectedText = null;
             pendingSelectedTextDocumentId = null;
             // Clear unified reference display
@@ -1905,8 +1841,6 @@ function showSidebarPanel(): void {
     const context = createContext(chatContainer, SIDEBAR_VIEW_ID);
     setupChatManagerCallbacks(manager, context, chatContainer);
   }
-
-  ztoolkit.log("Sidebar panel shown");
 }
 
 /**
@@ -1948,8 +1882,6 @@ function hideSidebarPanel(): void {
     Zotero.Notifier.unregisterObserver(tabNotifierID);
     tabNotifierID = null;
   }
-
-  ztoolkit.log("Sidebar panel hidden");
 }
 
 /**
@@ -2003,10 +1935,6 @@ function setupChatManagerCallbacks(
     } else {
       // Streaming element not found - need to re-render messages
       // This can happen when switching sessions during streaming
-      ztoolkit.log(
-        "[updateStreamingContent] Streaming element not found, re-rendering messages for session:",
-        sessionId,
-      );
 
       const chatHistory = getChatHistory(cont);
       const emptyState = cont.querySelector("#chat-empty-state") as HTMLElement;
@@ -2074,15 +2002,6 @@ function setupChatManagerCallbacks(
 
   manager.setCallbacks({
     onMessageUpdate: (itemId, messages, sessionId) => {
-      ztoolkit.log(
-        "onMessageUpdate callback fired, itemId:",
-        itemId,
-        "sessionId:",
-        sessionId,
-        "moduleCurrentItem:",
-        moduleCurrentItem?.id,
-      );
-
       // Update containers that are viewing this specific session
       const containers = getActiveContainers();
       containers.forEach((cont) => {
@@ -2116,19 +2035,6 @@ function setupChatManagerCallbacks(
             // 2. There's an empty assistant message (waiting for response)
             const shouldShowStreaming =
               state.isStreaming || hasEmptyAssistantMessage;
-
-            ztoolkit.log(
-              "[onMessageUpdate] Container:",
-              cont.id || "floating",
-              "sessionId:",
-              sessionInfo.sessionId,
-              "isStreaming:",
-              state.isStreaming,
-              "hasEmptyAssistant:",
-              hasEmptyAssistantMessage,
-              "shouldShowStreaming:",
-              shouldShowStreaming,
-            );
 
             renderMessageElements(
               chatHistory,
@@ -2215,18 +2121,8 @@ function setupChatManagerCallbacks(
           attachPdfCheckbox.checked = false;
         }
       });
-      ztoolkit.log(
-        "[PDF Attach] Checkbox unchecked after successful attachment",
-      );
     },
     onMessageComplete: async (itemId, sessionId) => {
-      ztoolkit.log(
-        "[onMessageComplete] itemId:",
-        itemId,
-        "sessionId:",
-        sessionId,
-      );
-
       // Reset streaming state for this specific session
       // Note: itemId can be 0 for global/multi-document sessions
       if (itemId !== undefined && sessionId) {
@@ -2258,11 +2154,6 @@ function setupChatManagerCallbacks(
           if (attachPdfCheckbox) {
             attachPdfCheckbox.checked = false;
           }
-
-          ztoolkit.log(
-            "[onMessageComplete] Updated button state for container viewing session:",
-            sessionId,
-          );
         }
       });
 
@@ -2398,7 +2289,6 @@ function registerGlobalTabNotifier(): void {
     ["tab"],
     `${config.addonRef}-global-tab-notifier`,
   );
-  ztoolkit.log("Global tab notifier registered");
 }
 
 /**
@@ -2408,7 +2298,6 @@ function unregisterGlobalTabNotifier(): void {
   if (globalTabNotifierID) {
     Zotero.Notifier.unregisterObserver(globalTabNotifierID);
     globalTabNotifierID = null;
-    ztoolkit.log("Global tab notifier unregistered");
   }
 }
 
@@ -2437,7 +2326,6 @@ export function registerToolbarButton(): void {
     "#zotero-tabs-toolbar > .zotero-tb-separator",
   );
   if (!anchor) {
-    ztoolkit.log("Tabs toolbar separator not found");
     return;
   }
 
@@ -2492,8 +2380,6 @@ export function registerToolbarButton(): void {
 
   // Register global tab notifier for sidebar sync across tabs
   registerGlobalTabNotifier();
-
-  ztoolkit.log("Toolbar button registered", button);
 }
 
 /**
@@ -2691,22 +2577,11 @@ function createContext(
       }
     },
     appendError: (errorMessage: string) => {
-      ztoolkit.log(
-        "[ChatPanel] appendError called:",
-        errorMessage.substring(0, 100),
-      );
-      ztoolkit.log("[ChatPanel] container:", container ? "exists" : "null");
-
       if (container) {
         const chatHistory = container.querySelector(
           "#chat-history",
         ) as HTMLElement;
         const doc = container.ownerDocument;
-        ztoolkit.log(
-          "[ChatPanel] chatHistory:",
-          chatHistory ? "exists" : "null",
-        );
-        ztoolkit.log("[ChatPanel] doc:", doc ? "exists" : "null");
 
         if (chatHistory && doc) {
           const wrapper = doc.createElement("div");
@@ -2724,7 +2599,6 @@ function createContext(
           wrapper.appendChild(bubble);
           chatHistory.appendChild(wrapper);
           chatHistory.scrollTop = chatHistory.scrollHeight;
-          ztoolkit.log("[ChatPanel] Error message appended to chat history");
         }
       }
     },

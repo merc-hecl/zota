@@ -63,13 +63,6 @@ export class DeepSeekProvider extends OpenAIProvider {
     }
 
     try {
-      ztoolkit.log(
-        "[DeepSeekProvider] streamChatCompletion called, model:",
-        this.currentModel,
-        "thinking mode:",
-        this.thinkingModeEnabled,
-      );
-
       const apiMessages = this.formatOpenAIMessages(messages);
       const systemPrompt = this.buildSystemPrompt(this._config.systemPrompt);
       apiMessages.unshift({
@@ -88,16 +81,9 @@ export class DeepSeekProvider extends OpenAIProvider {
         requestBody.max_tokens = this._config.maxTokens;
       }
 
-      // Enable thinking mode for deepseek-chat model if set
-      // deepseek-reasoner always has thinking enabled, no extra parameter needed
       if (this.thinkingModeEnabled && this.currentModel === "deepseek-chat") {
         requestBody.thinking = { type: "enabled" };
       }
-
-      ztoolkit.log(
-        "[DeepSeekProvider] Request body:",
-        JSON.stringify(requestBody),
-      );
 
       const response = await fetch(`${this._config.baseUrl}/chat/completions`, {
         method: "POST",

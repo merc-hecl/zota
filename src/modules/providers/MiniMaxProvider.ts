@@ -111,11 +111,6 @@ export class MiniMaxProvider extends AnthropicProvider {
     }
 
     try {
-      ztoolkit.log(
-        "[MiniMaxProvider] streamChatCompletion called, thinking mode:",
-        this.thinkingModeEnabled,
-      );
-
       const anthropicMessages = this.formatAnthropicMessages(messages);
       const systemPrompt = this.buildSystemPrompt(this._config.systemPrompt);
 
@@ -127,18 +122,11 @@ export class MiniMaxProvider extends AnthropicProvider {
         stream: true,
       };
 
-      // Enable thinking mode via reasoning_split parameter
-      // This makes reasoning content appear in reasoning_details field
       if (this.thinkingModeEnabled) {
         requestBody.extra_body = {
           reasoning_split: true,
         };
       }
-
-      ztoolkit.log(
-        "[MiniMaxProvider] Request body:",
-        JSON.stringify(requestBody),
-      );
 
       const response = await fetch(`${this._config.baseUrl}/messages`, {
         method: "POST",
@@ -188,7 +176,6 @@ export class MiniMaxProvider extends AnthropicProvider {
     let buffer = "";
 
     const abortHandler = (): void => {
-      ztoolkit.log("[MiniMaxProvider] abortHandler called");
       reader.cancel().catch(() => {});
     };
 

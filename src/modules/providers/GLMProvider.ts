@@ -54,13 +54,6 @@ export class GLMProvider extends OpenAIProvider {
     }
 
     try {
-      ztoolkit.log(
-        "[GLMProvider] streamChatCompletion called, model:",
-        this.currentModel,
-        "thinking mode:",
-        this.thinkingModeEnabled,
-      );
-
       const apiMessages = this.formatOpenAIMessages(messages);
       const systemPrompt = this.buildSystemPrompt(this._config.systemPrompt);
       apiMessages.unshift({
@@ -79,15 +72,11 @@ export class GLMProvider extends OpenAIProvider {
         requestBody.max_tokens = this._config.maxTokens;
       }
 
-      // Set thinking mode for GLM
-      // Default is disabled, so we explicitly set it to disabled when not enabled
       if (this.thinkingModeEnabled) {
         requestBody.thinking = { type: "enabled" };
       } else {
         requestBody.thinking = { type: "disabled" };
       }
-
-      ztoolkit.log("[GLMProvider] Request body:", JSON.stringify(requestBody));
 
       const response = await fetch(`${this._config.baseUrl}/chat/completions`, {
         method: "POST",

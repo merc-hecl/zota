@@ -45,7 +45,6 @@ export class StorageService {
       await this.loadOrRebuildIndex();
 
       this.initialized = true;
-      ztoolkit.log("StorageService initialized:", this.storagePath);
     } catch (error) {
       ztoolkit.log("StorageService init error:", error);
       throw error;
@@ -77,7 +76,6 @@ export class StorageService {
         this.indexCache = (await IOUtils.readJSON(
           indexPath,
         )) as StoredSessionMeta[];
-        ztoolkit.log("Index loaded, sessions count:", this.indexCache.length);
         return;
       }
     } catch {
@@ -128,7 +126,6 @@ export class StorageService {
     this.indexCache = allMetas;
 
     await this.saveIndex();
-    ztoolkit.log("Index rebuilt, sessions count:", this.indexCache.length);
   }
 
   /**
@@ -327,7 +324,6 @@ export class StorageService {
           }
         }
 
-        ztoolkit.log("Document sessions loaded:", itemId);
         return data;
       }
 
@@ -355,8 +351,6 @@ export class StorageService {
       for (const session of documentSessions.sessions) {
         await this.updateIndexEntry(session, documentSessions.itemId);
       }
-
-      ztoolkit.log("Document sessions saved:", documentSessions.itemId);
     } catch (error) {
       ztoolkit.log("Save document sessions error:", error);
       throw error;
@@ -395,8 +389,6 @@ export class StorageService {
 
       session.updatedAt = Date.now();
       await this.saveDocumentSessions(docSessions);
-
-      ztoolkit.log("Session saved:", session.id, "for item:", session.itemId);
     } catch (error) {
       ztoolkit.log("Save session error:", error);
       throw error;
@@ -500,8 +492,6 @@ export class StorageService {
 
         // Update index
         await this.removeIndexEntry(sessionId);
-
-        ztoolkit.log("Session deleted:", sessionId);
       }
     } catch (error) {
       ztoolkit.log("Delete session error:", error);
@@ -528,8 +518,6 @@ export class StorageService {
         if (await IOUtils.exists(filePath)) {
           await IOUtils.remove(filePath);
         }
-
-        ztoolkit.log("All sessions deleted for item:", itemId);
       }
     } catch (error) {
       ztoolkit.log("Delete all sessions error:", error);
@@ -601,8 +589,6 @@ export class StorageService {
 
       // Clear index cache
       this.indexCache = [];
-
-      ztoolkit.log("All sessions cleared");
     } catch (error) {
       ztoolkit.log("Clear all sessions error:", error);
       throw error;

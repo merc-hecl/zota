@@ -18,5 +18,4 @@ export function formatModelLabel(model: string): string {
  */
 export function loadCachedRatios(): void {
   // No caching needed for non-zota providers
-  ztoolkit.log("[Preferences] loadCachedRatios called");
 }

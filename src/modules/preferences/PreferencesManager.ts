@@ -67,10 +67,6 @@ function setupModelChangeListener(doc: Document): void {
       if (modelSelect && model && providerId === currentProviderId) {
         modelSelect.value = model;
       }
-
-      ztoolkit.log(
-        `[PreferencesManager] Model changed to: ${providerId}/${model}`,
-      );
     },
   );
 }

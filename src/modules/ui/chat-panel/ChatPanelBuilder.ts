@@ -1171,14 +1171,12 @@ export function copyToClipboard(text: string): void {
 
     if (clipboardHelper) {
       clipboardHelper.copyString(text);
-      ztoolkit.log("Copied to clipboard via nsIClipboardHelper");
       return;
     }
 
     // Fallback: try native clipboard API
     if (win.navigator?.clipboard?.writeText) {
       win.navigator.clipboard.writeText(text);
-      ztoolkit.log("Copied to clipboard via navigator.clipboard");
       return;
     }
 
@@ -1191,7 +1189,6 @@ export function copyToClipboard(text: string): void {
     textarea.select();
     win.document.execCommand("copy");
     win.document.body?.removeChild(textarea);
-    ztoolkit.log("Copied to clipboard via execCommand");
   } catch (e) {
     ztoolkit.log("Copy to clipboard failed:", e);
   }

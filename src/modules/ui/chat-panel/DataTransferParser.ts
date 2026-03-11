@@ -134,11 +134,6 @@ async function parseZoteroItem(
       }),
     );
 
-    ztoolkit.log(
-      "[DataTransferParser] Parsed zotero/item, count:",
-      items.length,
-    );
-
     return {
       type: "zotero/item",
       items,
@@ -205,13 +200,6 @@ async function parseZoteroAnnotation(
       mimeType = dataUrlMatch[1];
       base64Data = dataUrlMatch[2];
     }
-
-    ztoolkit.log(
-      "[DataTransferParser] Parsed annotation image, mimeType:",
-      mimeType,
-      "base64 length:",
-      base64Data.length,
-    );
 
     return {
       type: "zotero/annotation-image",

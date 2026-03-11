@@ -85,8 +85,6 @@ class ModelStateManager {
     this.lastKnownModel = model;
     this.lastKnownProviderId = providerId;
     this.notifyModelChange(model, providerId);
-
-    ztoolkit.log(`[ModelStateManager] Model set to: ${providerId}/${model}`);
   }
 
   /**

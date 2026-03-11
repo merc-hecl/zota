@@ -58,10 +58,6 @@ async function handleItemsMovedToTrash(itemIds: number[]): Promise<void> {
     try {
       // Delete all chat sessions for this item
       await storage.deleteAllSessionsForItem(itemId);
-      ztoolkit.log(
-        "[ItemTrashHandler] Chat history deleted for item moved to trash:",
-        itemId,
-      );
     } catch (error) {
       ztoolkit.log(
         "[ItemTrashHandler] Error deleting chat history for item:",
@@ -95,10 +91,8 @@ export function registerItemTrashHandler(): void {
         if (type !== "item") return;
 
         if (event === "trash") {
-          ztoolkit.log("[ItemTrashHandler] Items moved to trash:", ids);
           await handleItemsMovedToTrash(ids as number[]);
         } else if (event === "delete") {
-          ztoolkit.log("[ItemTrashHandler] Items permanently deleted:", ids);
           await handleItemsDeleted(ids as number[]);
         }
       },
@@ -106,8 +100,6 @@ export function registerItemTrashHandler(): void {
     ["item"],
     `${config.addonRef}-item-trash-handler`,
   );
-
-  ztoolkit.log("[ItemTrashHandler] Registered item trash handler");
 }
 
 /**
@@ -117,7 +109,6 @@ export function unregisterItemTrashHandler(): void {
   if (trashNotifierID) {
     Zotero.Notifier.unregisterObserver(trashNotifierID);
     trashNotifierID = null;
-    ztoolkit.log("[ItemTrashHandler] Unregistered item trash handler");
   }
   onSessionsDeletedCallbacks.clear();
 }

@@ -169,13 +169,6 @@ function updateUnifiedReferenceForItem(
   const floatingContainer = getFloatingContainer();
   const theme = getCurrentTheme();
 
-  ztoolkit.log(
-    "[updateUnifiedReferenceForItem] chatContainer:",
-    chatContainer ? "exists" : "null",
-    "floatingContainer:",
-    floatingContainer ? "exists" : "null",
-  );
-
   // Create handlers
   const handleRemoveImage = (imageId: string) => {
     removeImage(itemId, imageId);
@@ -533,31 +526,19 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
   // Send button
   sendButton?.addEventListener("click", async () => {
-    ztoolkit.log("Send button clicked");
-
     // Check if input is empty
     const content = messageInput?.value?.trim() || "";
     const images = context.getImages();
 
     // Don't send if there's no content and no images
     if (!content && images.length === 0) {
-      ztoolkit.log("Send button clicked but input is empty, ignoring");
       return;
     }
 
     // Block send button while AI is responding or message is being sent in this container
     if (sendButton?.disabled) {
-      ztoolkit.log(
-        "Send button blocked - AI is responding or message is being sent",
-      );
       return;
     }
-
-    ztoolkit.log("[Send] attachPdfCheckbox element:", attachPdfCheckbox);
-    ztoolkit.log(
-      "[Send] attachPdfCheckbox.checked:",
-      attachPdfCheckbox?.checked,
-    );
     await sendMessage(
       context,
       messageInput,
@@ -570,8 +551,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
   // Pause button - abort AI response
   pauseButton?.addEventListener("click", async () => {
-    ztoolkit.log("Pause button clicked - aborting AI response");
-
     if (pauseButton) {
       pauseButton.style.display = "none";
     }
@@ -651,24 +630,14 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
       // Don't send if there's no content and no images
       if (!content && images.length === 0) {
-        ztoolkit.log("Enter key pressed but input is empty, ignoring");
         return;
       }
 
       // Block Enter key while sending or AI is responding in this container
       if (sendButton?.disabled) {
-        ztoolkit.log(
-          "Enter key blocked - message is being sent or AI is responding",
-        );
         return;
       }
 
-      ztoolkit.log("Enter key pressed to send");
-      ztoolkit.log("[Send] attachPdfCheckbox element:", attachPdfCheckbox);
-      ztoolkit.log(
-        "[Send] attachPdfCheckbox.checked:",
-        attachPdfCheckbox?.checked,
-      );
       sendMessage(
         context,
         messageInput,
@@ -714,10 +683,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       if (selectedText && selectedText.trim().length > 0) {
         e.preventDefault();
         copyToClipboard(selectedText);
-        ztoolkit.log(
-          "Copied selected text via Ctrl+C:",
-          selectedText.substring(0, 50),
-        );
       }
     }
   });
@@ -729,8 +694,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
   // New chat button - start a new conversation
   newChatBtn?.addEventListener("click", async () => {
-    ztoolkit.log("New chat button clicked");
-
     let item = getActiveReaderItem();
     if (item) {
       context.setCurrentItem(item);
@@ -796,7 +759,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
   // History button - toggle dropdown with pagination
   historyBtn?.addEventListener("click", async () => {
-    ztoolkit.log("History button clicked");
     if (!historyDropdown) return;
 
     const isNowVisible = toggleHistoryDropdown(historyDropdown);
@@ -848,19 +810,12 @@ export function setupEventHandlers(context: ChatPanelContext): void {
     if (inLibraryView) {
       // In library view: show all sessions grouped by document name
       groupByDocument = true;
-      ztoolkit.log(
-        "[HistoryDropdown] In library view, showing all sessions grouped by document",
-      );
     } else if (currentItemId !== undefined && currentItemId !== null) {
       // In reader view with a selected document: show only that document's sessions
       sessions = sessions.filter((s) => s.itemId === currentItemId);
       if (sessions.length > 0) {
         documentName = sessions[0]?.itemName;
       }
-      ztoolkit.log(
-        "[HistoryDropdown] In reader view, showing sessions for document:",
-        currentItemId,
-      );
     }
 
     const theme = getCurrentTheme();
@@ -873,12 +828,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       theme,
       // onSelect callback - switch to selected session
       async (session: SessionInfo) => {
-        ztoolkit.log(
-          "Switching to session:",
-          session.sessionId,
-          "for item:",
-          session.itemId,
-        );
         historyDropdown.style.display = "none";
 
         // Switch to the selected session
@@ -901,18 +850,10 @@ export function setupEventHandlers(context: ChatPanelContext): void {
               } else {
                 // Item was deleted - create a placeholder with the original itemId
                 // This ensures session tracking remains consistent
-                ztoolkit.log(
-                  "Item not found, creating placeholder for session:",
-                  session.itemId,
-                );
                 itemForSession = { id: session.itemId } as Zotero.Item;
               }
             } catch {
               // Error fetching item - create a placeholder with the original itemId
-              ztoolkit.log(
-                "Error fetching item, creating placeholder for session:",
-                session.itemId,
-              );
               itemForSession = { id: session.itemId } as Zotero.Item;
             }
           }
@@ -952,17 +893,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
           // 2. There's an empty assistant message (waiting for response)
           const shouldShowStreaming =
             sessionState.isStreaming || hasEmptyAssistantMessage;
-
-          ztoolkit.log(
-            "[SessionSwitch] Session:",
-            session.sessionId,
-            "isStreaming:",
-            sessionState.isStreaming,
-            "hasEmptyAssistant:",
-            hasEmptyAssistantMessage,
-            "shouldShowStreaming:",
-            shouldShowStreaming,
-          );
 
           // Render messages with correct streaming state
           const chatHistory = container.querySelector(
@@ -1006,13 +936,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       },
       // onDelete callback
       async (session: SessionInfo) => {
-        ztoolkit.log(
-          "Deleting session:",
-          session.sessionId,
-          "for item:",
-          session.itemId,
-        );
-
         // Delete the session
         await chatManager.deleteSession(session.itemId, session.sessionId);
 
@@ -1062,13 +985,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       documentName,
       // onExport callback - export session as note
       async (session: SessionInfo) => {
-        ztoolkit.log(
-          "Exporting session as note:",
-          session.sessionId,
-          "for item:",
-          session.itemId,
-        );
-
         // Load the full session data
         const fullSession = await chatManager.getSessionWithTitle(
           session.itemId,
@@ -1181,36 +1097,24 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         if (thinkingBtn && thinkingIcon) {
           updateThinkingButtonState(thinkingBtn, thinkingIcon, true);
         }
-        ztoolkit.log(
-          "[ChatPanelEvents] Auto-enabled thinking mode for deepseek-reasoner (from model change)",
-        );
       } else if (isDeepSeekChat) {
         // Auto-disable thinking mode for deepseek-chat
         setPref("thinkingModeEnabled", false);
         if (thinkingBtn && thinkingIcon) {
           updateThinkingButtonState(thinkingBtn, thinkingIcon, false);
         }
-        ztoolkit.log(
-          "[ChatPanelEvents] Auto-disabled thinking mode for deepseek-chat (from model change)",
-        );
       } else if (isKimiThinking) {
         // Auto-enable thinking mode for kimi-k2 series models
         setPref("thinkingModeEnabled", true);
         if (thinkingBtn && thinkingIcon) {
           updateThinkingButtonState(thinkingBtn, thinkingIcon, true);
         }
-        ztoolkit.log(
-          "[ChatPanelEvents] Auto-enabled thinking mode for kimi-k2 (from model change)",
-        );
       } else if (isKimi) {
         // Auto-disable thinking mode for other kimi models (if any)
         setPref("thinkingModeEnabled", false);
         if (thinkingBtn && thinkingIcon) {
           updateThinkingButtonState(thinkingBtn, thinkingIcon, false);
         }
-        ztoolkit.log(
-          "[ChatPanelEvents] Auto-disabled thinking mode for kimi (from model change)",
-        );
       }
     });
 
@@ -1246,7 +1150,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   ) as HTMLButtonElement;
   if (settingsBtn) {
     settingsBtn.addEventListener("click", () => {
-      ztoolkit.log("Settings button clicked");
       // Open preferences and navigate to this plugin's pane
       Zotero.Utilities.Internal.openPreferences("zota-prefpane");
     });
@@ -1277,16 +1180,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         providerName === "Anthropic" || providerName === "Claude";
       const isOpenAI = providerName === "OpenAI";
       const isGemini = providerName === "Google" || providerName === "Gemini";
-      ztoolkit.log(
-        "[ChatPanelEvents] Current provider:",
-        providerName,
-        "isOpenAI:",
-        isOpenAI,
-        "isClaude:",
-        isClaude,
-        "isGemini:",
-        isGemini,
-      );
 
       if (isOpenAI) {
         // For OpenAI: always show enabled icon and show effort slider on click
@@ -1330,21 +1223,16 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       const providerName = activeProvider?.getName?.() || "";
 
       if (providerName === "OpenAI") {
-        ztoolkit.log("OpenAI reasoning button clicked");
         showReasoningEffortPopover(thinkingBtn, container);
       } else if (providerName === "Anthropic" || providerName === "Claude") {
-        ztoolkit.log("Claude/Anthropic thinking button clicked");
         showClaudeThinkingEffortPopover(thinkingBtn, container);
       } else if (providerName === "Google" || providerName === "Gemini") {
-        ztoolkit.log("Gemini thinking button clicked");
         showGeminiThinkingEffortPopover(thinkingBtn, container);
       } else {
-        ztoolkit.log("Thinking button clicked");
         const currentEnabled = getPref("thinkingModeEnabled") as boolean;
         const newEnabled = !currentEnabled;
         setPref("thinkingModeEnabled", newEnabled);
         updateThinkingButtonState(thinkingBtn, thinkingIcon, newEnabled);
-        ztoolkit.log(`Thinking mode ${newEnabled ? "enabled" : "disabled"}`);
       }
     });
 
@@ -1363,7 +1251,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   ) as HTMLButtonElement;
   if (panelModeBtn) {
     panelModeBtn.addEventListener("click", () => {
-      ztoolkit.log("Panel mode toggle button clicked");
       if (togglePanelModeFn) {
         togglePanelModeFn();
       }
@@ -1393,8 +1280,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
   // Pin button - toggle window always on top
   pinBtn?.addEventListener("click", () => {
-    ztoolkit.log("Pin button clicked");
-
     // Toggle the preference
     const currentPinned = getPref("keepWindowTop") as boolean;
     setPref("keepWindowTop", !currentPinned);
@@ -1423,10 +1308,6 @@ export function setupEventHandlers(context: ChatPanelContext): void {
           showPanel();
         });
       }, 100);
-
-      ztoolkit.log(
-        `Window ${isPinned ? "pinned" : "unpinned"} to top, reopening window...`,
-      );
     }
   });
 
@@ -1453,14 +1334,11 @@ export function setupEventHandlers(context: ChatPanelContext): void {
 
   // Close button - close the floating window
   closeBtn?.addEventListener("click", () => {
-    ztoolkit.log("Close button clicked");
     const win = container.ownerDocument?.defaultView;
     if (win) {
       win.close();
     }
   });
-
-  ztoolkit.log("Event listeners attached to buttons");
 }
 
 /**
@@ -1591,7 +1469,6 @@ async function sendMessage(
 
   // Don't send if there's no content and no images
   if (!content && images.length === 0) {
-    ztoolkit.log("[SendMessage] Empty message, not sending");
     return;
   }
 
@@ -1625,7 +1502,6 @@ async function sendMessage(
   const activeProvider = providerManager.getActiveProvider();
 
   if (!activeProvider?.isReady()) {
-    ztoolkit.log("Provider not ready");
     return;
   }
 
@@ -1686,24 +1562,15 @@ async function sendMessage(
   const currentItemId = targetItem?.id ?? 0;
 
   // Clear images immediately when user sends message (before waiting for response)
-  ztoolkit.log("[SendMessage] Clearing images for item:", currentItemId);
   clearImages(currentItemId);
-  ztoolkit.log(
-    "[SendMessage] Images after clear:",
-    getImages(currentItemId).length,
-  );
+
   // Clear documents after getting them
   if (currentDocuments.length > 0) {
-    ztoolkit.log(
-      "[SendMessage] Clearing documents, count:",
-      currentDocuments.length,
-    );
     context.clearDocuments();
   }
   // Update unified reference display in both containers immediately
   // Pass null to explicitly clear the display (not fetch from state)
   updateUnifiedReferenceForItem(currentItemId, null);
-  ztoolkit.log("[SendMessage] Unified reference display updated");
 
   try {
     // Start auto-scroll for streaming
@@ -1957,39 +1824,25 @@ function populateModelDropdown(
             if (thinkingBtn && thinkingIcon) {
               updateThinkingButtonState(thinkingBtn, thinkingIcon, true);
             }
-            ztoolkit.log(
-              "[ChatPanelEvents] Auto-enabled thinking mode for deepseek-reasoner",
-            );
           } else if (isDeepSeekChat) {
             // Auto-disable thinking mode for deepseek-chat
             setPref("thinkingModeEnabled", false);
             if (thinkingBtn && thinkingIcon) {
               updateThinkingButtonState(thinkingBtn, thinkingIcon, false);
             }
-            ztoolkit.log(
-              "[ChatPanelEvents] Auto-disabled thinking mode for deepseek-chat",
-            );
           } else if (isKimiThinking) {
             // Auto-enable thinking mode for kimi-k2 series models
             setPref("thinkingModeEnabled", true);
             if (thinkingBtn && thinkingIcon) {
               updateThinkingButtonState(thinkingBtn, thinkingIcon, true);
             }
-            ztoolkit.log(
-              "[ChatPanelEvents] Auto-enabled thinking mode for kimi-k2",
-            );
           } else if (isKimi) {
             // Auto-disable thinking mode for other kimi models (if any)
             setPref("thinkingModeEnabled", false);
             if (thinkingBtn && thinkingIcon) {
               updateThinkingButtonState(thinkingBtn, thinkingIcon, false);
             }
-            ztoolkit.log(
-              "[ChatPanelEvents] Auto-disabled thinking mode for kimi",
-            );
           }
-
-          ztoolkit.log(`Model switched to: ${config.id}/${model}`);
         });
 
         dropdown.appendChild(modelItem);
@@ -2025,7 +1878,6 @@ async function handleDroppedData(
   switch (parsedData.type) {
     case "zotero/item": {
       const { items } = parsedData;
-      ztoolkit.log("[DragDrop] Adding document references:", items.length);
 
       // Get max documents limit from provider config
       const providerManager = getProviderManager();
@@ -2035,20 +1887,8 @@ async function handleDroppedData(
       ) as ApiKeyProviderConfig | null;
       const maxDocuments = providerConfig?.maxDocuments ?? 3;
 
-      ztoolkit.log(
-        "[DragDrop] Max documents limit from config:",
-        maxDocuments,
-        "providerId:",
-        activeProviderId,
-      );
-
       // Limit the number of documents
       const limitedItems = items.slice(0, maxDocuments);
-      if (items.length > maxDocuments) {
-        ztoolkit.log(
-          `[DragDrop] Limited documents from ${items.length} to ${maxDocuments}`,
-        );
-      }
 
       // Convert to DocumentReference format and set documents
       const documents = limitedItems.map((item) => ({
@@ -2066,7 +1906,6 @@ async function handleDroppedData(
       // Focus input after drop
       messageInput?.focus();
 
-      ztoolkit.log("[DragDrop] Document references added successfully");
       break;
     }
 
@@ -2074,32 +1913,20 @@ async function handleDroppedData(
       const { image, libraryID, key, mimeType } = parsedData;
       const id = `${libraryID}/${key}`;
 
-      ztoolkit.log(
-        "[DragDrop] Adding annotation image:",
-        id,
-        "mimeType:",
-        mimeType,
-        "Image data length:",
-        image.length,
-      );
-
       addImageFromBase64(currentItemId, image, mimeType, `Figure (${id})`);
 
       updateUnifiedReferenceForItem(currentItemId, undefined, context);
 
-      ztoolkit.log("[DragDrop] Annotation image added successfully");
       break;
     }
 
     case "image-file": {
       const { file } = parsedData;
-      ztoolkit.log("[DragDrop] Adding image file:", file.name);
 
       await context.addImage(file);
 
       updateUnifiedReferenceForItem(currentItemId, undefined, context);
 
-      ztoolkit.log("[DragDrop] Image file added successfully");
       break;
     }
 
@@ -2114,7 +1941,6 @@ async function handleDroppedData(
     }
 
     default:
-      ztoolkit.log("[DragDrop] Unknown drop type, ignoring");
   }
 }
 

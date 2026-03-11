@@ -216,10 +216,6 @@ export function setViewSession(
     sessionToViews.set(newKey, newViews);
   }
   newViews.add(viewId);
-
-  ztoolkit.log(
-    `[StreamingStateManager] View ${viewId} switched to session ${sessionId} (item ${itemId})`,
-  );
 }
 
 export function getViewsForSession(
@@ -299,23 +295,23 @@ export function clearActiveSessionId(itemId: number): void {
 // ============================================================================
 
 export function debugState(): void {
-  ztoolkit.log("[StreamingStateManager] Debug State:");
-  ztoolkit.log("  Session States:");
+  console.log("[StreamingStateManager] Debug State:");
+  console.log("  Session States:");
   sessionStates.forEach((itemSessions, itemId) => {
     itemSessions.forEach((state, sessionId) => {
-      ztoolkit.log(
+      console.log(
         `    Item ${itemId}, Session ${sessionId}: streaming=${state.isStreaming}, sending=${state.isSending}`,
       );
     });
   });
-  ztoolkit.log("  View States:");
+  console.log("  View States:");
   viewStates.forEach((view) => {
-    ztoolkit.log(
+    console.log(
       `    View ${view.viewId}: item=${view.currentItemId}, session=${view.currentSessionId}`,
     );
   });
-  ztoolkit.log("  Session to Views:");
+  console.log("  Session to Views:");
   sessionToViews.forEach((views, key) => {
-    ztoolkit.log(`    ${key}: views=[${Array.from(views).join(", ")}]`);
+    console.log(`    ${key}: views=[${Array.from(views).join(", ")}]`);
   });
 }

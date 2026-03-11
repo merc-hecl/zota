@@ -325,9 +325,6 @@ export class NoteExportService {
     return null;
   }
 
-  /**
-   * Export session as a Zotero note item
-   */
   async exportSessionAsNote(
     session: ChatSession,
     itemId: number,
@@ -363,25 +360,16 @@ export class NoteExportService {
           existingNote.setNote(noteContent);
           await existingNote.saveTx();
           noteItem = existingNote;
-          ztoolkit.log("Note updated:", parentItem.id, "note id:", noteItem.id);
         } else {
           noteItem = new Zotero.Item("note");
           noteItem.setNote(noteContent);
           noteItem.parentID = parentItem.id;
           await noteItem.saveTx();
-          ztoolkit.log(
-            "Note created and attached to item:",
-            parentItem.id,
-            "note id:",
-            noteItem.id,
-          );
         }
       } else {
         noteItem = new Zotero.Item("note");
         noteItem.setNote(noteContent);
         await noteItem.saveTx();
-
-        ztoolkit.log("Standalone note created:", noteItem.id);
       }
 
       return {
@@ -450,13 +438,6 @@ export class NoteExportService {
     // Move the attachment under the new parent
     attachmentItem.parentID = parentItem.id;
     await attachmentItem.saveTx();
-
-    ztoolkit.log(
-      "Created parent item for attachment:",
-      attachmentItem.id,
-      "parent id:",
-      parentItem.id,
-    );
 
     return parentItem;
   }

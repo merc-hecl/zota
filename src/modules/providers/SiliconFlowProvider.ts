@@ -38,11 +38,6 @@ export class SiliconFlowProvider extends OpenAIProvider {
     }
 
     try {
-      ztoolkit.log(
-        "[SiliconFlowProvider] streamChatCompletion called, thinking mode:",
-        this.thinkingModeEnabled,
-      );
-
       const apiMessages = this.formatOpenAIMessages(messages);
       const systemPrompt = this.buildSystemPrompt(this._config.systemPrompt);
       apiMessages.unshift({
@@ -61,15 +56,9 @@ export class SiliconFlowProvider extends OpenAIProvider {
         requestBody.max_tokens = this._config.maxTokens;
       }
 
-      // Enable thinking mode if set
       if (this.thinkingModeEnabled) {
         requestBody.enable_thinking = true;
       }
-
-      ztoolkit.log(
-        "[SiliconFlowProvider] Request body:",
-        JSON.stringify(requestBody),
-      );
 
       const response = await fetch(`${this._config.baseUrl}/chat/completions`, {
         method: "POST",

@@ -77,13 +77,6 @@ export class PdfExtractor {
               this.lastProcessedText = this.currentSelectedText;
               this.lastProcessedTime = now;
 
-              ztoolkit.log(
-                "[PdfExtractor] Text selected:",
-                this.currentSelectedText.substring(0, 50),
-                "Document ID:",
-                this.currentDocumentId,
-              );
-
               // Trigger callback if set
               if (
                 this.onTextSelectedCallback &&
@@ -102,7 +95,6 @@ export class PdfExtractor {
         "zota-pdf-extractor",
       );
       this.isEventListenerRegistered = true;
-      ztoolkit.log("[PdfExtractor] Selection listener registered");
     } catch (error) {
       ztoolkit.log(
         "[PdfExtractor] Failed to register selection listener:",
@@ -123,10 +115,6 @@ export class PdfExtractor {
 
     const text = this.currentSelectedText;
     if (text) {
-      ztoolkit.log(
-        "[PdfExtractor] Getting selected text:",
-        text.substring(0, 50),
-      );
       // Clear after retrieval to avoid duplicate sending
       this.currentSelectedText = null;
       return text;
@@ -171,7 +159,6 @@ export class PdfExtractor {
 
       const text = await pdfAttachment.attachmentText;
       if (text) {
-        ztoolkit.log("PDF text extracted, length:", text.length);
         return text;
       }
       return null;

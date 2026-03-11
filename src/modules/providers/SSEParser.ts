@@ -107,24 +107,15 @@ export async function parseSSEStream(
   let buffer = "";
 
   const abortHandler = (): void => {
-    ztoolkit.log("[SSEParser] abortHandler called");
     reader.cancel().catch(() => {});
   };
 
   if (signal) {
     signal.addEventListener("abort", abortHandler);
-    ztoolkit.log(
-      "[SSEParser] Abort listener added, signal.aborted:",
-      signal.aborted,
-    );
   }
 
   try {
     while (true) {
-      ztoolkit.log(
-        "[SSEParser] Before read, signal?.aborted:",
-        signal?.aborted,
-      );
       if (signal?.aborted) {
         ztoolkit.log("[SSEParser] Signal aborted detected in loop");
         const abortError = new Error("Request aborted");
@@ -136,12 +127,6 @@ export async function parseSSEStream(
       }
 
       const result = await reader.read();
-      ztoolkit.log(
-        "[SSEParser] After read, result.done:",
-        result.done,
-        "result.value:",
-        result.value,
-      );
 
       // Check if stream was cancelled (aborted)
       const wasAborted =
@@ -211,7 +196,6 @@ export async function parseSSEStream(
 
           try {
             const parsed = JSON.parse(data);
-            ztoolkit.log("[SSEParser] Parsed data:", JSON.stringify(parsed));
             if (isComplete(parsed)) {
               onDone();
               return;
@@ -224,7 +208,6 @@ export async function parseSSEStream(
             // Extract reasoning content if present
             const reasoningText = extractReasoning(parsed);
             if (reasoningText) {
-              ztoolkit.log("[SSEParser] Got reasoning content:", reasoningText);
               if (onReasoningText) {
                 onReasoningText(reasoningText);
               }

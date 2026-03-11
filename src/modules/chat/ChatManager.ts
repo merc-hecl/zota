@@ -221,13 +221,6 @@ export class ChatManager {
       }
     }
 
-    ztoolkit.log(
-      "[ChatManager] sendMessage called, itemId:",
-      itemId,
-      "isGlobal:",
-      isGlobalChat,
-    );
-
     // Handle documents - determine session itemId based on single/multi-document
     let documentIds: number[] | undefined;
     let documentNames: string[] | undefined;
@@ -237,27 +230,13 @@ export class ChatManager {
       documentIds = options.documents.map((d) => d.id);
       documentNames = options.documents.map((d) => d.title);
 
-      ztoolkit.log(
-        "[ChatManager] Processing documents:",
-        documentIds.length,
-        "ids:",
-        documentIds,
-      );
-
       // Determine itemId based on document count
       if (documentIds.length === 1) {
         // Single document: use that document's itemId
         itemId = documentIds[0];
-        ztoolkit.log(
-          "[ChatManager] Single document session, using itemId:",
-          itemId,
-        );
       } else {
         // Multi-document: use itemId = 0 (global)
         itemId = 0;
-        ztoolkit.log(
-          "[ChatManager] Multi-document session, using global itemId: 0",
-        );
       }
 
       // Extract PDF content for each document
@@ -283,17 +262,6 @@ export class ChatManager {
               documentContents.push(
                 `[Document: ${doc.title}]:\n${truncatedText}`,
               );
-              ztoolkit.log(
-                "[ChatManager] Extracted PDF content for document:",
-                doc.title,
-                "length:",
-                truncatedText.length,
-              );
-            } else {
-              ztoolkit.log(
-                "[ChatManager] No PDF content found for document:",
-                doc.title,
-              );
             }
           }
         } catch (error) {
@@ -317,15 +285,8 @@ export class ChatManager {
 
     // Get active AI provider
     const provider = this.getActiveProvider();
-    ztoolkit.log(
-      "[ChatManager] provider:",
-      provider?.getName(),
-      "isReady:",
-      provider?.isReady(),
-    );
 
     if (!provider || !provider.isReady()) {
-      ztoolkit.log("[ChatManager] Provider not ready, showing error in chat");
       const errorMessage: ChatMessage = {
         id: this.generateId(),
         role: "assistant",
@@ -339,14 +300,6 @@ export class ChatManager {
       await this.storageService.saveSession(session);
       return;
     }
-
-    // Debug: log options
-    ztoolkit.log("[ChatManager] sendMessage options:", {
-      attachPdf: options.attachPdf,
-      hasSelectedText: !!options.selectedText,
-      hasDocuments: !!(options.documents && options.documents.length > 0),
-      documentCount: options.documents?.length || 0,
-    });
 
     // Build final message content parts
     const messageParts: string[] = [];
@@ -365,13 +318,6 @@ export class ChatManager {
 
       if (!isPdfAlreadyInContext) {
         const pdfInfo = await this.pdfExtractor.getPdfInfo(item);
-        ztoolkit.log("[PDF Attach] Checkbox checked, attempting to attach PDF");
-        ztoolkit.log(
-          "[PDF Attach] PDF info:",
-          pdfInfo
-            ? `name=${pdfInfo.name}, size=${pdfInfo.size} bytes`
-            : "No PDF found",
-        );
 
         // Prioritize text extraction
         const pdfText = await this.pdfExtractor.extractPdfText(item);
@@ -379,10 +325,6 @@ export class ChatManager {
           session.pdfContent = pdfText;
           session.pdfAttached = true;
           pdfWasAttached = true;
-          ztoolkit.log(
-            "[PDF Attach] PDF text extracted successfully, text length:",
-            pdfText.length,
-          );
 
           // Get PDF max chars config (default 50000, -1 means unlimited)
           const providerManager = getProviderManager();
@@ -396,21 +338,8 @@ export class ChatManager {
           const truncatedText =
             pdfMaxChars > 0 ? pdfText.substring(0, pdfMaxChars) : pdfText;
 
-          ztoolkit.log(
-            "[PDF Attach] pdfMaxChars config:",
-            pdfMaxChars,
-            "using text length:",
-            truncatedText.length,
-          );
-
           messageParts.push(`[PDF Content]:\n${truncatedText}`);
-        } else {
-          ztoolkit.log("[PDF Attach] Text extraction failed");
         }
-      } else {
-        ztoolkit.log(
-          "[PDF Attach] PDF already in session context, skipping re-attachment",
-        );
       }
     }
 
@@ -460,12 +389,6 @@ export class ChatManager {
         (m) => m.id === continueFromMessageId,
       );
       if (existingMessage) {
-        ztoolkit.log(
-          "[ChatManager] Continuing from message:",
-          continueFromMessageId,
-          "content length:",
-          existingMessage.content.length,
-        );
         // Use the existing message directly instead of creating a new one
         // This way the content will be appended to the same message bubble
         existingMessage.isComplete = undefined; // Reset isComplete since it's now being continued
@@ -496,14 +419,6 @@ export class ChatManager {
     }
     this.onMessageUpdate?.(itemId, session.messages, session.id);
 
-    // Log API request info
-    ztoolkit.log("[API Request] Sending to provider:", provider.getName());
-    ztoolkit.log("[API Request] Message count:", session.messages.length - 1);
-    ztoolkit.log(
-      "[API Request] Has images:",
-      options.images ? options.images.length : 0,
-    );
-
     // Store session ID for callbacks
     const currentSessionId = session.id;
 
@@ -513,13 +428,6 @@ export class ChatManager {
       ? new AbortControllerCtor()
       : null;
     const signal = this.currentAbortController?.signal;
-
-    ztoolkit.log(
-      "[API Request] AbortController created:",
-      !!this.currentAbortController,
-      "signal:",
-      !!signal,
-    );
 
     // Check if streaming is enabled
     const isStreaming = this.isStreamingEnabled();
@@ -680,10 +588,6 @@ export class ChatManager {
                   "[API] Request aborted, preserving partial content",
                 );
                 assistantMessage.isComplete = false;
-                ztoolkit.log(
-                  "[API] assistantMessage.isComplete set to:",
-                  assistantMessage.isComplete,
-                );
                 this.onMessageUpdate?.(
                   itemId,
                   session.messages,
@@ -840,11 +744,6 @@ export class ChatManager {
       ? new AbortControllerCtor()
       : null;
     const signal = this.currentAbortController?.signal;
-
-    ztoolkit.log(
-      "[Regenerate] AbortController created:",
-      !!this.currentAbortController,
-    );
 
     // Handle error message - convert to assistant message
     if (message.role === "error") {
