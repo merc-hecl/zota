@@ -350,6 +350,12 @@ let pendingSelectedTextDocumentId: number | null = null;
 // Flag to track if user manually cancelled the quote
 let isQuoteCancelled: boolean = false;
 
+function cancelTextQuote(): void {
+  pendingSelectedText = null;
+  pendingSelectedTextDocumentId = null;
+  isQuoteCancelled = true;
+}
+
 /**
  * Get current panel mode
  */
@@ -461,7 +467,7 @@ function handleTextSelected(text: string, documentId: number): void {
           images: newImages,
           onRemoveImage: handleRemoveImage,
           onCloseTextQuote: () => {
-            pendingSelectedText = null;
+            cancelTextQuote();
             // Only close entire container if both text and images are empty
             if (newImages.length === 0) {
               updateUnifiedReferenceDisplay(
@@ -478,7 +484,7 @@ function handleTextSelected(text: string, documentId: number): void {
             }
           },
           onCloseAll: () => {
-            pendingSelectedText = null;
+            cancelTextQuote();
             clearImages(documentId);
             updateUnifiedReferenceDisplay(
               currentChatContainer,
@@ -504,7 +510,7 @@ function handleTextSelected(text: string, documentId: number): void {
           images: newImages,
           onRemoveImage: handleRemoveImage,
           onCloseTextQuote: () => {
-            pendingSelectedText = null;
+            cancelTextQuote();
             if (newImages.length === 0) {
               updateUnifiedReferenceDisplay(
                 currentFloatingContainer,
@@ -520,7 +526,7 @@ function handleTextSelected(text: string, documentId: number): void {
             }
           },
           onCloseAll: () => {
-            pendingSelectedText = null;
+            cancelTextQuote();
             clearImages(documentId);
             updateUnifiedReferenceDisplay(
               currentFloatingContainer,
@@ -550,7 +556,7 @@ function handleTextSelected(text: string, documentId: number): void {
         images: currentImages,
         onRemoveImage: handleRemoveImage,
         onCloseTextQuote: () => {
-          pendingSelectedText = null;
+          cancelTextQuote();
           // Always refresh display to hide text quote section
           // Get current images (may have changed since text was selected)
           const newImages = getImages(documentId);
@@ -562,7 +568,7 @@ function handleTextSelected(text: string, documentId: number): void {
               onRemoveImage: handleRemoveImage,
               onCloseTextQuote: () => {},
               onCloseAll: () => {
-                pendingSelectedText = null;
+                cancelTextQuote();
                 clearImages(documentId);
                 updateUnifiedReferenceDisplay(
                   currentChatContainer,
@@ -581,7 +587,7 @@ function handleTextSelected(text: string, documentId: number): void {
           );
         },
         onCloseAll: () => {
-          pendingSelectedText = null;
+          cancelTextQuote();
           clearImages(documentId);
           updateUnifiedReferenceDisplay(
             currentChatContainer,
@@ -610,7 +616,7 @@ function handleTextSelected(text: string, documentId: number): void {
         images: currentImages,
         onRemoveImage: handleRemoveImage,
         onCloseTextQuote: () => {
-          pendingSelectedText = null;
+          cancelTextQuote();
           // Always refresh display to hide text quote section
           // Get current images (may have changed since text was selected)
           const newImages = getImages(documentId);
@@ -622,7 +628,7 @@ function handleTextSelected(text: string, documentId: number): void {
               onRemoveImage: handleRemoveImage,
               onCloseTextQuote: () => {},
               onCloseAll: () => {
-                pendingSelectedText = null;
+                cancelTextQuote();
                 clearImages(documentId);
                 updateUnifiedReferenceDisplay(
                   currentFloatingContainer,
@@ -641,7 +647,7 @@ function handleTextSelected(text: string, documentId: number): void {
           );
         },
         onCloseAll: () => {
-          pendingSelectedText = null;
+          cancelTextQuote();
           clearImages(documentId);
           updateUnifiedReferenceDisplay(
             currentFloatingContainer,
