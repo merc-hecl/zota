@@ -100,6 +100,7 @@ let togglePanelModeFn: (() => void) | null = null;
 
 // Global history refresh callbacks
 const historyRefreshCallbacks = new Set<() => void>();
+const MESSAGE_KEYBOARD_SCROLL_STEP = 56;
 
 /**
  * Register a callback to be called when history should be refreshed
@@ -334,6 +335,27 @@ export function setupEventHandlers(context: ChatPanelContext): void {
   ) as HTMLButtonElement;
   // History dropdown state
   const historyState = createHistoryDropdownState();
+
+  // Allow ArrowUp / ArrowDown to scroll message area in both sidebar and floating views
+  if (chatHistory) {
+    if (!chatHistory.hasAttribute("tabindex")) {
+      chatHistory.setAttribute("tabindex", "0");
+    }
+    chatHistory.addEventListener("keydown", (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) {
+        return;
+      }
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
+        return;
+      }
+      e.preventDefault();
+      const delta =
+        e.key === "ArrowUp"
+          ? -MESSAGE_KEYBOARD_SCROLL_STEP
+          : MESSAGE_KEYBOARD_SCROLL_STEP;
+      chatHistory.scrollTop += delta;
+    });
+  }
 
   // Reference close buttons are handled by updateUnifiedReferenceDisplay
 
