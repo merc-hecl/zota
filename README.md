@@ -14,6 +14,14 @@
 
 ## Features
 
+### Version 0.0.8 (2026-04-04)
+
+- Add overwrite behavior when exporting notes with the same title.
+- Auto-hide the sidebar panel when switching from reader view to note view.
+- Prevent a cancelled quote from being reattached unexpectedly.
+- Support ArrowUp/ArrowDown scrolling in the message area for both sidebar and floating views.
+- Reduce debug logging noise.
+
 ### Version 0.0.7 (2026-03-01)
 
 - Add thinking mode support to built-in providers.
