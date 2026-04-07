@@ -25,6 +25,7 @@ import {
   setSwitchVersionCallback,
 } from "./MessageRenderer";
 import { renderMarkdownToElement } from "./MarkdownRenderer";
+import { refreshMermaidDiagrams } from "./MermaidRenderer";
 import {
   setupEventHandlers,
   updateAttachmentsPreviewDisplay,
@@ -1750,9 +1751,11 @@ function showSidebarPanel(): void {
     themeCleanup = setupThemeListener(() => {
       if (chatContainer) {
         applyThemeToContainer(chatContainer);
+        refreshMermaidDiagrams(chatContainer);
       }
       if (floatingContainer) {
         applyThemeToContainer(floatingContainer);
+        refreshMermaidDiagrams(floatingContainer);
       }
     });
 
@@ -1762,9 +1765,11 @@ function showSidebarPanel(): void {
       updateCurrentTheme();
       if (chatContainer) {
         applyThemeToContainer(chatContainer);
+        refreshMermaidDiagrams(chatContainer);
       }
       if (floatingContainer) {
         applyThemeToContainer(floatingContainer);
+        refreshMermaidDiagrams(floatingContainer);
       }
     };
     // Multiple delayed checks to ensure theme is correctly applied after window fully loads

@@ -11,6 +11,15 @@ import { HTML_NS } from "./types";
 import { isDarkMode } from "./ChatPanelTheme";
 import { copyToClipboard, createElement } from "./ChatPanelBuilder";
 import { getString } from "../../../utils/locale";
+import {
+  isMermaidFlowchartFence,
+  mountMermaidFlowchart,
+} from "./MermaidRenderer";
+import {
+  ensureOverlayCopyButton,
+  getCodeCopyButtonTitle,
+  getTableCopyButtonTitle,
+} from "./CopyButton";
 
 // Initialize markdown-it with XHTML output
 const md = new MarkdownIt({
@@ -326,11 +335,24 @@ export function buildDOMFromTokens(
         codeWrapper.style.margin = "8px 0";
         parent.appendChild(codeWrapper);
 
+        const lang = token.info?.trim() || "";
+
+        if (
+          token.type === "fence" &&
+          isMermaidFlowchartFence(lang, token.content)
+        ) {
+          const pre = createCodeBlockElement(doc, token.content, lang);
+          codeWrapper.appendChild(pre);
+          ensureOverlayCopyButton(doc, codeWrapper, {
+            title: getCodeCopyButtonTitle(),
+            getContent: () => token.content,
+          });
+          mountMermaidFlowchart(codeWrapper, token.content);
+          break;
+        }
+
         const pre = doc.createElementNS(HTML_NS, "pre") as HTMLElement;
         const code = doc.createElementNS(HTML_NS, "code") as HTMLElement;
-
-        // Get language from fence info (e.g., ```javascript)
-        const lang = token.info?.trim() || "";
 
         // Apply dark/light theme styles
         const dark = isDarkMode();
@@ -366,7 +388,10 @@ export function buildDOMFromTokens(
         codeWrapper.appendChild(pre);
 
         // Add copy button to code block wrapper
-        addCodeCopyButton(doc, codeWrapper, token.content);
+        ensureOverlayCopyButton(doc, codeWrapper, {
+          title: getCodeCopyButtonTitle(),
+          getContent: () => token.content,
+        });
         break;
       }
 
@@ -404,7 +429,10 @@ export function buildDOMFromTokens(
         // Add copy button to table wrapper
         const tableWrapper = (table as any)._wrapper as HTMLElement;
         if (tableWrapper) {
-          addTableCopyButton(doc, tableWrapper, table);
+          ensureOverlayCopyButton(doc, tableWrapper, {
+            title: getTableCopyButtonTitle(),
+            getContent: () => extractTableContent(table),
+          });
         }
         break;
       }
@@ -1000,179 +1028,40 @@ function extractTableContent(table: HTMLElement): string {
   return rows.join("\n");
 }
 
-/**
- * Add a copy button to code block wrapper
- */
-function addCodeCopyButton(
+function createCodeBlockElement(
   doc: Document,
-  codeWrapper: HTMLElement,
   codeContent: string,
-): void {
-  // Detect dark mode
+  lang: string,
+): HTMLElement {
+  const pre = doc.createElementNS(HTML_NS, "pre") as HTMLElement;
+  const code = doc.createElementNS(HTML_NS, "code") as HTMLElement;
+
   const dark = isDarkMode();
+  pre.style.background = dark ? "#1e1e1e" : "#f6f8fa";
+  pre.style.color = dark ? "#d4d4d4" : "#24292e";
+  pre.style.padding = "12px";
+  pre.style.borderRadius = "6px";
+  pre.style.overflow = "auto";
+  pre.style.fontSize = "13px";
+  pre.style.fontFamily =
+    "'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
+  pre.style.lineHeight = "1.45";
+  pre.style.margin = "0";
 
-  // Create copy button
-  const copyBtn = doc.createElementNS(HTML_NS, "button") as HTMLButtonElement;
-  copyBtn.style.position = "absolute";
-  copyBtn.style.top = "4px";
-  copyBtn.style.right = "4px";
-  copyBtn.style.width = "28px";
-  copyBtn.style.height = "28px";
-  copyBtn.style.background = dark
-    ? "rgba(48, 54, 61, 0.9)"
-    : "rgba(255, 255, 255, 0.9)";
-  copyBtn.style.border = dark ? "1px solid #484f58" : "1px solid #ddd";
-  copyBtn.style.borderRadius = "4px";
-  copyBtn.style.cursor = "pointer";
-  copyBtn.style.display = "flex";
-  copyBtn.style.alignItems = "center";
-  copyBtn.style.justifyContent = "center";
-  copyBtn.style.padding = "0";
-  copyBtn.style.opacity = "0";
-  copyBtn.style.transition = "opacity 0.2s ease";
-  copyBtn.style.zIndex = "10";
-  copyBtn.style.boxShadow = dark
-    ? "0 1px 3px rgba(0,0,0,0.3)"
-    : "0 1px 3px rgba(0,0,0,0.1)";
-  copyBtn.title = getString("chat-copy-code");
+  try {
+    let highlighted: string;
+    if (lang && hljs.getLanguage(lang)) {
+      highlighted = hljs.highlight(codeContent, {
+        language: lang,
+      }).value;
+    } else {
+      highlighted = hljs.highlightAuto(codeContent).value;
+    }
+    renderHighlightedCode(doc, code, highlighted, dark);
+  } catch {
+    code.textContent = codeContent;
+  }
 
-  // Copy icon
-  const copyIcon = createElement(doc, "img", {
-    width: "14px",
-    height: "14px",
-    opacity: "0.8",
-  });
-  (copyIcon as HTMLImageElement).src =
-    `chrome://${config.addonRef}/content/icons/copy.svg`;
-  copyBtn.appendChild(copyIcon);
-
-  // Show button on hover
-  codeWrapper.addEventListener("mouseenter", () => {
-    copyBtn.style.opacity = "1";
-  });
-  codeWrapper.addEventListener("mouseleave", () => {
-    copyBtn.style.opacity = "0";
-  });
-
-  // Copy functionality
-  copyBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    copyToClipboard(codeContent);
-
-    // Show success feedback - replace with copy-check icon
-    copyBtn.textContent = "";
-    const checkIcon = createElement(doc, "img", {
-      width: "14px",
-      height: "14px",
-    });
-    (checkIcon as HTMLImageElement).src =
-      `chrome://${config.addonRef}/content/icons/copy-check.svg`;
-    copyBtn.appendChild(checkIcon);
-
-    setTimeout(() => {
-      copyBtn.style.opacity = "0";
-      setTimeout(() => {
-        copyBtn.textContent = "";
-        const newCopyIcon = createElement(doc, "img", {
-          width: "14px",
-          height: "14px",
-          opacity: "0.8",
-        });
-        (newCopyIcon as HTMLImageElement).src =
-          `chrome://${config.addonRef}/content/icons/copy.svg`;
-        copyBtn.appendChild(newCopyIcon);
-      }, 200);
-    }, 800);
-  });
-
-  codeWrapper.appendChild(copyBtn);
-}
-
-/**
- * Add a copy button to table wrapper
- */
-function addTableCopyButton(
-  doc: Document,
-  tableWrapper: HTMLElement,
-  table: HTMLElement,
-): void {
-  // Detect dark mode
-  const dark = isDarkMode();
-
-  // Create copy button
-  const copyBtn = doc.createElementNS(HTML_NS, "button") as HTMLButtonElement;
-  copyBtn.style.position = "absolute";
-  copyBtn.style.top = "4px";
-  copyBtn.style.right = "4px";
-  copyBtn.style.width = "28px";
-  copyBtn.style.height = "28px";
-  copyBtn.style.background = dark
-    ? "rgba(48, 54, 61, 0.9)"
-    : "rgba(255, 255, 255, 0.9)";
-  copyBtn.style.border = dark ? "1px solid #484f58" : "1px solid #ddd";
-  copyBtn.style.borderRadius = "4px";
-  copyBtn.style.cursor = "pointer";
-  copyBtn.style.display = "flex";
-  copyBtn.style.alignItems = "center";
-  copyBtn.style.justifyContent = "center";
-  copyBtn.style.padding = "0";
-  copyBtn.style.opacity = "0";
-  copyBtn.style.transition = "opacity 0.2s ease";
-  copyBtn.style.zIndex = "10";
-  copyBtn.style.boxShadow = dark
-    ? "0 1px 3px rgba(0,0,0,0.3)"
-    : "0 1px 3px rgba(0,0,0,0.1)";
-  copyBtn.title = getString("chat-copy-table");
-
-  // Copy icon
-  const copyIcon = createElement(doc, "img", {
-    width: "14px",
-    height: "14px",
-    opacity: "0.8",
-  });
-  (copyIcon as HTMLImageElement).src =
-    `chrome://${config.addonRef}/content/icons/copy.svg`;
-  copyBtn.appendChild(copyIcon);
-
-  // Show button on hover
-  tableWrapper.addEventListener("mouseenter", () => {
-    copyBtn.style.opacity = "1";
-  });
-  tableWrapper.addEventListener("mouseleave", () => {
-    copyBtn.style.opacity = "0";
-  });
-
-  // Copy functionality
-  copyBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const tableContent = extractTableContent(table);
-    copyToClipboard(tableContent);
-
-    // Show success feedback - replace with copy-check icon
-    copyBtn.textContent = "";
-    const checkIcon = createElement(doc, "img", {
-      width: "14px",
-      height: "14px",
-    });
-    (checkIcon as HTMLImageElement).src =
-      `chrome://${config.addonRef}/content/icons/copy-check.svg`;
-    copyBtn.appendChild(checkIcon);
-
-    setTimeout(() => {
-      copyBtn.style.opacity = "0";
-      setTimeout(() => {
-        copyBtn.textContent = "";
-        const newCopyIcon = createElement(doc, "img", {
-          width: "14px",
-          height: "14px",
-          opacity: "0.8",
-        });
-        (newCopyIcon as HTMLImageElement).src =
-          `chrome://${config.addonRef}/content/icons/copy.svg`;
-        copyBtn.appendChild(newCopyIcon);
-      }, 200);
-    }, 800);
-  });
-
-  tableWrapper.appendChild(copyBtn);
+  pre.appendChild(code);
+  return pre;
 }

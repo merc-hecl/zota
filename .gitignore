@@ -21,3 +21,6 @@ tsconfig.tsbuildinfo
 build
 logs
 doc/config
+
+# Local test scripts
+/test/*.test.ts
