@@ -10,6 +10,7 @@ import { HTML_NS, SVG_NS } from "./types";
 import { renderMarkdownToElement } from "./MarkdownRenderer";
 import { createElement, copyToClipboard } from "./ChatPanelBuilder";
 import { getString } from "../../../utils/locale";
+import { syncMessageNavigation } from "./MessageNavigation";
 
 // Callbacks for regenerate and version switching
 let regenerateCallback: ((messageId: string) => Promise<void>) | null = null;
@@ -533,7 +534,11 @@ export function createMessageElement(
       margin: "10px 0",
       textAlign: msg.role === "user" ? "right" : "left",
     },
-    { class: `chat-message ${msg.role}-message` },
+    {
+      class: `chat-message ${msg.role}-message`,
+      "data-message-id": msg.id,
+      "data-message-role": msg.role,
+    },
   );
 
   // Set bubble style based on role
@@ -1035,22 +1040,23 @@ export function renderMessages(
       }
       emptyState.style.display = "flex";
     }
+    syncMessageNavigation(chatHistory, [], theme);
     return;
   }
 
   if (emptyState) emptyState.style.display = "none";
 
+  // Filter out hidden messages
+  const visibleMessages = messages.filter((msg) => !msg.isHidden);
+
   // Find the last assistant message index for streaming content ID
   let lastAssistantIndex = -1;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === "assistant") {
+  for (let i = visibleMessages.length - 1; i >= 0; i--) {
+    if (visibleMessages[i].role === "assistant") {
       lastAssistantIndex = i;
       break;
     }
   }
-
-  // Filter out hidden messages
-  const visibleMessages = messages.filter((msg) => !msg.isHidden);
 
   // Render each message
   for (let i = 0; i < visibleMessages.length; i++) {
@@ -1066,6 +1072,8 @@ export function renderMessages(
       ),
     );
   }
+
+  syncMessageNavigation(chatHistory, visibleMessages, theme);
 
   // Note: Scrolling is now handled by AutoScrollManager
   // Only scroll here if not in streaming mode

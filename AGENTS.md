@@ -35,6 +35,7 @@ This file provides project-specific guidance for AI coding agents working on
 - Do not manually edit generated artifacts under `.scaffold/build`.
 - Reuse existing module boundaries instead of introducing parallel patterns.
 - For UI behavior changes in chat panel, verify both sidebar and floating views.
+- In narrow chat layouts, prefer overlay/hover affordances over permanent side rails that consume message width.
 - Keep naming explicit and behavior predictable.
 
 ## Quality Gate Before Commit

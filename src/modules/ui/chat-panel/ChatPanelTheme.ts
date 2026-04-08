@@ -3,6 +3,7 @@
  */
 
 import type { ThemeColors } from "./types";
+import { applyMessageNavigationTheme } from "./MessageNavigation";
 
 // Light theme colors - Minimal Neutral Theme
 export const lightTheme: ThemeColors = {
@@ -143,6 +144,8 @@ export function applyThemeToContainer(container: HTMLElement): void {
   if (chatHistory) {
     chatHistory.style.background = theme.chatHistoryBg;
   }
+
+  applyMessageNavigationTheme(container, theme);
 
   // Empty state
   const emptyState = container.querySelector(

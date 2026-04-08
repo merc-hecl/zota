@@ -122,6 +122,63 @@ export function createChatContainer(
   dragBar.appendChild(dragTitle);
   dragBar.appendChild(closeBtn);
 
+  // Message area
+  const messageArea = createElement(
+    doc,
+    "div",
+    {
+      flex: "1",
+      display: "flex",
+      minHeight: "0",
+      position: "relative",
+      overflow: "hidden",
+      background: theme.chatHistoryBg,
+    },
+    { id: "chat-message-area" },
+  );
+
+  const messageNav = createElement(
+    doc,
+    "div",
+    {
+      display: "none",
+      position: "absolute",
+      top: "12px",
+      right: "10px",
+      bottom: "12px",
+      width: "28px",
+      padding: "8px 6px",
+      background: "transparent",
+      border: "1px solid transparent",
+      borderRadius: "16px",
+      overflow: "hidden",
+      boxSizing: "border-box",
+      zIndex: "3",
+      transition:
+        "width 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, padding 0.16s ease",
+    },
+    { id: "chat-message-nav" },
+  );
+
+  const messageNavList = createElement(
+    doc,
+    "div",
+    {
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "flex-end",
+      gap: "10px",
+      height: "100%",
+      minHeight: "0",
+      overflowY: "auto",
+      overflowX: "hidden",
+      background: "transparent",
+    },
+    { id: "chat-message-nav-list" },
+  );
+  messageNav.appendChild(messageNavList);
+
   // Chat History
   const chatHistory = createElement(
     doc,
@@ -245,6 +302,8 @@ export function createChatContainer(
   quoteContainer.appendChild(closeQuote);
   emptyState.appendChild(quoteContainer);
   chatHistory.appendChild(emptyState);
+  messageArea.appendChild(messageNav);
+  messageArea.appendChild(chatHistory);
 
   // Toolbar
   const toolbar = createElement(
@@ -1135,7 +1194,7 @@ export function createChatContainer(
 
   // Assemble
   root.appendChild(dragBar);
-  root.appendChild(chatHistory);
+  root.appendChild(messageArea);
   root.appendChild(toolbar);
   root.appendChild(attachmentsPreview);
   root.appendChild(unifiedReferenceContainer);
