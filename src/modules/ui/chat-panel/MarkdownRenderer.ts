@@ -45,8 +45,8 @@ md.block.ruler.before(
     if (trimmedLine.startsWith("$$")) {
       if (silent) return true;
 
-      let nextLine = startLine;
-      let content = "";
+      let nextLine: number;
+      let content: string;
       let found = false;
 
       if (trimmedLine.endsWith("$$") && trimmedLine.length > 4) {
@@ -86,8 +86,8 @@ md.block.ruler.before(
     } else if (trimmedLine.startsWith("\\[")) {
       if (silent) return true;
 
-      let nextLine = startLine;
-      let content = "";
+      let nextLine: number;
+      let content: string;
       let found = false;
 
       if (trimmedLine.endsWith("\\]") && trimmedLine.length > 4) {
@@ -737,7 +737,7 @@ function renderMathHTMLToDOM(
         .match(/^&(amp|lt|gt|quot|#39|#x27|nbsp|#[0-9]+|#x[0-9a-fA-F]+);/);
       if (entityMatch) {
         const entity = entityMatch[1];
-        let char = "";
+        let char: string;
         switch (entity) {
           case "amp":
             char = "&";
@@ -949,7 +949,7 @@ function renderHighlightedCode(
         .match(/^&(amp|lt|gt|quot|#39|#x27|nbsp);/);
       if (entityMatch) {
         const entity = entityMatch[1];
-        let char = "";
+        let char: string;
         switch (entity) {
           case "amp":
             char = "&";

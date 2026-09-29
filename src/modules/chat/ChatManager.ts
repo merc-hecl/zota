@@ -13,17 +13,7 @@ import type {
 import type { ApiKeyProviderConfig } from "../../types/provider";
 import { StorageService } from "./StorageService";
 import { PdfExtractor } from "./PdfExtractor";
-import {
-  getProviderManager,
-  SiliconFlowProvider,
-  DeepSeekProvider,
-  KimiProvider,
-  GLMProvider,
-  MiniMaxProvider,
-  OpenAIProvider,
-  AnthropicProvider,
-  GeminiProvider,
-} from "../providers";
+import { getProviderManager } from "../providers";
 import { getString } from "../../utils/locale";
 import {
   getPref,
@@ -441,61 +431,17 @@ export class ChatManager {
     // Check thinking mode preference
     const thinkingModeEnabled = getPref("thinkingModeEnabled") as boolean;
 
-    // Set thinking mode for SiliconFlow provider
-    if (provider instanceof SiliconFlowProvider) {
-      provider.setThinkingMode(thinkingModeEnabled);
-    }
-
-    // Set thinking mode and current model for DeepSeek provider
-    if (provider instanceof DeepSeekProvider) {
-      provider.setThinkingMode(thinkingModeEnabled);
-      const currentModel = (getPref("model") as string) || "";
-      provider.setCurrentModel(currentModel);
-    }
-
-    // Set thinking mode and current model for Kimi provider
-    if (provider instanceof KimiProvider) {
-      provider.setThinkingMode(thinkingModeEnabled);
-      const currentModel = (getPref("model") as string) || "";
-      provider.setCurrentModel(currentModel);
-    }
-
-    // Set thinking mode and current model for GLM provider
-    if (provider instanceof GLMProvider) {
-      provider.setThinkingMode(thinkingModeEnabled);
-      const currentModel = (getPref("model") as string) || "";
-      provider.setCurrentModel(currentModel);
-    }
-
-    // Set thinking mode for MiniMax provider
-    if (provider instanceof MiniMaxProvider) {
-      provider.setThinkingMode(thinkingModeEnabled);
-    }
-
-    // Set reasoning effort for OpenAI provider
-    if (provider instanceof OpenAIProvider) {
-      const reasoningEffort =
-        (getPref("openaiReasoningEffort") as string) || "medium";
-      provider.setReasoningEffort(
-        reasoningEffort as "none" | "low" | "medium" | "high" | "xhigh",
-      );
-    }
-
-    // Set thinking effort for Anthropic/Claude provider
-    if (provider instanceof AnthropicProvider) {
-      const thinkingEffort = (getClaudeThinkingEffort() as string) || "none";
-      provider.setThinkingEffort(
-        thinkingEffort as "none" | "low" | "medium" | "high",
-      );
-    }
-
-    // Set thinking effort for Gemini provider
-    if (provider instanceof GeminiProvider) {
-      const thinkingEffort = (getGeminiThinkingEffort() as string) || "none";
-      provider.setThinkingEffort(
-        thinkingEffort as "none" | "low" | "medium" | "high",
-      );
-    }
+    // Apply thinking controls (PiAIProvider routes them per API kind/vendor)
+    provider.setThinkingMode(thinkingModeEnabled);
+    provider.setCurrentModel((getPref("model") as string) || "");
+    provider.setReasoningEffort(
+      (getPref("openaiReasoningEffort") as string) || "medium",
+    );
+    provider.setThinkingEffort(
+      provider.config.type === "gemini"
+        ? (getGeminiThinkingEffort() as string) || "none"
+        : (getClaudeThinkingEffort() as string) || "none",
+    );
 
     // Call API
     const attemptRequest = async (): Promise<void> => {
@@ -786,52 +732,14 @@ export class ChatManager {
     // Check thinking mode preference
     const thinkingModeEnabled = getPref("thinkingModeEnabled") as boolean;
 
-    // Set thinking mode for SiliconFlow provider
-    if (provider instanceof SiliconFlowProvider) {
-      provider.setThinkingMode(thinkingModeEnabled);
-    }
-
-    // Set thinking mode and current model for DeepSeek provider
-    if (provider instanceof DeepSeekProvider) {
-      provider.setThinkingMode(thinkingModeEnabled);
-      const currentModel = (getPref("model") as string) || "";
-      provider.setCurrentModel(currentModel);
-    }
-
-    // Set thinking mode and current model for Kimi provider
-    if (provider instanceof KimiProvider) {
-      provider.setThinkingMode(thinkingModeEnabled);
-      const currentModel = (getPref("model") as string) || "";
-      provider.setCurrentModel(currentModel);
-    }
-
-    // Set thinking mode and current model for GLM provider
-    if (provider instanceof GLMProvider) {
-      provider.setThinkingMode(thinkingModeEnabled);
-      const currentModel = (getPref("model") as string) || "";
-      provider.setCurrentModel(currentModel);
-    }
-
-    // Set thinking mode for MiniMax provider
-    if (provider instanceof MiniMaxProvider) {
-      provider.setThinkingMode(thinkingModeEnabled);
-    }
-
-    // Set thinking effort for Anthropic/Claude provider
-    if (provider instanceof AnthropicProvider) {
-      const thinkingEffort = (getClaudeThinkingEffort() as string) || "none";
-      provider.setThinkingEffort(
-        thinkingEffort as "none" | "low" | "medium" | "high",
-      );
-    }
-
-    // Set thinking effort for Gemini provider
-    if (provider instanceof GeminiProvider) {
-      const thinkingEffort = (getGeminiThinkingEffort() as string) || "none";
-      provider.setThinkingEffort(
-        thinkingEffort as "none" | "low" | "medium" | "high",
-      );
-    }
+    // Apply thinking controls (PiAIProvider routes them per API kind/vendor)
+    provider.setThinkingMode(thinkingModeEnabled);
+    provider.setCurrentModel((getPref("model") as string) || "");
+    provider.setThinkingEffort(
+      provider.config.type === "gemini"
+        ? (getGeminiThinkingEffort() as string) || "none"
+        : (getClaudeThinkingEffort() as string) || "none",
+    );
 
     // Get messages up to this point for context (excluding the message being regenerated)
     const contextMessages = session.messages.slice(0, messageIndex);

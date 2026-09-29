@@ -88,6 +88,8 @@ Go to `Settings` → `Zota` to:
 
 [AGPL-3.0](LICENSE)
 
+This project bundles third-party open-source packages, including [@earendil-works/pi-ai](https://github.com/earendil-works/pi) (MIT License, © Mario Zechner), which powers the multi-vendor LLM API integration, together with the vendor SDKs it depends on (`openai`, `@anthropic-ai/sdk`, `@google/generative-ai`). These packages are distributed under their own licenses, which remain in full effect.
+
 ## Acknowledgments
 
 - [Zotero Plugin Template](https://github.com/windingwind/zotero-plugin-template) - This project used the Zotero Plugin Template.
@@ -95,3 +97,4 @@ Go to `Settings` → `Zota` to:
 - [Kimi-K2.5](https://github.com/MoonshotAI/Kimi-K2.5) - This project was entirely developed using the Kimi-k2.5 model.
 - [lucide](https://github.com/lucide-icons/lucide) - The icon used in this project is from lucide.
 - [ai-research-assistant](https://github.com/lifan0127/ai-research-assistant) - Some of the features of this project are inspired by ai-research-assistant.
+- [pi-ai](https://github.com/earendil-works/pi) - The multi-vendor AI provider layer (streaming, thinking/reasoning support, provider adapters) is powered by `@earendil-works/pi-ai` (MIT License).

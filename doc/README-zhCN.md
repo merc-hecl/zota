@@ -88,6 +88,8 @@
 
 [AGPL-3.0](../LICENSE)
 
+本项目打包了以下第三方开源软件包：[@earendil-works/pi-ai](https://github.com/earendil-works/pi)（MIT 许可证，© Mario Zechner），用于实现多厂商大模型 API 的调用适配；及其依赖的各厂商官方 SDK（`openai`、`@anthropic-ai/sdk`、`@google/generative-ai`）。上述包均遵循其各自的开源协议分发，相关许可持续有效。
+
 ## 致谢
 
 - [Zotero Plugin Template](https://github.com/windingwind/zotero-plugin-template) - 本项目使用了 Zotero Plugin Template。
@@ -95,3 +97,4 @@
 - [Kimi-K2.5](https://github.com/MoonshotAI/Kimi-K2.5) - 本项目完全使用 Kimi-K2.5 模型进行开发。
 - [lucide](https://lucide.dev) - 本项目使用了 lucide 图标库。
 - [ai-research-assistant](https://github.com/lifan0127/ai-research-assistant) - 本项目的一些功能受到了 ai-research-assistant 的启发。
+- [pi-ai](https://github.com/earendil-works/pi) - 本项目的多厂商 AI 接入层（流式输出、思考/推理模式支持、厂商适配）基于 `@earendil-works/pi-ai` 实现（MIT 许可证）。

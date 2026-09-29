@@ -10,20 +10,10 @@ import type {
   ProviderStorageData,
   BuiltinProviderId,
   ApiKeyProviderConfig,
+  EndpointConfig,
   ModelInfo,
 } from "../../types/provider";
-import { OpenAIProvider } from "./OpenAIProvider";
-import { AnthropicProvider } from "./AnthropicProvider";
-import { GeminiProvider } from "./GeminiProvider";
-import { DeepSeekProvider } from "./DeepSeekProvider";
-import { KimiProvider } from "./KimiProvider";
-import { MistralProvider } from "./MistralProvider";
-import { GroqProvider } from "./GroqProvider";
-import { OpenRouterProvider } from "./OpenRouterProvider";
-import { SiliconFlowProvider } from "./SiliconFlowProvider";
-import { MiniMaxProvider, MINIMAX_DEFAULT_MODELS } from "./MiniMaxProvider";
-import { XAIProvider } from "./XAIProvider";
-import { GLMProvider } from "./GLMProvider";
+import { PiAIProvider } from "./PiAIProvider";
 import { config } from "../../../package.json";
 
 export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
@@ -31,8 +21,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "openai",
     name: "OpenAI",
     defaultBaseUrl: "https://api.openai.com/v1",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://platform.openai.com",
     type: "openai-compatible",
     endpoints: [
@@ -52,8 +40,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "claude",
     name: "Claude",
     defaultBaseUrl: "https://api.anthropic.com/v1",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://console.anthropic.com",
     type: "anthropic-compatible",
   },
@@ -61,8 +47,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "gemini",
     name: "Gemini",
     defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://ai.google.dev",
     type: "gemini",
   },
@@ -70,8 +54,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "deepseek",
     name: "DeepSeek",
     defaultBaseUrl: "https://api.deepseek.com/v1",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://platform.deepseek.com",
     type: "deepseek",
   },
@@ -79,8 +61,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "mistral",
     name: "Mistral",
     defaultBaseUrl: "https://api.mistral.ai/v1",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://console.mistral.ai",
     type: "mistral",
   },
@@ -88,8 +68,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "groq",
     name: "Groq",
     defaultBaseUrl: "https://api.groq.com/openai/v1",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://console.groq.com",
     type: "groq",
   },
@@ -97,8 +75,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "openrouter",
     name: "OpenRouter",
     defaultBaseUrl: "https://openrouter.ai/api/v1",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://openrouter.ai",
     type: "openrouter",
   },
@@ -106,8 +82,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "kimi",
     name: "Kimi",
     defaultBaseUrl: "https://api.moonshot.cn/v1",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://platform.moonshot.cn",
     type: "kimi",
     endpoints: [
@@ -127,8 +101,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "glm",
     name: "GLM",
     defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://bigmodel.cn",
     type: "openai-compatible",
     endpoints: [
@@ -148,8 +120,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "siliconflow",
     name: "SiliconFlow",
     defaultBaseUrl: "https://api.siliconflow.cn/v1",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://docs.siliconflow.cn/cn/userguide/introduction",
     type: "siliconflow",
     endpoints: [
@@ -169,8 +139,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "minimax",
     name: "MiniMax",
     defaultBaseUrl: "https://api.minimaxi.com/anthropic",
-    defaultModels: MINIMAX_DEFAULT_MODELS.map((m) => m.modelId),
-    defaultModelInfos: MINIMAX_DEFAULT_MODELS,
     website: "https://platform.minimaxi.com/docs/guides/models-intro",
     type: "minimax",
     endpoints: [
@@ -190,8 +158,6 @@ export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
     id: "xai",
     name: "xAI",
     defaultBaseUrl: "https://api.x.ai/v1",
-    defaultModels: [],
-    defaultModelInfos: [],
     website: "https://docs.x.ai",
     type: "xai",
   },
@@ -223,7 +189,9 @@ export class ProviderManager {
         const providers = data.providers || [];
 
         this.activeProviderId = data.activeProviderId || "openai";
-        this.configs = this.mergeWithDefaultConfigs(providers);
+        this.configs = this.mergeWithDefaultConfigs(
+          providers.map((p) => this.migrateLegacyEndpoints(p)),
+        );
       } else {
         this.configs = this.getDefaultConfigs();
       }
@@ -231,6 +199,41 @@ export class ProviderManager {
       ztoolkit.log("[ProviderManager] Error loading prefs:", e);
       this.configs = this.getDefaultConfigs();
     }
+  }
+
+  /**
+   * Migrate legacy endpoint configs that stored multiple API keys with a
+   * rotation index to the current single-key-per-endpoint format.
+   */
+  private migrateLegacyEndpoints(
+    providerConfig: ProviderConfig,
+  ): ProviderConfig {
+    const endpoints = providerConfig.endpoints;
+    if (!endpoints?.length) return providerConfig;
+
+    const hasLegacy = endpoints.some((ep) =>
+      Array.isArray((ep as unknown as { apiKeys?: unknown }).apiKeys),
+    );
+    if (!hasLegacy) return providerConfig;
+
+    const migratedEndpoints: EndpointConfig[] = endpoints.map((ep) => {
+      const legacy = ep as unknown as {
+        apiKeys?: { key?: string }[];
+        currentApiKeyIndex?: number;
+      };
+      if (!Array.isArray(legacy.apiKeys)) return ep;
+      const index = legacy.currentApiKeyIndex ?? 0;
+      const apiKey = legacy.apiKeys[index]?.key || legacy.apiKeys[0]?.key || "";
+      return {
+        baseUrl: ep.baseUrl,
+        apiKey,
+        availableModels: ep.availableModels,
+        defaultModel: ep.defaultModel,
+      };
+    });
+
+    const { ...rest } = providerConfig;
+    return { ...rest, endpoints: migratedEndpoints };
   }
 
   /**
@@ -351,34 +354,7 @@ export class ProviderManager {
   }
 
   private createProvider(config: ProviderConfig): AIProvider | null {
-    switch (config.type) {
-      case "anthropic-compatible":
-        return new AnthropicProvider(config as ApiKeyProviderConfig);
-      case "gemini":
-        return new GeminiProvider(config as ApiKeyProviderConfig);
-      case "deepseek":
-        return new DeepSeekProvider(config as ApiKeyProviderConfig);
-      case "kimi":
-        return new KimiProvider(config as ApiKeyProviderConfig);
-      case "mistral":
-        return new MistralProvider(config as ApiKeyProviderConfig);
-      case "groq":
-        return new GroqProvider(config as ApiKeyProviderConfig);
-      case "openrouter":
-        return new OpenRouterProvider(config as ApiKeyProviderConfig);
-      case "siliconflow":
-        return new SiliconFlowProvider(config as ApiKeyProviderConfig);
-      case "minimax":
-        return new MiniMaxProvider(config as ApiKeyProviderConfig);
-      case "xai":
-        return new XAIProvider(config as ApiKeyProviderConfig);
-      case "glm":
-        return new GLMProvider(config as ApiKeyProviderConfig);
-      case "openai-compatible":
-        return new OpenAIProvider(config as ApiKeyProviderConfig);
-      default:
-        return null;
-    }
+    return new PiAIProvider(config as ApiKeyProviderConfig);
   }
 
   getActiveProvider(): AIProvider | null {

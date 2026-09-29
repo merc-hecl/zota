@@ -30,7 +30,6 @@ This file provides project-specific guidance for AI coding agents working on
 
 ## Working Rules for This Repo
 
-
 - Do not manually edit generated artifacts under `.scaffold/build`.
 
 - For UI behavior changes in chat panel, verify both sidebar and floating views.

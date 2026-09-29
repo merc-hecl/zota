@@ -26,9 +26,6 @@ import {
   getProviderManager,
   getModelStateManager,
   type ApiKeyProviderConfig,
-  AnthropicProvider,
-  GeminiProvider,
-  type GeminiThinkingEffort,
 } from "../../providers";
 import {
   getPref,
@@ -859,7 +856,7 @@ export function setupEventHandlers(context: ChatPanelContext): void {
         );
 
         if (loadedSession) {
-          let itemForSession: Zotero.Item | null = null;
+          let itemForSession: Zotero.Item | null;
 
           if (session.itemId === 0) {
             // Global chat - use fake item with id 0
@@ -2487,9 +2484,7 @@ function showGeminiThinkingEffortPopover(
 
       const providerManager = getProviderManager();
       const activeProvider = providerManager.getActiveProvider();
-      if (activeProvider instanceof GeminiProvider) {
-        activeProvider.setThinkingEffort(option.value as GeminiThinkingEffort);
-      }
+      activeProvider?.setThinkingEffort(option.value);
 
       ztoolkit.log(`Gemini thinking effort set to: ${option.value}`);
       popover.remove();
@@ -2601,11 +2596,7 @@ function showClaudeThinkingEffortPopover(
 
       const providerManager = getProviderManager();
       const activeProvider = providerManager.getActiveProvider();
-      if (activeProvider instanceof AnthropicProvider) {
-        activeProvider.setThinkingEffort(
-          option.value as "none" | "low" | "medium" | "high",
-        );
-      }
+      activeProvider?.setThinkingEffort(option.value);
 
       ztoolkit.log(`Claude thinking effort set to: ${option.value}`);
       popover.remove();

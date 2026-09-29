@@ -74,20 +74,11 @@ export interface BaseProviderConfig {
 }
 
 /**
- * API key entry with value and nickname
- */
-export interface ApiKeyEntry {
-  key: string;
-  name?: string;
-}
-
-/**
- * Endpoint configuration with multiple API keys and models
+ * Endpoint configuration with a single API key and models
  */
 export interface EndpointConfig {
   baseUrl: string;
-  apiKeys: ApiKeyEntry[];
-  currentApiKeyIndex: number;
+  apiKey: string;
   availableModels?: string[];
   defaultModel?: string;
 }
@@ -133,8 +124,6 @@ export interface ProviderMetadata {
   id: BuiltinProviderId;
   name: string;
   defaultBaseUrl: string;
-  defaultModels: string[];
-  defaultModelInfos: ModelInfo[];
   website: string;
   type: ProviderType;
   endpoints?: EndpointOption[];
@@ -146,55 +135,6 @@ export interface ProviderMetadata {
 export interface ProviderStorageData {
   activeProviderId: string;
   providers: ProviderConfig[];
-}
-
-/**
- * Message format for Anthropic API
- */
-export interface AnthropicMessage {
-  role: "user" | "assistant";
-  content:
-    | string
-    | (AnthropicTextBlock | AnthropicImageBlock | AnthropicDocumentBlock)[];
-}
-
-export interface AnthropicTextBlock {
-  type: "text";
-  text: string;
-}
-
-export interface AnthropicImageBlock {
-  type: "image";
-  source: {
-    type: "base64";
-    media_type: string;
-    data: string;
-  };
-}
-
-export interface AnthropicDocumentBlock {
-  type: "document";
-  source: {
-    type: "base64";
-    media_type: string;
-    data: string;
-  };
-}
-
-/**
- * Message format for Gemini API
- */
-export interface GeminiContent {
-  role: "user" | "model";
-  parts: GeminiPart[];
-}
-
-export interface GeminiPart {
-  text?: string;
-  inline_data?: {
-    mime_type: string;
-    data: string;
-  };
 }
 
 /**
@@ -213,6 +153,14 @@ export interface AIProvider {
   chatCompletion(messages: ChatMessage[]): Promise<string>;
   testConnection(): Promise<boolean>;
   getAvailableModels(): Promise<string[]>;
+  /** Enable/disable binary thinking mode (DeepSeek/Kimi/GLM/SiliconFlow/MiniMax) */
+  setThinkingMode(enabled: boolean): void;
+  /** Set OpenAI-style reasoning effort (none|low|medium|high|xhigh) */
+  setReasoningEffort(effort: string): void;
+  /** Set Claude/Gemini-style thinking effort (none|low|medium|high) */
+  setThinkingEffort(effort: string): void;
+  /** Track the currently selected model (for per-model thinking behavior) */
+  setCurrentModel(model: string): void;
 }
 
 /**

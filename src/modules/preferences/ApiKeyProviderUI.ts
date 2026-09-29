@@ -8,14 +8,12 @@ import { getProviderManager, getModelStateManager } from "../providers";
 import type {
   ApiKeyProviderConfig,
   EndpointConfig,
-  ApiKeyEntry,
   ProviderMetadata,
 } from "../../types/provider";
 import { clearElement, showTestResult } from "./utils";
 
 const ENDPOINTS_DATA_KEY = "__zota_endpoints_data__";
 const CURRENT_INDEX_KEY = "__zota_current_endpoint_index__";
-const CURRENT_API_KEY_INDEX_KEY = "__zota_current_api_key_index__";
 
 function getEndpointsData(
   win: Window,
@@ -71,47 +69,6 @@ function setCurrentIndex(
   }
 }
 
-function getCurrentApiKeyIndex(
-  win: Window,
-  providerId: string,
-  endpointIndex: number,
-  endpoints?: EndpointConfig[],
-): number {
-  const key = `${providerId}_${endpointIndex}`;
-  const windowIndex = (win as any)[CURRENT_API_KEY_INDEX_KEY]?.[key];
-  if (windowIndex !== undefined) return windowIndex;
-
-  const eps = endpoints || getEndpointsData(win, providerId) || [];
-  if (eps && eps[endpointIndex]) {
-    return eps[endpointIndex].currentApiKeyIndex ?? 0;
-  }
-  return 0;
-}
-
-function setCurrentApiKeyIndex(
-  win: Window,
-  providerId: string,
-  endpointIndex: number,
-  index: number,
-  endpoints?: EndpointConfig[],
-  providerManager?: ReturnType<typeof getProviderManager>,
-): void {
-  if (!(win as any)[CURRENT_API_KEY_INDEX_KEY]) {
-    (win as any)[CURRENT_API_KEY_INDEX_KEY] = {};
-  }
-  const key = `${providerId}_${endpointIndex}`;
-  (win as any)[CURRENT_API_KEY_INDEX_KEY][key] = index;
-
-  if (providerManager && endpoints) {
-    const newEndpoints = endpoints.map((ep, idx) =>
-      idx === endpointIndex ? { ...ep, currentApiKeyIndex: index } : ep,
-    );
-    providerManager.updateProviderConfig(providerId, {
-      endpoints: newEndpoints,
-    });
-  }
-}
-
 function maskApiKey(key: string): string {
   if (!key || key.length <= 4) return key || "";
   return "*".repeat(key.length - 4) + key.slice(-4);
@@ -163,8 +120,7 @@ export function populateApiKeyPanel(
       if (metadata?.endpoints && metadata.endpoints.length > 1) {
         endpoints = metadata.endpoints.map((ep) => ({
           baseUrl: ep.baseUrl,
-          apiKeys: config.apiKey ? [{ key: config.apiKey, name: "" }] : [],
-          currentApiKeyIndex: 0,
+          apiKey: config.apiKey || "",
           availableModels: config.availableModels || [],
           defaultModel: config.defaultModel || "",
         }));
@@ -172,8 +128,7 @@ export function populateApiKeyPanel(
         endpoints = [
           {
             baseUrl: config.baseUrl,
-            apiKeys: config.apiKey ? [{ key: config.apiKey, name: "" }] : [],
-            currentApiKeyIndex: 0,
+            apiKey: config.apiKey || "",
             availableModels: config.availableModels || [],
             defaultModel: config.defaultModel || "",
           },
@@ -193,21 +148,6 @@ export function populateApiKeyPanel(
 
   const currentEndpoint = endpoints[currentEndpointIndex];
 
-  let currentApiKeyIndex = currentEndpoint
-    ? getCurrentApiKeyIndex(win, config.id, currentEndpointIndex, endpoints)
-    : 0;
-  if (currentEndpoint && currentApiKeyIndex >= currentEndpoint.apiKeys.length) {
-    currentApiKeyIndex = Math.max(0, currentEndpoint.apiKeys.length - 1);
-    setCurrentApiKeyIndex(
-      win,
-      config.id,
-      currentEndpointIndex,
-      currentApiKeyIndex,
-      endpoints,
-      getProviderManager(),
-    );
-  }
-
   populateEndpointDropdown(
     doc,
     endpoints,
@@ -215,11 +155,7 @@ export function populateApiKeyPanel(
     config.isBuiltin,
     metadata,
   );
-  populateApiKeyDropdown(
-    doc,
-    currentEndpoint?.apiKeys || [],
-    currentApiKeyIndex,
-  );
+  populateApiKeyDropdown(doc, currentEndpoint?.apiKey || "");
 
   const modelPopup = doc.getElementById("pref-provider-model-popup");
   if (modelPopup && modelSelect) {
@@ -345,11 +281,7 @@ function populateEndpointDropdown(
   }
 }
 
-function populateApiKeyDropdown(
-  doc: Document,
-  apiKeys: ApiKeyEntry[],
-  selectedIndex: number,
-): void {
+function populateApiKeyDropdown(doc: Document, apiKey: string): void {
   const apikeySelect = doc.getElementById(
     "pref-provider-apikey",
   ) as unknown as XULMenuListElement;
@@ -359,15 +291,12 @@ function populateApiKeyDropdown(
 
   clearElement(apikeyPopup);
 
-  apiKeys.forEach((apiKeyEntry, index) => {
-    const menuitem = doc.createXULElement("menuitem");
-    const displayLabel = apiKeyEntry.name || maskApiKey(apiKeyEntry.key);
-    menuitem.setAttribute("label", displayLabel);
-    menuitem.setAttribute("value", String(index));
-    apikeyPopup.appendChild(menuitem);
-  });
+  if (apiKey) {
+    const currentItem = doc.createXULElement("menuitem");
+    currentItem.setAttribute("label", maskApiKey(apiKey));
+    currentItem.setAttribute("value", "__current_apikey__");
+    apikeyPopup.appendChild(currentItem);
 
-  if (apiKeys.length > 0) {
     const separator1 = doc.createXULElement("menuseparator");
     apikeyPopup.appendChild(separator1);
 
@@ -402,9 +331,9 @@ function populateApiKeyDropdown(
   addNewItem.setAttribute("style", "font-weight: bold; color: #0066cc;");
   apikeyPopup.appendChild(addNewItem);
 
-  if (apiKeys.length > 0 && selectedIndex < apiKeys.length) {
-    apikeySelect.selectedIndex = selectedIndex;
-    apikeySelect.value = String(selectedIndex);
+  if (apiKey) {
+    apikeySelect.selectedIndex = 0;
+    apikeySelect.value = "__current_apikey__";
   } else {
     apikeySelect.selectedIndex = -1;
     apikeySelect.setAttribute("label", "");
@@ -574,11 +503,6 @@ export function saveCurrentProviderConfig(
   ) as HTMLInputElement;
 
   const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-  const currentApiKeyIndex = getCurrentApiKeyIndex(
-    win,
-    currentProviderId,
-    currentEndpointIndex,
-  );
 
   let endpoints = getEndpointsData(win, currentProviderId) || [];
 
@@ -592,10 +516,8 @@ export function saveCurrentProviderConfig(
   }
 
   const currentEndpoint = endpoints[currentEndpointIndex];
-  const currentApiKey = currentEndpoint?.apiKeys[currentApiKeyIndex]?.key || "";
-  const isNowEnabled = endpoints.some((ep) =>
-    ep.apiKeys.some((k) => k.key.trim() !== ""),
-  );
+  const currentApiKey = currentEndpoint?.apiKey || "";
+  const isNowEnabled = endpoints.some((ep) => ep.apiKey.trim() !== "");
 
   const updates: Partial<ApiKeyProviderConfig> = {
     enabled: isNowEnabled,
@@ -682,8 +604,7 @@ function addNewEndpoint(doc: Document, currentProviderId: string): void {
     ...endpoints,
     {
       baseUrl: newBaseUrl.trim(),
-      apiKeys: [],
-      currentApiKeyIndex: 0,
+      apiKey: "",
       availableModels: [],
       defaultModel: "",
     },
@@ -861,15 +782,12 @@ function deleteEndpoint(doc: Document, currentProviderId: string): void {
 
   const newEndpoint = endpoints[newIndex];
 
-  const hasAnyKey = endpoints.some((ep) =>
-    ep.apiKeys.some((k) => k.key.trim() !== ""),
-  );
+  const hasAnyKey = endpoints.some((ep) => ep.apiKey.trim() !== "");
   const newDefaultModel = newEndpoint?.defaultModel || "";
   const updates: Partial<ApiKeyProviderConfig> = {
     endpoints,
     baseUrl: newEndpoint?.baseUrl || "",
-    apiKey:
-      newEndpoint?.apiKeys[newEndpoint?.currentApiKeyIndex || 0]?.key || "",
+    apiKey: newEndpoint?.apiKey || "",
     availableModels: newEndpoint?.availableModels || [],
     currentEndpointIndex: newIndex,
     defaultModel: newDefaultModel,
@@ -915,12 +833,10 @@ function switchEndpoint(
 
   setCurrentIndex(win, currentProviderId, endpointIndex, providerManager);
   const endpoint = endpoints[endpointIndex];
-  const currentApiKeyIndex = endpoint.currentApiKeyIndex || 0;
-  const currentApiKey = endpoint.apiKeys[currentApiKeyIndex]?.key || "";
 
   providerManager.updateProviderConfig(currentProviderId, {
     baseUrl: endpoint.baseUrl,
-    apiKey: currentApiKey,
+    apiKey: endpoint.apiKey || "",
     availableModels: endpoint.availableModels || [],
     defaultModel: endpoint.defaultModel || "",
     currentEndpointIndex: endpointIndex,
@@ -954,21 +870,6 @@ function addNewApiKey(doc: Document, currentProviderId: string): void {
     return;
   }
 
-  const keyName = addon.data.prefs?.window?.prompt(
-    getString("pref-enter-apikey-name" as any) || "API Key name (optional):",
-  );
-
-  if (keyName === null) {
-    const config = providerManager.getProviderConfig(
-      currentProviderId,
-    ) as ApiKeyProviderConfig;
-    if (config) {
-      const metadata = providerManager.getProviderMetadata(config.id);
-      populateApiKeyPanel(doc, config, metadata);
-    }
-    return;
-  }
-
   const newApiKey = addon.data.prefs?.window?.prompt(
     getString("pref-enter-apikey" as any) || "Enter API Key:",
   );
@@ -984,53 +885,11 @@ function addNewApiKey(doc: Document, currentProviderId: string): void {
     return;
   }
 
-  const currentEndpoint = endpoints[currentEndpointIndex];
-  const exists = currentEndpoint.apiKeys.some(
-    (k) => k.key === newApiKey.trim(),
-  );
-
-  if (exists) {
-    showTestResult(
-      doc,
-      getString("pref-apikey-exists" as any) || "API Key already exists",
-      true,
-    );
-    const apikeySelect = doc.getElementById(
-      "pref-provider-apikey",
-    ) as unknown as XULMenuListElement;
-    if (apikeySelect) {
-      const currentApiKeyIndex = getCurrentApiKeyIndex(
-        win,
-        currentProviderId,
-        currentEndpointIndex,
-      );
-      apikeySelect.selectedIndex = currentApiKeyIndex;
-      apikeySelect.value = String(currentApiKeyIndex);
-    }
-    return;
-  }
-
-  const newKeyEntry: ApiKeyEntry = {
-    key: newApiKey.trim(),
-    name: keyName?.trim() || "",
-  };
-
   endpoints = endpoints.map((ep, idx) =>
-    idx === currentEndpointIndex
-      ? { ...ep, apiKeys: [...ep.apiKeys, newKeyEntry] }
-      : ep,
+    idx === currentEndpointIndex ? { ...ep, apiKey: newApiKey.trim() } : ep,
   );
 
-  const newApiKeyIndex = currentEndpoint.apiKeys.length;
   setEndpointsData(win, currentProviderId, endpoints);
-  setCurrentApiKeyIndex(
-    win,
-    currentProviderId,
-    currentEndpointIndex,
-    newApiKeyIndex,
-    endpoints,
-    providerManager,
-  );
 
   const updates: Partial<ApiKeyProviderConfig> = {
     endpoints,
@@ -1061,61 +920,15 @@ function editApiKey(doc: Document, currentProviderId: string): void {
     return;
 
   const currentEndpoint = endpoints[currentEndpointIndex];
-  const currentApiKeyIndex = getCurrentApiKeyIndex(
-    win,
-    currentProviderId,
-    currentEndpointIndex,
-  );
 
-  if (
-    currentEndpoint.apiKeys.length === 0 ||
-    currentApiKeyIndex >= currentEndpoint.apiKeys.length
-  )
-    return;
-
-  const currentKeyEntry = currentEndpoint.apiKeys[currentApiKeyIndex];
-
-  const newName = addon.data.prefs?.window?.prompt(
-    getString("pref-edit-apikey-name" as any) ||
-      "Edit API Key name (optional):",
-    currentKeyEntry.name || "",
-  );
-
-  if (newName === null) {
-    const config = providerManager.getProviderConfig(
-      currentProviderId,
-    ) as ApiKeyProviderConfig;
-    if (config) {
-      const metadata = providerManager.getProviderMetadata(config.id);
-      populateApiKeyPanel(doc, config, metadata);
-    }
-    return;
-  }
+  if (!currentEndpoint.apiKey) return;
 
   const newApiKey = addon.data.prefs?.window?.prompt(
     getString("pref-edit-apikey" as any) || "Edit API Key:",
-    currentKeyEntry.key,
+    currentEndpoint.apiKey,
   );
 
   if (!newApiKey || !newApiKey.trim()) {
-    if (newName !== null && newName !== undefined) {
-      endpoints = endpoints.map((ep, idx) =>
-        idx === currentEndpointIndex
-          ? {
-              ...ep,
-              apiKeys: ep.apiKeys.map((k, kidx) =>
-                kidx === currentApiKeyIndex
-                  ? { ...k, name: newName.trim() }
-                  : k,
-              ),
-            }
-          : ep,
-      );
-      setEndpointsData(win, currentProviderId, endpoints);
-
-      providerManager.updateProviderConfig(currentProviderId, { endpoints });
-    }
-
     const config = providerManager.getProviderConfig(
       currentProviderId,
     ) as ApiKeyProviderConfig;
@@ -1123,37 +936,11 @@ function editApiKey(doc: Document, currentProviderId: string): void {
       const metadata = providerManager.getProviderMetadata(config.id);
       populateApiKeyPanel(doc, config, metadata);
     }
-    return;
-  }
-
-  const exists = currentEndpoint.apiKeys.some(
-    (k, idx) => idx !== currentApiKeyIndex && k.key === newApiKey.trim(),
-  );
-
-  if (exists) {
-    showTestResult(
-      doc,
-      getString("pref-apikey-exists" as any) || "API Key already exists",
-      true,
-    );
-    const config = providerManager.getProviderConfig(
-      currentProviderId,
-    ) as ApiKeyProviderConfig;
-    if (config) populateApiKeyPanel(doc, config);
     return;
   }
 
   endpoints = endpoints.map((ep, idx) =>
-    idx === currentEndpointIndex
-      ? {
-          ...ep,
-          apiKeys: ep.apiKeys.map((k, kidx) =>
-            kidx === currentApiKeyIndex
-              ? { key: newApiKey.trim(), name: newName?.trim() || "" }
-              : k,
-          ),
-        }
-      : ep,
+    idx === currentEndpointIndex ? { ...ep, apiKey: newApiKey.trim() } : ep,
   );
 
   setEndpointsData(win, currentProviderId, endpoints);
@@ -1190,20 +977,10 @@ function deleteApiKey(doc: Document, currentProviderId: string): void {
     return;
 
   const currentEndpoint = endpoints[currentEndpointIndex];
-  const currentApiKeyIndex = getCurrentApiKeyIndex(
-    win,
-    currentProviderId,
-    currentEndpointIndex,
-  );
 
-  if (
-    currentEndpoint.apiKeys.length === 0 ||
-    currentApiKeyIndex >= currentEndpoint.apiKeys.length
-  )
-    return;
+  if (!currentEndpoint.apiKey) return;
 
-  const keyToDelete = currentEndpoint.apiKeys[currentApiKeyIndex];
-  const displayName = keyToDelete.name || maskApiKey(keyToDelete.key);
+  const displayName = maskApiKey(currentEndpoint.apiKey);
   const message =
     getString("pref-delete-apikey-confirm" as any, {
       args: { key: displayName },
@@ -1221,38 +998,16 @@ function deleteApiKey(doc: Document, currentProviderId: string): void {
     return;
   }
 
-  const newApiKeys = currentEndpoint.apiKeys.filter(
-    (_, idx) => idx !== currentApiKeyIndex,
-  );
-
-  const newApiKeyIndex = Math.max(
-    0,
-    Math.min(currentApiKeyIndex, newApiKeys.length - 1),
-  );
-
   endpoints = endpoints.map((ep, idx) =>
-    idx === currentEndpointIndex
-      ? { ...ep, apiKeys: newApiKeys, currentApiKeyIndex: newApiKeyIndex }
-      : ep,
+    idx === currentEndpointIndex ? { ...ep, apiKey: "" } : ep,
   );
 
   setEndpointsData(win, currentProviderId, endpoints);
-  setCurrentApiKeyIndex(
-    win,
-    currentProviderId,
-    currentEndpointIndex,
-    newApiKeyIndex,
-    endpoints,
-    providerManager,
-  );
 
-  const newCurrentKey = newApiKeys[newApiKeyIndex]?.key || "";
-  const hasAnyKey = endpoints.some((ep) =>
-    ep.apiKeys.some((k) => k.key.trim() !== ""),
-  );
+  const hasAnyKey = endpoints.some((ep) => ep.apiKey.trim() !== "");
   const updates: Partial<ApiKeyProviderConfig> = {
     endpoints,
-    apiKey: newCurrentKey,
+    apiKey: "",
     enabled: hasAnyKey,
   };
 
@@ -1270,48 +1025,6 @@ function deleteApiKey(doc: Document, currentProviderId: string): void {
   );
 }
 
-function switchApiKey(
-  doc: Document,
-  currentProviderId: string,
-  apiKeyIndex: number,
-): void {
-  const win = doc.defaultView;
-  if (!win) return;
-
-  const providerManager = getProviderManager();
-
-  const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-  const endpoints = getEndpointsData(win, currentProviderId) || [];
-
-  if (endpoints.length === 0 || currentEndpointIndex >= endpoints.length)
-    return;
-
-  const currentEndpoint = endpoints[currentEndpointIndex];
-
-  if (apiKeyIndex < 0 || apiKeyIndex >= currentEndpoint.apiKeys.length) return;
-
-  saveCurrentProviderConfig(doc, currentProviderId);
-
-  setCurrentApiKeyIndex(
-    win,
-    currentProviderId,
-    currentEndpointIndex,
-    apiKeyIndex,
-    endpoints,
-    providerManager,
-  );
-  const newApiKey = currentEndpoint.apiKeys[apiKeyIndex].key;
-
-  providerManager.updateProviderConfig(currentProviderId, {
-    apiKey: newApiKey,
-  });
-
-  const updatedConfig = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-  if (updatedConfig) populateApiKeyPanel(doc, updatedConfig);
-}
-
 export async function autoFetchModels(
   doc: Document,
   currentProviderId: string,
@@ -1327,14 +1040,9 @@ export async function autoFetchModels(
   }
 
   const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-  const currentApiKeyIndex = getCurrentApiKeyIndex(
-    win,
-    currentProviderId,
-    currentEndpointIndex,
-  );
   const endpoints = getEndpointsData(win, currentProviderId) || [];
   const currentEndpoint = endpoints[currentEndpointIndex];
-  const currentApiKey = currentEndpoint?.apiKeys[currentApiKeyIndex]?.key;
+  const currentApiKey = currentEndpoint?.apiKey;
 
   if (!currentApiKey) {
     showTestResult(doc, getString("pref-provider-not-ready"), true);
@@ -1429,12 +1137,8 @@ export function bindApiKeyEvents(
       editApiKey(doc, currentProviderId);
     } else if (selectedValue === "__delete_apikey__") {
       deleteApiKey(doc, currentProviderId);
-    } else {
-      const index = parseInt(selectedValue, 10);
-      if (!isNaN(index)) {
-        switchApiKey(doc, currentProviderId, index);
-      }
     }
+    // Selecting the current key item needs no action
   });
 
   const toggleKeyBtn = doc.getElementById("pref-toggle-apikey");
@@ -1444,18 +1148,12 @@ export function bindApiKeyEvents(
 
     const currentProviderId = getCurrentProviderId();
     const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-    const currentApiKeyIndex = getCurrentApiKeyIndex(
-      win,
-      currentProviderId,
-      currentEndpointIndex,
-    );
     const endpoints = getEndpointsData(win, currentProviderId) || [];
     const currentEndpoint = endpoints[currentEndpointIndex];
-    const currentKey = currentEndpoint?.apiKeys[currentApiKeyIndex];
 
-    if (!currentKey) return;
+    if (!currentEndpoint?.apiKey) return;
 
-    addon.data.prefs?.window?.alert(`API Key: ${currentKey.key}`);
+    addon.data.prefs?.window?.alert(`API Key: ${currentEndpoint.apiKey}`);
   });
 
   const visitWebsiteBtn = doc.getElementById("pref-visit-website");
@@ -1554,14 +1252,9 @@ export function bindApiKeyEvents(
     }
 
     const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-    const currentApiKeyIndex = getCurrentApiKeyIndex(
-      win,
-      currentProviderId,
-      currentEndpointIndex,
-    );
     const endpoints = getEndpointsData(win, currentProviderId) || [];
     const currentEndpoint = endpoints[currentEndpointIndex];
-    const currentApiKey = currentEndpoint?.apiKeys[currentApiKeyIndex]?.key;
+    const currentApiKey = currentEndpoint?.apiKey;
 
     if (!currentApiKey) {
       showTestResult(doc, getString("pref-provider-not-ready"), true);
