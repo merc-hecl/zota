@@ -49,7 +49,7 @@ export default defineConfig({
 
   release: {
     bumpp: {
-      commit: "chore(publish): release V%s",
+      commit: "🔖 release V%s",
       tag: "V%s",
     },
   },

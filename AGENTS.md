@@ -64,8 +64,10 @@ behavior, never implementation details.
 
 ## Release Conventions
 
-- Follow Conventional Commits style used in history (for example
-  `feat(scope): ...`, `fix(scope): ...`, `chore: ...`).
+- Follow the Gitmoji commit convention (https://gitmoji.dev/): begin each
+  commit with the matching emoji, then a short imperative description
+  (for example `✨ add chat history export`, `🐛 fix floating panel drag`,
+  `📝 update README`, `⬆️ upgrade deps for Zotero 10`).
 - For version releases, update both:
   - `README.md` (English changelog section)
   - `doc/README-zhCN.md` (Chinese changelog section)
