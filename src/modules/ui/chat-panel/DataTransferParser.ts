@@ -102,6 +102,9 @@ async function parseZoteroItem(
     const items = await Promise.all(
       ids.map(async (id) => {
         const item = await Zotero.Items.getAsync(id);
+        if (!item) {
+          return { id, title: `Item ${id} (deleted)` };
+        }
         const title = item.getDisplayTitle();
 
         // Extract creators: "LastName et al." if multiple, "FirstName LastName" if single
@@ -187,7 +190,8 @@ async function parseZoteroAnnotation(
       };
     }
 
-    const attachmentItem = await Zotero.Items.getAsync(attachmentItemID);
+    const attachmentItem =
+      (await Zotero.Items.getAsync(attachmentItemID)) || null;
     const libraryID = attachmentItem?.libraryID ?? 0;
 
     // Parse the image data - Zotero may return it as a data URL or raw base64

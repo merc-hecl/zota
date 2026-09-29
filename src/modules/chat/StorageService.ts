@@ -189,7 +189,7 @@ export class StorageService {
           if (item.isAttachment()) {
             const parentId = item.parentItemID;
             if (parentId) {
-              const parent = await Zotero.Items.getAsync(parentId);
+              const parent = (await Zotero.Items.getAsync(parentId)) || null;
               itemName =
                 parent?.getDisplayTitle() ||
                 item.attachmentFilename ||

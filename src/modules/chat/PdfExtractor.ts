@@ -141,7 +141,10 @@ export class PdfExtractor {
     const attachments = item.getAttachments();
     for (const attachmentID of attachments) {
       const attachment = await Zotero.Items.getAsync(attachmentID);
-      if (attachment?.attachmentContentType === "application/pdf") {
+      if (
+        attachment &&
+        attachment.attachmentContentType === "application/pdf"
+      ) {
         return attachment;
       }
     }

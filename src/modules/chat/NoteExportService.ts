@@ -334,12 +334,12 @@ export class NoteExportService {
       let parentItem: Zotero.Item | null = null;
 
       if (itemId !== 0) {
-        targetItem = await Zotero.Items.getAsync(itemId);
+        targetItem = (await Zotero.Items.getAsync(itemId)) || null;
         if (targetItem) {
           if (targetItem.isAttachment()) {
             const parentId = targetItem.parentItemID;
             if (parentId) {
-              parentItem = await Zotero.Items.getAsync(parentId);
+              parentItem = (await Zotero.Items.getAsync(parentId)) || null;
             } else {
               parentItem = await this.createParentItem(targetItem);
             }
