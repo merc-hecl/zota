@@ -30,13 +30,31 @@ This file provides project-specific guidance for AI coding agents working on
 
 ## Working Rules for This Repo
 
-- Keep solutions simple and maintainable; avoid unnecessary abstractions.
-- Prefer small, focused changes over broad refactors.
+
 - Do not manually edit generated artifacts under `.scaffold/build`.
-- Reuse existing module boundaries instead of introducing parallel patterns.
+
 - For UI behavior changes in chat panel, verify both sidebar and floating views.
-- In narrow chat layouts, prefer overlay/hover affordances over permanent side rails that consume message width.
-- Keep naming explicit and behavior predictable.
+
+- Keep naming explicit.
+
+### Testing Rules
+
+All testing rules share one intent: tests must verify real user-facing
+behavior, never implementation details.
+
+- **E2E-first**: E2E tests are the preferred (ideally sole) testing
+  mechanism. Use them to verify complex features work. Every E2E test must
+  end with a verifiable, repeatable artifact (log, screenshot, exported
+  file, ...) proving the feature actually ran.
+- **No after-the-fact unit tests**: NEVER write unit tests after the code
+  exists. If a system must be tested in isolation, FIRST write down all the
+  ways it could fail, THEN write the code against that list.
+- **Harmful test smells** — never write these:
+  - Tautological tests: they restate the implementation and prove nothing.
+  - Change-detector tests: they fail on any change, not just real
+    regressions.
+- **No reflexive regression tests**: do not add a regression test for a bug
+  fix unless there is a genuine gap in behavior coverage.
 
 ## Quality Gate Before Commit
 
