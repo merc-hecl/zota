@@ -1317,7 +1317,7 @@ export function setupEventHandlers(context: ChatPanelContext): void {
       // Mark window as being closed for pin toggle
       (win as any)._isPinToggle = true;
 
-      // Reopen the window to apply the alwaysRaised flag
+      // Reopen the window to apply the always-on-top feature flag
       win.close();
 
       // Reopen the panel after a short delay to ensure the window is fully closed

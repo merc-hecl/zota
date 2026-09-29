@@ -857,12 +857,14 @@ function openFloatingWindow(): void {
   const isAlwaysOnTop = getPref("keepWindowTop") as boolean;
 
   // Open new window using openDialog for better control
+  // Zotero 10 (Gecko 140+) only recognizes "alwaysontop"; "alwaysRaised" is
+  // the legacy feature kept as a fallback for older Zotero z-level support.
   floatingWindow = (
     mainWindow as Window & { openDialog: (...args: unknown[]) => Window }
   ).openDialog(
     `chrome://${config.addonRef}/content/chatWindow.xhtml`,
     "zota-chat-window",
-    `chrome,dialog=no,resizable=yes,${isAlwaysOnTop ? "alwaysRaised=yes," : ""}width=${bounds.width},height=${bounds.height},left=${bounds.x},top=${bounds.y}`,
+    `chrome,dialog=no,resizable=yes,${isAlwaysOnTop ? "alwaysontop=yes,alwaysRaised=yes," : ""}width=${bounds.width},height=${bounds.height},left=${bounds.x},top=${bounds.y}`,
   );
 
   if (!floatingWindow) {
