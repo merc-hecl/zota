@@ -4,6 +4,7 @@
 
 import type { ThemeColors } from "./types";
 import { applyMessageNavigationTheme } from "./MessageNavigation";
+import { chatColors } from "../../../utils/colors";
 
 // Light theme colors - Minimal Neutral Theme
 export const lightTheme: ThemeColors = {
@@ -239,13 +240,13 @@ export function applyThemeToContainer(container: HTMLElement): void {
   }
 
   // Update existing message bubbles
+  // Assistant messages are flat transparent rows on the panel background
   container
     .querySelectorAll(".assistant-message .chat-bubble")
     .forEach((bubble: Element) => {
       const el = bubble as HTMLElement;
-      el.style.background = theme.assistantBubbleBg;
+      el.style.background = "transparent";
       el.style.color = theme.textPrimary;
-      el.style.borderColor = theme.borderColor;
     });
 
   // Update user message bubbles
@@ -256,6 +257,42 @@ export function applyThemeToContainer(container: HTMLElement): void {
       el.style.background = theme.userBubbleBg;
       el.style.color = theme.textPrimary;
     });
+
+  // Update error message rows (flat row with left accent line)
+  container
+    .querySelectorAll(".error-message .chat-bubble, .error-bubble")
+    .forEach((bubble: Element) => {
+      const el = bubble as HTMLElement;
+      el.style.background = "transparent";
+      el.style.color = isDarkMode() ? "#f85149" : chatColors.errorBubbleText;
+      el.style.borderLeftColor = chatColors.errorBubbleBorder;
+    });
+
+  // Update thinking disclosure rows
+  container
+    .querySelectorAll(".chat-thinking-section")
+    .forEach((section: Element) => {
+      const title = section.querySelector(
+        ".chat-thinking-title",
+      ) as HTMLElement | null;
+      if (title) title.style.color = theme.textMuted;
+      const chevron = section.querySelector(
+        ".chat-thinking-chevron",
+      ) as HTMLElement | null;
+      if (chevron) chevron.style.color = theme.textMuted;
+      const content = section.querySelector(
+        ".chat-thinking-content",
+      ) as HTMLElement | null;
+      if (content) {
+        content.style.borderLeftColor = theme.borderColor;
+        content.style.color = theme.textSecondary;
+      }
+    });
+
+  // Update message timestamps
+  container.querySelectorAll(".chat-timestamp").forEach((ts: Element) => {
+    (ts as HTMLElement).style.color = theme.textMuted;
+  });
 
   // Update copy buttons
   container.querySelectorAll(".copy-btn").forEach((btn: Element) => {

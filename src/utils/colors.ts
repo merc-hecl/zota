@@ -103,6 +103,12 @@ export const chatColors = {
   loadMoreBg: colors.primaryLight,
   emptyText: colors.textPlaceholder,
 
+  // Citation badges (footnote-style [n] markers)
+  citationBadgeBg: colors.badgeBg,
+  citationBadgeBgDark: "#2d333b",
+  citationBadgeText: colors.badgeText,
+  citationBadgeTextDark: "#8b949e",
+
   // Attachment tags
   attachmentBg: colors.inputBg,
   attachmentBorder: colors.primaryBorder,

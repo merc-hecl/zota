@@ -11,6 +11,7 @@ import { renderMarkdownToElement } from "./MarkdownRenderer";
 import { createElement, copyToClipboard } from "./ChatPanelBuilder";
 import { getString } from "../../../utils/locale";
 import { syncMessageNavigation } from "./MessageNavigation";
+import { isDarkMode } from "./ChatPanelTheme";
 
 // Callbacks for regenerate and version switching
 let regenerateCallback: ((messageId: string) => Promise<void>) | null = null;
@@ -49,7 +50,8 @@ export function setSwitchVersionCallback(
 }
 
 /**
- * Create a thinking section with collapsible content
+ * Create a thinking section as a collapsed disclosure row.
+ * Agent harness style: quiet metadata line that expands on demand.
  */
 function createThinkingSection(
   doc: Document,
@@ -62,51 +64,46 @@ function createThinkingSection(
     {
       display: "flex",
       flexDirection: "column",
-      marginBottom: "12px",
-      border: `1px solid ${theme.borderColor}`,
-      borderRadius: "8px",
-      overflow: "hidden",
-      background: theme.assistantBubbleBg,
+      marginBottom: "10px",
     },
     { class: "chat-thinking-section" },
   );
 
-  // Header with sparkle icon and collapse/expand functionality
+  // Disclosure row: sparkle icon + title + chevron
   const header = createElement(
     doc,
     "div",
     {
       display: "flex",
       alignItems: "center",
-      gap: "8px",
-      padding: "8px 12px",
-      background: "rgba(45, 90, 135, 0.08)",
+      gap: "6px",
+      padding: "0",
       cursor: "pointer",
       userSelect: "none",
-      transition: "background 0.2s ease",
     },
     { class: "chat-thinking-header" },
   );
 
   // Sparkle icon
   const sparkleIcon = createElement(doc, "img", {
-    width: "14px",
-    height: "14px",
-    opacity: "0.8",
+    width: "13px",
+    height: "13px",
+    opacity: "0.6",
   });
   (sparkleIcon as HTMLImageElement).src =
     `chrome://${config.addonRef}/content/icons/sparkle.svg`;
   header.appendChild(sparkleIcon);
 
-  // Header text
+  // Header text (muted, quiet)
   const headerText = createElement(
     doc,
     "span",
     {
       fontSize: "12px",
-      fontWeight: "600",
-      color: theme.textPrimary,
+      fontWeight: "500",
+      color: theme.textMuted,
       flex: "1",
+      transition: "color 0.15s ease",
     },
     { class: "chat-thinking-title" },
   );
@@ -118,26 +115,27 @@ function createThinkingSection(
     doc,
     "span",
     {
-      fontSize: "10px",
-      opacity: "0.6",
-      transition: "transform 0.2s ease",
+      fontSize: "9px",
+      color: theme.textMuted,
+      opacity: "0.7",
+      transition: "transform 0.15s ease",
     },
     { class: "chat-thinking-chevron" },
   );
-  chevronIcon.textContent = "▼";
+  chevronIcon.textContent = "▶";
   header.appendChild(chevronIcon);
 
-  // Content container with markdown rendering
+  // Content container with markdown rendering (collapsed by default)
   const contentContainer = createElement(
     doc,
     "div",
     {
-      display: "block",
-      padding: "10px 12px",
-      fontSize: "13px",
+      display: "none",
+      padding: "4px 0 6px 10px",
+      borderLeft: `2px solid ${theme.borderColor}`,
+      fontSize: "12px",
       lineHeight: "1.5",
       color: theme.textSecondary,
-      background: "rgba(45, 90, 135, 0.03)",
       maxHeight: "300px",
       overflowY: "auto",
       userSelect: "text",
@@ -148,23 +146,20 @@ function createThinkingSection(
   // Render reasoning content as markdown
   renderMarkdownToElement(contentContainer, reasoningContent);
 
-  // Toggle functionality
-  let isExpanded = true;
+  // Toggle functionality (collapsed by default)
+  let isExpanded = false;
   header.addEventListener("click", () => {
     isExpanded = !isExpanded;
     contentContainer.style.display = isExpanded ? "block" : "none";
-    chevronIcon.style.transform = isExpanded
-      ? "rotate(0deg)"
-      : "rotate(-90deg)";
-    chevronIcon.textContent = isExpanded ? "▼" : "▶";
+    chevronIcon.style.transform = isExpanded ? "rotate(90deg)" : "rotate(0deg)";
   });
 
-  // Hover effect for header
+  // Hover effect: brighten disclosure text instead of a background wash
   header.addEventListener("mouseenter", () => {
-    header.style.background = "rgba(45, 90, 135, 0.15)";
+    headerText.style.color = theme.textSecondary;
   });
   header.addEventListener("mouseleave", () => {
-    header.style.background = "rgba(45, 90, 135, 0.08)";
+    headerText.style.color = theme.textMuted;
   });
 
   container.appendChild(header);
@@ -531,7 +526,7 @@ export function createMessageElement(
     "div",
     {
       display: "block",
-      margin: "10px 0",
+      margin: "12px 0",
       textAlign: msg.role === "user" ? "right" : "left",
     },
     {
@@ -541,28 +536,34 @@ export function createMessageElement(
     },
   );
 
-  // Set bubble style based on role
+  // Quiet console style: user keeps a light bubble; assistant and error
+  // messages render as flat full-width rows on the panel background.
   let bubbleStyle: Record<string, string>;
   if (msg.role === "user") {
     bubbleStyle = {
+      display: "inline-block",
+      maxWidth: "85%",
+      padding: "10px 14px",
+      borderRadius: "12px",
       background: theme.userBubbleBg,
       color: theme.textPrimary,
-      borderBottomRightRadius: "4px",
+      textAlign: "left",
     };
   } else if (msg.role === "error") {
     bubbleStyle = {
-      background: chatColors.errorBubbleBg,
-      color: chatColors.errorBubbleText,
-      border: `1px solid ${chatColors.errorBubbleBorder}`,
-      borderBottomLeftRadius: "4px",
+      display: "block",
+      maxWidth: "100%",
+      padding: "2px 0 2px 10px",
+      borderLeft: `2px solid ${chatColors.errorBubbleBorder}`,
+      background: "transparent",
+      color: isDarkMode() ? "#f85149" : chatColors.errorBubbleText,
     };
   } else {
     bubbleStyle = {
-      background: theme.assistantBubbleBg,
+      display: "block",
+      maxWidth: "100%",
+      background: "transparent",
       color: theme.textPrimary,
-      border: `1px solid ${theme.borderColor}`,
-      borderBottomLeftRadius: "4px",
-      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.08)",
     };
   }
 
@@ -571,10 +572,6 @@ export function createMessageElement(
     "div",
     {
       position: "relative",
-      display: "inline-block",
-      maxWidth: "85%",
-      padding: "12px 16px",
-      borderRadius: "14px",
       wordWrap: "break-word",
       textAlign: "left",
       ...bubbleStyle,
@@ -624,9 +621,9 @@ export function createMessageElement(
         flexDirection: "column",
         gap: "6px",
         padding: "10px 12px",
-        background: "rgba(255, 255, 255, 0.12)",
+        background: "rgba(128, 128, 128, 0.14)",
         borderRadius: "8px",
-        border: "1px solid rgba(255, 255, 255, 0.18)",
+        border: "1px solid rgba(128, 128, 128, 0.28)",
       });
 
       // Quote header with icon and label
@@ -683,9 +680,9 @@ export function createMessageElement(
         flexDirection: "column",
         gap: "6px",
         padding: "10px 12px",
-        background: "rgba(255, 255, 255, 0.12)",
+        background: "rgba(128, 128, 128, 0.14)",
         borderRadius: "8px",
-        border: "1px solid rgba(255, 255, 255, 0.18)",
+        border: "1px solid rgba(128, 128, 128, 0.28)",
         marginTop: msg.selectedText ? "8px" : "0",
       });
 
@@ -728,7 +725,7 @@ export function createMessageElement(
           height: "80px",
           borderRadius: "6px",
           overflow: "hidden",
-          border: "1px solid rgba(255, 255, 255, 0.2)",
+          border: "1px solid rgba(128, 128, 128, 0.28)",
           flexShrink: "0",
         });
 
@@ -757,9 +754,9 @@ export function createMessageElement(
         flexDirection: "column",
         gap: "6px",
         padding: "10px 12px",
-        background: "rgba(255, 255, 255, 0.12)",
+        background: "rgba(128, 128, 128, 0.14)",
         borderRadius: "8px",
-        border: "1px solid rgba(255, 255, 255, 0.18)",
+        border: "1px solid rgba(128, 128, 128, 0.28)",
         marginTop:
           msg.selectedText || (msg.images && msg.images.length > 0)
             ? "8px"
@@ -892,6 +889,7 @@ export function createMessageElement(
   wrapper.appendChild(bubble);
 
   // Create metadata row (timestamp + copy button)
+  // Hidden by default; fades in when hovering the message (quiet console style).
   const metaRow = createElement(
     doc,
     "div",
@@ -902,6 +900,8 @@ export function createMessageElement(
       gap: "8px",
       marginTop: "4px",
       padding: "0 4px",
+      opacity: "0",
+      transition: "opacity 0.15s ease",
     },
     { class: "chat-message-meta" },
   );
@@ -1010,6 +1010,15 @@ export function createMessageElement(
   }
 
   wrapper.appendChild(metaRow);
+
+  // Reveal meta actions on hover over the message row
+  wrapper.addEventListener("mouseenter", () => {
+    metaRow.style.opacity = "1";
+  });
+  wrapper.addEventListener("mouseleave", () => {
+    metaRow.style.opacity = "0";
+  });
+
   return wrapper;
 }
 

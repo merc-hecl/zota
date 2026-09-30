@@ -535,6 +535,70 @@ export function buildDOMFromTokens(
 }
 
 /**
+ * Citation marker pattern: [n] or [n, m] not preceded by a word character
+ * (avoids matching array indexes like arr[0]).
+ */
+const CITATION_PATTERN = /(?<![a-zA-Z0-9_])\[(\d{1,2}(?:\s*,\s*\d{1,2})*)\]/g;
+
+/**
+ * Append text content, rendering [n] citation markers as footnote badges
+ * (agent harness style: small numbered pills instead of raw brackets).
+ */
+function appendTextWithCitations(
+  doc: Document,
+  parent: HTMLElement,
+  content: string,
+): void {
+  // Fast path: no bracket, plain text
+  if (!content.includes("[")) {
+    parent.appendChild(doc.createTextNode(content));
+    return;
+  }
+
+  const dark = isDarkMode();
+  CITATION_PATTERN.lastIndex = 0;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = CITATION_PATTERN.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parent.appendChild(
+        doc.createTextNode(content.slice(lastIndex, match.index)),
+      );
+    }
+
+    const badge = doc.createElementNS(HTML_NS, "sup") as HTMLElement;
+    badge.setAttribute("class", "chat-citation-badge");
+    // Badge shows only the numbers; the pill itself is the marker
+    badge.textContent = match[1];
+    badge.style.display = "inline-block";
+    badge.style.fontSize = "10px";
+    badge.style.lineHeight = "1";
+    badge.style.padding = "1px 5px";
+    badge.style.marginLeft = "2px";
+    badge.style.borderRadius = "8px";
+    badge.style.verticalAlign = "baseline";
+    badge.style.whiteSpace = "nowrap";
+    badge.style.fontFamily =
+      'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace';
+    badge.style.background = dark
+      ? chatColors.citationBadgeBgDark
+      : chatColors.citationBadgeBg;
+    badge.style.color = dark
+      ? chatColors.citationBadgeTextDark
+      : chatColors.citationBadgeText;
+    badge.style.userSelect = "none";
+    badge.style.cursor = "default";
+    parent.appendChild(badge);
+
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < content.length) {
+    parent.appendChild(doc.createTextNode(content.slice(lastIndex)));
+  }
+}
+
+/**
  * Render inline tokens (text, bold, italic, code, links, math, etc.)
  */
 export function renderInlineTokens(
@@ -549,7 +613,7 @@ export function renderInlineTokens(
 
     switch (token.type) {
       case "text":
-        current.appendChild(doc.createTextNode(token.content));
+        appendTextWithCitations(doc, current, token.content);
         break;
 
       case "strong_open": {

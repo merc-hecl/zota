@@ -16,6 +16,7 @@ import {
   updateCurrentTheme,
   applyThemeToContainer,
   setupThemeListener,
+  isDarkMode,
 } from "./ChatPanelTheme";
 import { createChatContainer } from "./ChatPanelBuilder";
 import {
@@ -2620,7 +2621,8 @@ function createContext(
 
           const bubble = doc.createElement("div");
           bubble.className = "message-bubble error-bubble";
-          bubble.style.cssText = `background: ${chatColors.errorBubbleBg}; border: 1px solid ${chatColors.errorBubbleBorder}; color: ${chatColors.errorBubbleText}; padding: 12px; border-radius: 8px; margin: 8px 0;`;
+          // Flat error row: transparent background with a left accent line
+          bubble.style.cssText = `background: transparent; border: none; border-left: 2px solid ${chatColors.errorBubbleBorder}; color: ${isDarkMode() ? "#f85149" : chatColors.errorBubbleText}; padding: 2px 0 2px 10px; margin: 8px 0;`;
 
           const content = doc.createElement("div");
           content.className = "message-content";
