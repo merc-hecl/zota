@@ -6,7 +6,6 @@ export {
   ProviderManager,
   getProviderManager,
   destroyProviderManager,
-  BUILTIN_PROVIDERS,
 } from "./ProviderManager";
 
 export {
@@ -28,5 +27,4 @@ export type {
   ApiKeyProviderConfig,
   ModelInfo,
   ModelCapability,
-  EndpointConfig,
 } from "../../types/provider";

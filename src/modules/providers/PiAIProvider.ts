@@ -1,14 +1,18 @@
 /**
  * PiAIProvider - Unified AI provider backed by @earendil-works/pi-ai
  *
- * Replaces the per-vendor provider implementations with pi-ai's API adapters:
- * - anthropic-compatible vendors (Claude, MiniMax) -> anthropic-messages API
+ * Routes each provider to one of pi-ai's API adapters according to its type:
+ * - anthropic-compatible vendors (Anthropic, MiniMax) -> anthropic-messages API
  * - gemini -> google-generative-ai API
+ * - mistral -> mistral-conversations API
+ * - openai/xai/meta -> openai-responses API
  * - all other OpenAI-compatible vendors -> openai-completions API
  *
- * Models are constructed on the fly from the stored provider config so that
- * custom base URLs, fetched model lists, and user-added custom models all work
- * without depending on pi-ai's static catalog.
+ * Per-model metadata (compat settings, context window, thinking level maps)
+ * is taken from pi-ai's runtime catalog when the model is known there, so
+ * vendor behavior stays in sync with the catalog instead of hand-tuned
+ * switches. Models not in the catalog are built on the fly from the stored
+ * provider config with conservative defaults.
  */
 
 import { normalizeContext } from "@earendil-works/pi-ai";
@@ -19,14 +23,17 @@ import type {
   UserMessage,
 } from "@earendil-works/pi-ai";
 import { stream as openAICompletionsStream } from "@earendil-works/pi-ai/api/openai-completions";
+import { stream as openAIResponsesStream } from "@earendil-works/pi-ai/api/openai-responses";
 import { stream as anthropicMessagesStream } from "@earendil-works/pi-ai/api/anthropic-messages";
 import { stream as googleGenerativeAIStream } from "@earendil-works/pi-ai/api/google-generative-ai";
+import { stream as mistralConversationsStream } from "@earendil-works/pi-ai/api/mistral-conversations";
 import type { ChatMessage, StreamCallbacks } from "../../types/chat";
 import type {
   AIProvider,
   ApiKeyProviderConfig,
   ProviderConfig,
 } from "../../types/provider";
+import { getCatalogModels } from "./PiAICatalog";
 
 export const DEFAULT_SYSTEM_PROMPT =
   "You are a helpful research assistant. Help the user understand and analyze academic papers and documents.";
@@ -54,18 +61,32 @@ When writing mathematical formulas, you MUST follow these formatting rules:
 === END FORMATTING REQUIREMENTS ===`;
 
 type OpenAICompletionsModel = Model<"openai-completions">;
+type OpenAIResponsesModel = Model<"openai-responses">;
+type MistralConversationsModel = Model<"mistral-conversations">;
 type AnthropicMessagesModel = Model<"anthropic-messages">;
 type GoogleGenerativeAIModel = Model<"google-generative-ai">;
+
+/** Union of the pi-ai models zota can build */
+type AnyPiModel =
+  | OpenAICompletionsModel
+  | OpenAIResponsesModel
+  | MistralConversationsModel
+  | AnthropicMessagesModel
+  | GoogleGenerativeAIModel;
 
 /** Supported pi-ai API kinds mapped from zota provider types */
 type PiApiKind =
   | "openai-completions"
+  | "openai-responses"
   | "anthropic-messages"
-  | "google-generative-ai";
+  | "google-generative-ai"
+  | "mistral-conversations";
 
 const API_KIND_BY_TYPE: Record<string, PiApiKind> = {
   "anthropic-compatible": "anthropic-messages",
   gemini: "google-generative-ai",
+  "openai-responses": "openai-responses",
+  "mistral-conversations": "mistral-conversations",
 };
 
 function getApiKind(type: string): PiApiKind {
@@ -73,66 +94,16 @@ function getApiKind(type: string): PiApiKind {
 }
 
 /**
- * Vendor-specific OpenAI-completions compatibility settings, mirroring the
- * tested configurations from pi-ai's built-in provider catalogs. All vendors
- * disable `store` (zota never persisted server-side sessions).
+ * Conservative compatibility settings for OpenAI-completions endpoints and
+ * models that are not covered by pi-ai's catalog. All vendors disable
+ * `store` (zota never persisted server-side sessions).
  */
-function getOpenAICompat(
-  type: string,
-  isBuiltin: boolean,
-): OpenAICompletionsModel["compat"] {
-  // Built-in OpenAI keeps pi-ai defaults (developer role, max_completion_tokens)
-  if (isBuiltin && type === "openai-compatible") {
-    return { supportsStore: false };
-  }
-  switch (type) {
-    case "deepseek":
-      // https://api.deepseek.com - thinking: {type} + max_tokens
-      return {
-        supportsStore: false,
-        maxTokensField: "max_tokens",
-      };
-    case "kimi":
-      // api.moonshot.cn / api.moonshot.ai - thinking: {type} only
-      return {
-        supportsStore: false,
-        supportsReasoningEffort: false,
-        maxTokensField: "max_tokens",
-        supportsMidConvoSystemMessages: true,
-      };
-    case "glm":
-      // open.bigmodel.cn / api.z.ai - thinking: {type: enabled|disabled}
-      return {
-        supportsStore: false,
-        supportsReasoningEffort: false,
-        maxTokensField: "max_tokens",
-      };
-    case "siliconflow":
-      // api.siliconflow.cn - enable_thinking via qwen-style format
-      return {
-        supportsStore: false,
-        supportsDeveloperRole: false,
-        supportsReasoningEffort: false,
-        maxTokensField: "max_tokens",
-        thinkingFormat: "qwen",
-      };
-    case "mistral":
-      return { supportsStore: false, maxTokensField: "max_tokens" };
-    case "groq":
-    case "openrouter":
-    case "xai":
-      // Auto-detected by pi-ai from the base URL where applicable
-      return { supportsStore: false };
-    default:
-      // Custom OpenAI-compatible endpoints - conservative settings
-      return {
-        supportsStore: false,
-        supportsDeveloperRole: false,
-        supportsReasoningEffort: false,
-        maxTokensField: "max_tokens",
-      };
-  }
-}
+const CONSERVATIVE_OPENAI_COMPAT: OpenAICompletionsModel["compat"] = {
+  supportsStore: false,
+  supportsDeveloperRole: false,
+  supportsReasoningEffort: false,
+  maxTokensField: "max_tokens",
+};
 
 /** Gemini thinking budget mapped from effort level (parity with the old provider) */
 function geminiThinkingBudget(effort: string): number {
@@ -226,14 +197,33 @@ export class PiAIProvider implements AIProvider {
   }
 
   /**
-   * Construct a pi-ai Model on the fly from the provider config so any
-   * base URL and any model id (fetched or custom) can be used.
+   * Construct the pi-ai Model for the request. When the selected model is
+   * known in pi-ai's catalog the catalog entry is used wholesale (carrying
+   * pi-ai's tested compat settings, thinking level map and limits) with the
+   * base URL overridden from the config. Otherwise the model is built on
+   * the fly from the stored config so any base URL and any model id
+   * (fetched or custom) can be used.
    */
-  private buildModel():
-    | OpenAICompletionsModel
-    | AnthropicMessagesModel
-    | GoogleGenerativeAIModel {
+  private buildModel(): AnyPiModel {
     const kind = this.apiKind;
+    const catalogModels = getCatalogModels(this._config.id);
+    const exact = catalogModels.find(
+      (m) => m.id === this.effectiveModelId && m.api === kind,
+    );
+
+    if (exact) {
+      return {
+        ...exact,
+        id: this.effectiveModelId,
+        provider: this._config.id,
+        baseUrl: this.normalizeBaseUrl(this._config.baseUrl, kind),
+      } as AnyPiModel;
+    }
+
+    // Vendor-level fallback: a fetched/custom model id on a catalog vendor
+    // reuses the compat settings of the vendor's first model with the same
+    // API kind.
+    const vendorFallback = catalogModels.find((m) => m.api === kind);
     const modelInfo = this._config.models?.find(
       (m) => m.modelId === this.effectiveModelId,
     );
@@ -241,8 +231,11 @@ export class PiAIProvider implements AIProvider {
       id: this.effectiveModelId,
       name: modelInfo?.nickname || this.effectiveModelId,
       provider: this._config.id,
-      baseUrl: this.normalizeBaseUrl(this._config.baseUrl, kind),
-      reasoning: this.supportsThinkingControl(),
+      baseUrl: this.normalizeBaseUrl(
+        this._config.baseUrl || vendorFallback?.baseUrl || "",
+        kind,
+      ),
+      reasoning: true,
       input: ["text", "image"] as ("text" | "image")[],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
       contextWindow: modelInfo?.contextWindow || 128000,
@@ -254,19 +247,36 @@ export class PiAIProvider implements AIProvider {
         return {
           ...base,
           api: "anthropic-messages",
-          // Claude models use adaptive thinking (effort-based)
-          compat:
-            this._config.id === "claude"
-              ? { forceAdaptiveThinking: true }
-              : undefined,
+          compat: (vendorFallback?.compat as
+            | AnthropicMessagesModel["compat"]
+            | undefined) || undefined,
         };
       case "google-generative-ai":
         return { ...base, api: "google-generative-ai" };
+      case "openai-responses":
+        return {
+          ...base,
+          api: "openai-responses",
+          compat: (vendorFallback?.compat as
+            | OpenAIResponsesModel["compat"]
+            | undefined) || undefined,
+        };
+      case "mistral-conversations":
+        return {
+          ...base,
+          api: "mistral-conversations",
+          compat: (vendorFallback?.compat as
+            | MistralConversationsModel["compat"]
+            | undefined) || undefined,
+        };
       default:
         return {
           ...base,
           api: "openai-completions",
-          compat: getOpenAICompat(this._config.type, this._config.isBuiltin),
+          compat:
+            (vendorFallback?.compat as
+              | OpenAICompletionsModel["compat"]
+              | undefined) || CONSERVATIVE_OPENAI_COMPAT,
         };
     }
   }
@@ -275,29 +285,19 @@ export class PiAIProvider implements AIProvider {
     return this._config.defaultModel || "";
   }
 
-  /** Whether thinking controls apply for this provider type */
-  private supportsThinkingControl(): boolean {
-    switch (this._config.type) {
-      case "deepseek":
-      case "kimi":
-      case "glm":
-      case "siliconflow":
-      case "minimax":
-      case "openai-compatible":
-      case "anthropic-compatible":
-      case "gemini":
-        return true;
-      default:
-        return true;
-    }
-  }
-
-  /** Normalize base URL: pi-ai SDKs expect the versioned root without trailing slash */
+  /**
+   * Normalize base URL: pi-ai SDKs expect the versioned root without a
+   * trailing slash. The anthropic/mistral SDKs append /v1 themselves, so a
+   * legacy /v1 suffix is stripped; OpenAI Responses endpoint variants are
+   * folded back onto the API root.
+   */
   private normalizeBaseUrl(baseUrl: string, kind: PiApiKind): string {
     const trimmed = baseUrl.replace(/\/+$/, "");
-    // OpenAI Responses endpoint variant is handled by the completions API root
-    if (kind === "openai-completions") {
+    if (kind === "openai-completions" || kind === "openai-responses") {
       return trimmed.replace(/\/responses$/, "");
+    }
+    if (kind === "anthropic-messages" || kind === "mistral-conversations") {
+      return trimmed.replace(/\/v1$/i, "");
     }
     return trimmed;
   }
@@ -324,7 +324,7 @@ export class PiAIProvider implements AIProvider {
     if (kind === "anthropic-messages") {
       // Anthropic requires max_tokens
       if (!options.maxTokens) options.maxTokens = 8192;
-      if (this._config.type === "minimax") {
+      if (this._config.id === "minimax" || this._config.id === "minimax-cn") {
         // MiniMax: binary thinking toggle via budget-based thinking
         if (this.thinkingModeEnabled) {
           options.thinkingEnabled = true;
@@ -343,23 +343,25 @@ export class PiAIProvider implements AIProvider {
           budgetTokens: geminiThinkingBudget(this.thinkingEffort),
         };
       }
+    } else if (kind === "openai-responses") {
+      // OpenAI/xAI/Meta: effort-based reasoning
+      if (this.reasoningEffort !== "none") {
+        options.reasoningEffort = this.reasoningEffort;
+      }
+    } else if (kind === "mistral-conversations") {
+      // Mistral only accepts none|high
+      if (this.thinkingModeEnabled || this.reasoningEffort !== "none") {
+        options.reasoningEffort = "high";
+      }
     } else {
       // OpenAI-completions family
-      if (
-        this._config.type === "openai-compatible" &&
-        this._config.id === "openai"
-      ) {
-        // OpenAI: effort-based reasoning
-        if (this.reasoningEffort !== "none") {
-          options.reasoningEffort = this.reasoningEffort;
-        }
-      } else if (this._config.type === "deepseek") {
+      if (this._config.id === "deepseek") {
         // DeepSeek: thinking param only applies to deepseek-chat
         if (this.thinkingModeEnabled && this.currentModel === "deepseek-chat") {
           options.reasoningEffort = "medium";
         }
       } else if (this.thinkingModeEnabled) {
-        // SiliconFlow/Kimi/GLM and other vendors: binary toggle
+        // Kimi/GLM/SiliconFlow and other vendors: binary toggle
         options.reasoningEffort = "medium";
       }
     }
@@ -459,24 +461,37 @@ export class PiAIProvider implements AIProvider {
       const model = this.buildModel();
       const context = normalizeContext(this.buildContext(messages));
       const options = this.buildStreamOptions(signal);
+      const kind = this.apiKind;
       const stream =
-        this.apiKind === "anthropic-messages"
+        kind === "anthropic-messages"
           ? anthropicMessagesStream(
               model as AnthropicMessagesModel,
               context,
               options as never,
             )
-          : this.apiKind === "google-generative-ai"
+          : kind === "google-generative-ai"
             ? googleGenerativeAIStream(
                 model as GoogleGenerativeAIModel,
                 context,
                 options as never,
               )
-            : openAICompletionsStream(
-                model as OpenAICompletionsModel,
-                context,
-                options as never,
-              );
+            : kind === "openai-responses"
+              ? openAIResponsesStream(
+                  model as OpenAIResponsesModel,
+                  context,
+                  options as never,
+                )
+              : kind === "mistral-conversations"
+                ? mistralConversationsStream(
+                    model as MistralConversationsModel,
+                    context,
+                    options as never,
+                  )
+                : openAICompletionsStream(
+                    model as OpenAICompletionsModel,
+                    context,
+                    options as never,
+                  );
 
       let fullContent = "";
       let settled = false;
@@ -563,24 +578,22 @@ export class PiAIProvider implements AIProvider {
 
     try {
       const kind = this.apiKind;
+      const base = this.normalizeBaseUrl(this._config.baseUrl, kind);
       if (kind === "anthropic-messages") {
         // Anthropic-compatible: a tiny messages request validates the key
-        const response = await fetch(
-          `${this._config.baseUrl.replace(/\/+$/, "")}/messages`,
-          {
-            method: "POST",
-            headers: {
-              "x-api-key": this._config.apiKey,
-              "anthropic-version": "2023-06-01",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: this.effectiveModelId || "claude-3-haiku-20240307",
-              max_tokens: 1,
-              messages: [{ role: "user", content: "Hi" }],
-            }),
+        const response = await fetch(`${base}/v1/messages`, {
+          method: "POST",
+          headers: {
+            "x-api-key": this._config.apiKey,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
           },
-        );
+          body: JSON.stringify({
+            model: this.effectiveModelId || "claude-3-haiku-20240307",
+            max_tokens: 1,
+            messages: [{ role: "user", content: "Hi" }],
+          }),
+        });
         if (response.ok) return true;
         const contentType = response.headers.get("content-type") || "";
         if (contentType.includes("application/json")) {
@@ -603,16 +616,20 @@ export class PiAIProvider implements AIProvider {
 
       if (kind === "google-generative-ai") {
         const response = await fetch(
-          `${this._config.baseUrl.replace(/\/+$/, "")}/models?key=${this._config.apiKey}`,
+          `${base}/models?key=${this._config.apiKey}`,
         );
         return response.ok;
       }
 
-      // OpenAI-compatible: list models
-      const baseUrl = this._config.baseUrl
-        .replace(/\/+$/, "")
-        .replace(/\/responses$/, "");
-      const response = await fetch(`${baseUrl}/models`, {
+      if (kind === "mistral-conversations") {
+        const response = await fetch(`${base}/v1/models`, {
+          headers: { Authorization: `Bearer ${this._config.apiKey}` },
+        });
+        return response.ok;
+      }
+
+      // OpenAI-compatible (completions/responses): list models
+      const response = await fetch(`${base}/models`, {
         headers: { Authorization: `Bearer ${this._config.apiKey}` },
       });
       return response.ok;
@@ -624,9 +641,10 @@ export class PiAIProvider implements AIProvider {
   async getAvailableModels(): Promise<string[]> {
     try {
       const kind = this.apiKind;
+      const base = this.normalizeBaseUrl(this._config.baseUrl, kind);
       if (kind === "google-generative-ai") {
         const response = await fetch(
-          `${this._config.baseUrl.replace(/\/+$/, "")}/models?key=${this._config.apiKey}`,
+          `${base}/models?key=${this._config.apiKey}`,
         );
         if (response.ok) {
           const data = (await response.json()) as {
@@ -646,15 +664,22 @@ export class PiAIProvider implements AIProvider {
           );
         }
       } else if (kind === "anthropic-messages") {
-        const response = await fetch(
-          `${this._config.baseUrl.replace(/\/+$/, "")}/models`,
-          {
-            headers: {
-              "x-api-key": this._config.apiKey,
-              "anthropic-version": "2023-06-01",
-            },
+        const response = await fetch(`${base}/v1/models`, {
+          headers: {
+            "x-api-key": this._config.apiKey,
+            "anthropic-version": "2023-06-01",
           },
-        );
+        });
+        if (response.ok) {
+          const data = (await response.json()) as {
+            data?: Array<{ id: string }>;
+          };
+          return data.data?.map((m) => m.id) || [];
+        }
+      } else if (kind === "mistral-conversations") {
+        const response = await fetch(`${base}/v1/models`, {
+          headers: { Authorization: `Bearer ${this._config.apiKey}` },
+        });
         if (response.ok) {
           const data = (await response.json()) as {
             data?: Array<{ id: string }>;
@@ -662,10 +687,8 @@ export class PiAIProvider implements AIProvider {
           return data.data?.map((m) => m.id) || [];
         }
       } else {
-        const baseUrl = this._config.baseUrl
-          .replace(/\/+$/, "")
-          .replace(/\/responses$/, "");
-        const response = await fetch(`${baseUrl}/models`, {
+        // OpenAI-compatible (completions/responses)
+        const response = await fetch(`${base}/models`, {
           headers: { Authorization: `Bearer ${this._config.apiKey}` },
         });
         if (response.ok) {

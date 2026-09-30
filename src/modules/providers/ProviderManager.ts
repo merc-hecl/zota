@@ -1,6 +1,7 @@
 /**
  * ProviderManager - Central management of AI providers
- * Supports built-in providers and custom endpoints
+ * Built-in providers come from pi-ai's runtime catalog; users may add
+ * custom OpenAI-compatible providers.
  */
 
 import type {
@@ -8,162 +9,36 @@ import type {
   ProviderConfig,
   ProviderMetadata,
   ProviderStorageData,
-  BuiltinProviderId,
   ApiKeyProviderConfig,
-  EndpointConfig,
   ModelInfo,
 } from "../../types/provider";
 import { PiAIProvider } from "./PiAIProvider";
+import { getCatalogProviders, MIGRATED_ID_BY_OLD_ID } from "./PiAICatalog";
 import { config } from "../../../package.json";
 
-export const BUILTIN_PROVIDERS: Record<BuiltinProviderId, ProviderMetadata> = {
-  openai: {
-    id: "openai",
-    name: "OpenAI",
-    defaultBaseUrl: "https://api.openai.com/v1",
-    website: "https://platform.openai.com",
-    type: "openai-compatible",
-    endpoints: [
-      {
-        label: "Chat Completions",
-        baseUrl: "https://api.openai.com/v1",
-        website: "https://platform.openai.com",
-      },
-      {
-        label: "Responses",
-        baseUrl: "https://api.openai.com/v1/responses",
-        website: "https://platform.openai.com",
-      },
-    ],
-  },
-  claude: {
-    id: "claude",
-    name: "Claude",
-    defaultBaseUrl: "https://api.anthropic.com/v1",
-    website: "https://console.anthropic.com",
-    type: "anthropic-compatible",
-  },
-  gemini: {
-    id: "gemini",
-    name: "Gemini",
-    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    website: "https://ai.google.dev",
-    type: "gemini",
-  },
-  deepseek: {
-    id: "deepseek",
-    name: "DeepSeek",
-    defaultBaseUrl: "https://api.deepseek.com/v1",
-    website: "https://platform.deepseek.com",
-    type: "deepseek",
-  },
-  mistral: {
-    id: "mistral",
-    name: "Mistral",
-    defaultBaseUrl: "https://api.mistral.ai/v1",
-    website: "https://console.mistral.ai",
-    type: "mistral",
-  },
-  groq: {
-    id: "groq",
-    name: "Groq",
-    defaultBaseUrl: "https://api.groq.com/openai/v1",
-    website: "https://console.groq.com",
-    type: "groq",
-  },
-  openrouter: {
-    id: "openrouter",
-    name: "OpenRouter",
-    defaultBaseUrl: "https://openrouter.ai/api/v1",
-    website: "https://openrouter.ai",
-    type: "openrouter",
-  },
-  kimi: {
-    id: "kimi",
-    name: "Kimi",
-    defaultBaseUrl: "https://api.moonshot.cn/v1",
-    website: "https://platform.moonshot.cn",
-    type: "kimi",
-    endpoints: [
-      {
-        label: "国内",
-        baseUrl: "https://api.moonshot.cn/v1",
-        website: "https://platform.moonshot.cn",
-      },
-      {
-        label: "海外",
-        baseUrl: "https://api.moonshot.ai/v1",
-        website: "https://platform.moonshot.ai/console",
-      },
-    ],
-  },
-  glm: {
-    id: "glm",
-    name: "GLM",
-    defaultBaseUrl: "https://open.bigmodel.cn/api/paas/v4",
-    website: "https://bigmodel.cn",
-    type: "openai-compatible",
-    endpoints: [
-      {
-        label: "国内",
-        baseUrl: "https://open.bigmodel.cn/api/paas/v4",
-        website: "https://bigmodel.cn",
-      },
-      {
-        label: "海外",
-        baseUrl: "https://api.z.ai/api/paas/v4",
-        website: "https://chat.z.ai",
-      },
-    ],
-  },
-  siliconflow: {
-    id: "siliconflow",
-    name: "SiliconFlow",
-    defaultBaseUrl: "https://api.siliconflow.cn/v1",
-    website: "https://docs.siliconflow.cn/cn/userguide/introduction",
-    type: "siliconflow",
-    endpoints: [
-      {
-        label: "国内",
-        baseUrl: "https://api.siliconflow.cn/v1",
-        website: "https://docs.siliconflow.cn/cn/userguide/introduction",
-      },
-      {
-        label: "海外",
-        baseUrl: "https://api.siliconflow.com/v1",
-        website: "https://docs.siliconflow.com/en/userguide/introduction",
-      },
-    ],
-  },
-  minimax: {
-    id: "minimax",
-    name: "MiniMax",
-    defaultBaseUrl: "https://api.minimaxi.com/anthropic",
-    website: "https://platform.minimaxi.com/docs/guides/models-intro",
-    type: "minimax",
-    endpoints: [
-      {
-        label: "国内",
-        baseUrl: "https://api.minimaxi.com/anthropic",
-        website: "https://platform.minimaxi.com/docs/guides/models-intro",
-      },
-      {
-        label: "海外",
-        baseUrl: "https://api.minimax.io/anthropic",
-        website: "https://platform.minimax.io/docs/guides/models-intro",
-      },
-    ],
-  },
-  xai: {
-    id: "xai",
-    name: "xAI",
-    defaultBaseUrl: "https://api.x.ai/v1",
-    website: "https://docs.x.ai",
-    type: "xai",
-  },
+const PREFS_KEY = `${config.prefsPrefix}.providersConfig`;
+
+/**
+ * Legacy vendor-specific types mapped to the current API-based types.
+ */
+const TYPE_BY_LEGACY_TYPE: Record<string, ProviderConfig["type"]> = {
+  deepseek: "openai-compatible",
+  kimi: "openai-compatible",
+  glm: "openai-compatible",
+  siliconflow: "openai-compatible",
+  mistral: "mistral-conversations",
+  groq: "openai-compatible",
+  openrouter: "openai-compatible",
+  xai: "openai-responses",
+  minimax: "anthropic-compatible",
 };
 
-const PREFS_KEY = `${config.prefsPrefix}.providersConfig`;
+/**
+ * All built-in providers, generated from pi-ai's runtime catalog.
+ */
+export function getBuiltinProviderList(): ProviderMetadata[] {
+  return getCatalogProviders();
+}
 
 export class ProviderManager {
   private providers: Map<string, AIProvider> = new Map();
@@ -186,12 +61,14 @@ export class ProviderManager {
 
       if (stored) {
         const data: ProviderStorageData = JSON.parse(stored);
-        const providers = data.providers || [];
-
-        this.activeProviderId = data.activeProviderId || "openai";
-        this.configs = this.mergeWithDefaultConfigs(
-          providers.map((p) => this.migrateLegacyEndpoints(p)),
+        const providers = (data.providers || []).map((p) =>
+          this.migrateStoredConfig(p),
         );
+
+        this.activeProviderId = this.migrateProviderId(
+          data.activeProviderId || "openai",
+        );
+        this.configs = this.mergeWithDefaultConfigs(providers);
       } else {
         this.configs = this.getDefaultConfigs();
       }
@@ -201,39 +78,81 @@ export class ProviderManager {
     }
   }
 
+  private migrateProviderId(providerId: string): string {
+    return MIGRATED_ID_BY_OLD_ID[providerId] || providerId;
+  }
+
   /**
-   * Migrate legacy endpoint configs that stored multiple API keys with a
-   * rotation index to the current single-key-per-endpoint format.
+   * Migrate a stored provider config to the current schema:
+   * - legacy endpoints that stored rotating API-key arrays -> single key
+   * - multi-endpoint configs -> flat single baseUrl/apiKey
+   * - pre-catalog provider ids (claude/gemini/glm/kimi) -> pi-ai catalog ids
+   * - legacy vendor-specific types -> API-based types
+   * - strip /v1 suffixes that the SDK-backed adapters append themselves
    */
-  private migrateLegacyEndpoints(
-    providerConfig: ProviderConfig,
-  ): ProviderConfig {
-    const endpoints = providerConfig.endpoints;
-    if (!endpoints?.length) return providerConfig;
+  private migrateStoredConfig(raw: ProviderConfig): ProviderConfig {
+    let cfg = { ...raw } as ProviderConfig & {
+      endpoints?: unknown;
+      currentEndpointIndex?: unknown;
+    };
 
-    const hasLegacy = endpoints.some((ep) =>
-      Array.isArray((ep as unknown as { apiKeys?: unknown }).apiKeys),
-    );
-    if (!hasLegacy) return providerConfig;
-
-    const migratedEndpoints: EndpointConfig[] = endpoints.map((ep) => {
-      const legacy = ep as unknown as {
+    // 1. Legacy multi-endpoint format: pick the active endpoint and flatten.
+    if (Array.isArray(cfg.endpoints) && cfg.endpoints.length > 0) {
+      const endpoints = cfg.endpoints as {
+        baseUrl?: string;
+        apiKey?: string;
         apiKeys?: { key?: string }[];
         currentApiKeyIndex?: number;
-      };
-      if (!Array.isArray(legacy.apiKeys)) return ep;
-      const index = legacy.currentApiKeyIndex ?? 0;
-      const apiKey = legacy.apiKeys[index]?.key || legacy.apiKeys[0]?.key || "";
-      return {
-        baseUrl: ep.baseUrl,
-        apiKey,
-        availableModels: ep.availableModels,
-        defaultModel: ep.defaultModel,
-      };
-    });
+        availableModels?: string[];
+        defaultModel?: string;
+      }[];
+      const index =
+        typeof cfg.currentEndpointIndex === "number" ? cfg.currentEndpointIndex : 0;
+      const active = endpoints[index] || endpoints[0];
+      // Older still: rotating apiKeys array on the endpoint.
+      const apiKey = active.apiKey
+        ?? (Array.isArray(active.apiKeys)
+          ? active.apiKeys[active.currentApiKeyIndex ?? 0]?.key ||
+            active.apiKeys[0]?.key ||
+            ""
+          : "");
 
-    const { ...rest } = providerConfig;
-    return { ...rest, endpoints: migratedEndpoints };
+      cfg = {
+        ...cfg,
+        baseUrl: active.baseUrl || cfg.baseUrl,
+        apiKey,
+        availableModels: active.availableModels?.length
+          ? active.availableModels
+          : cfg.availableModels,
+        defaultModel: active.defaultModel || cfg.defaultModel || "",
+      };
+    }
+    delete cfg.endpoints;
+    delete cfg.currentEndpointIndex;
+
+    // 2. Pre-catalog provider ids -> pi-ai catalog ids.
+    const migratedId = MIGRATED_ID_BY_OLD_ID[cfg.id];
+    if (migratedId) {
+      cfg = { ...cfg, id: migratedId };
+    }
+
+    // 3. Legacy vendor-specific types -> API-based types.
+    const normalizedType = TYPE_BY_LEGACY_TYPE[cfg.type];
+    if (normalizedType) {
+      cfg = { ...cfg, type: normalizedType };
+    }
+
+    // 4. The anthropic/mistral adapters append /v1 themselves; strip a
+    // legacy /v1 suffix so stored base URLs keep working.
+    if (
+      (cfg.type === "anthropic-compatible" ||
+        cfg.type === "mistral-conversations") &&
+      /\/v1\/?$/i.test(cfg.baseUrl || "")
+    ) {
+      cfg = { ...cfg, baseUrl: (cfg.baseUrl || "").replace(/\/v1\/?$/i, "") };
+    }
+
+    return cfg;
   }
 
   /**
@@ -264,11 +183,17 @@ export class ProviderManager {
       }
     }
 
-    // Add custom providers from stored configs
+    // Add stored configs that are not built-in anymore: user-added custom
+    // providers, plus legacy built-ins that left pi-ai's catalog (e.g.
+    // siliconflow) which are downgraded to custom providers.
     for (const storedConfig of storedConfigs) {
-      if (!storedConfig.isBuiltin) {
-        merged.push(storedConfig);
-      }
+      if (storedMap.get(storedConfig.id) !== storedConfig) continue;
+      if (defaultConfigs.some((d) => d.id === storedConfig.id)) continue;
+      merged.push(
+        storedConfig.isBuiltin
+          ? { ...storedConfig, isBuiltin: false }
+          : storedConfig,
+      );
     }
 
     // Reorder: built-in first (by order), then custom (by original order)
@@ -300,29 +225,13 @@ export class ProviderManager {
   private getDefaultConfigs(): ProviderConfig[] {
     const configs: ProviderConfig[] = [];
 
-    const apiKeyProviders: BuiltinProviderId[] = [
-      "openai",
-      "claude",
-      "gemini",
-      "deepseek",
-      "mistral",
-      "groq",
-      "openrouter",
-      "kimi",
-      "glm",
-      "siliconflow",
-      "minimax",
-      "xai",
-    ];
-
-    const sortedProviders = apiKeyProviders.sort((a, b) =>
-      BUILTIN_PROVIDERS[a].name.localeCompare(BUILTIN_PROVIDERS[b].name),
+    const sortedProviders = getBuiltinProviderList().sort((a, b) =>
+      a.name.localeCompare(b.name),
     );
 
-    sortedProviders.forEach((id, index) => {
-      const meta = BUILTIN_PROVIDERS[id];
+    sortedProviders.forEach((meta, index) => {
       configs.push({
-        id: id,
+        id: meta.id,
         name: meta.name,
         type: meta.type,
         enabled: false,
@@ -331,8 +240,8 @@ export class ProviderManager {
         apiKey: "",
         baseUrl: meta.defaultBaseUrl,
         defaultModel: "",
-        availableModels: [],
-        models: [],
+        availableModels: [...(meta.availableModels || [])],
+        models: [...(meta.models || [])],
         streamingOutput: true,
       } as ApiKeyProviderConfig);
     });
@@ -457,11 +366,13 @@ export class ProviderManager {
   }
 
   getProviderMetadata(providerId: string): ProviderMetadata | null {
-    return BUILTIN_PROVIDERS[providerId as BuiltinProviderId] || null;
+    return (
+      getBuiltinProviderList().find((p) => p.id === providerId) || null
+    );
   }
 
   getAllProviderMetadata(): ProviderMetadata[] {
-    return Object.values(BUILTIN_PROVIDERS);
+    return getBuiltinProviderList();
   }
 
   addCustomModel(providerId: string, modelId: string): boolean {

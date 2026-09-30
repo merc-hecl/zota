@@ -52,33 +52,8 @@ pref-enter-model-id = Enter model ID:
 pref-model-custom = Custom
 pref-model-exists = Model already exists
 
-# Endpoint Management
-pref-add-endpoint = + Add Endpoint
-pref-edit-endpoint = Edit Endpoint
-pref-delete-endpoint = Delete Endpoint
-pref-enter-base-url = Enter API endpoint URL:
-pref-edit-base-url = Edit endpoint URL:
-pref-endpoint-exists = This endpoint already exists
-pref-endpoint-added = Endpoint added
-pref-endpoint-edited = Endpoint edited
-pref-endpoint-deleted = Endpoint deleted
-pref-delete-endpoint-confirm = Are you sure you want to delete the endpoint "{ $endpoint }"?
-pref-cannot-add-endpoint-builtin = Cannot add endpoint to built-in provider
-pref-cannot-edit-endpoint-builtin = Cannot edit built-in provider endpoint
-pref-cannot-delete-endpoint-builtin = Cannot delete built-in provider endpoint
-pref-add-endpoint-first = Please add an endpoint first
-
 # API Key Management
-pref-add-apikey = + Add API Key
-pref-edit-apikey = Edit API Key
-pref-delete-apikey = Delete API Key
-pref-enter-apikey = Enter API key:
-pref-enter-apikey-name = API Key name (optional):
-pref-edit-apikey-name = Edit API Key name (optional):
-pref-apikey-exists = This API key already exists
-pref-delete-apikey-confirm = Are you sure you want to delete the API key "{ $key }"?
-pref-apikey-deleted = API key deleted
-pref-apikey-edited = API key edited
+pref-hide-key = Hide
 
 # Delete Provider
 pref-cannot-delete-builtin = Cannot delete built-in provider

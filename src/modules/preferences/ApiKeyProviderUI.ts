@@ -7,87 +7,18 @@ import { prefColors } from "../../utils/colors";
 import { getProviderManager, getModelStateManager } from "../providers";
 import type {
   ApiKeyProviderConfig,
-  EndpointConfig,
   ProviderMetadata,
 } from "../../types/provider";
 import { clearElement, showTestResult } from "./utils";
-
-const ENDPOINTS_DATA_KEY = "__zota_endpoints_data__";
-const CURRENT_INDEX_KEY = "__zota_current_endpoint_index__";
-
-function getEndpointsData(
-  win: Window,
-  providerId: string,
-): EndpointConfig[] | null {
-  const data = (win as any)[ENDPOINTS_DATA_KEY]?.[providerId];
-  return data || null;
-}
-
-function setEndpointsData(
-  win: Window,
-  providerId: string,
-  endpoints: EndpointConfig[],
-): void {
-  if (!(win as any)[ENDPOINTS_DATA_KEY]) {
-    (win as any)[ENDPOINTS_DATA_KEY] = {};
-  }
-  (win as any)[ENDPOINTS_DATA_KEY][providerId] = endpoints;
-}
-
-function getCurrentIndex(
-  win: Window,
-  providerId: string,
-  config?: ApiKeyProviderConfig,
-): number {
-  const windowIndex = (win as any)[CURRENT_INDEX_KEY]?.[providerId];
-  if (windowIndex !== undefined) return windowIndex;
-
-  const cfg =
-    config ||
-    (getProviderManager().getProviderConfig(
-      providerId,
-    ) as ApiKeyProviderConfig);
-  if (cfg?.currentEndpointIndex !== undefined) return cfg.currentEndpointIndex;
-  return 0;
-}
-
-function setCurrentIndex(
-  win: Window,
-  providerId: string,
-  index: number,
-  providerManager?: ReturnType<typeof getProviderManager>,
-): void {
-  if (!(win as any)[CURRENT_INDEX_KEY]) {
-    (win as any)[CURRENT_INDEX_KEY] = {};
-  }
-  (win as any)[CURRENT_INDEX_KEY][providerId] = index;
-
-  if (providerManager) {
-    providerManager.updateProviderConfig(providerId, {
-      currentEndpointIndex: index,
-    });
-  }
-}
-
-function maskApiKey(key: string): string {
-  if (!key || key.length <= 4) return key || "";
-  return "*".repeat(key.length - 4) + key.slice(-4);
-}
 
 export function populateApiKeyPanel(
   doc: Document,
   config: ApiKeyProviderConfig,
   metadata?: ProviderMetadata | null,
 ): void {
-  const win = doc.defaultView;
-  if (!win) return;
-
-  const baseurlSelect = doc.getElementById(
+  const baseUrlInput = doc.getElementById(
     "pref-provider-baseurl",
-  ) as unknown as XULMenuListElement;
-  const apikeySelect = doc.getElementById(
-    "pref-provider-apikey",
-  ) as unknown as XULMenuListElement;
+  ) as HTMLInputElement;
   const modelSelect = doc.getElementById(
     "pref-provider-model",
   ) as unknown as XULMenuListElement;
@@ -110,58 +41,16 @@ export function populateApiKeyPanel(
     "pref-streaming-output",
   ) as HTMLInputElement;
 
-  let endpoints = getEndpointsData(win, config.id);
-
-  if (!endpoints) {
-    if (config.endpoints && config.endpoints.length > 0) {
-      endpoints = [...config.endpoints];
-    } else if (config.baseUrl) {
-      // Check if provider has multiple endpoints defined in metadata
-      if (metadata?.endpoints && metadata.endpoints.length > 1) {
-        endpoints = metadata.endpoints.map((ep) => ({
-          baseUrl: ep.baseUrl,
-          apiKey: config.apiKey || "",
-          availableModels: config.availableModels || [],
-          defaultModel: config.defaultModel || "",
-        }));
-      } else {
-        endpoints = [
-          {
-            baseUrl: config.baseUrl,
-            apiKey: config.apiKey || "",
-            availableModels: config.availableModels || [],
-            defaultModel: config.defaultModel || "",
-          },
-        ];
-      }
-    } else {
-      endpoints = [];
-    }
-    setEndpointsData(win, config.id, endpoints);
+  if (baseUrlInput) {
+    baseUrlInput.value = config.baseUrl || metadata?.defaultBaseUrl || "";
   }
-
-  let currentEndpointIndex = getCurrentIndex(win, config.id, config);
-  if (currentEndpointIndex >= endpoints.length) {
-    currentEndpointIndex = Math.max(0, endpoints.length - 1);
-    setCurrentIndex(win, config.id, currentEndpointIndex, getProviderManager());
-  }
-
-  const currentEndpoint = endpoints[currentEndpointIndex];
-
-  populateEndpointDropdown(
-    doc,
-    endpoints,
-    currentEndpointIndex,
-    config.isBuiltin,
-    metadata,
-  );
-  populateApiKeyDropdown(doc, currentEndpoint?.apiKey || "");
+  setApiKeyInputValue(doc, config.apiKey || "");
 
   const modelPopup = doc.getElementById("pref-provider-model-popup");
   if (modelPopup && modelSelect) {
     clearElement(modelPopup);
 
-    const models = currentEndpoint?.availableModels || [];
+    const models = config.availableModels || [];
     models.forEach((model) => {
       const menuitem = doc.createXULElement("menuitem");
       menuitem.setAttribute("label", model);
@@ -169,11 +58,11 @@ export function populateApiKeyPanel(
       modelPopup.appendChild(menuitem);
     });
 
-    const defaultModel = currentEndpoint?.defaultModel || models[0] || "";
+    const defaultModel = config.defaultModel || models[0] || "";
     modelSelect.value = defaultModel;
   }
 
-  populateModelList(doc, config, currentEndpoint);
+  populateModelList(doc, config);
 
   if (maxTokensEl) maxTokensEl.value = String(config.maxTokens ?? -1);
   if (temperatureEl) temperatureEl.value = String(config.temperature ?? 0.7);
@@ -190,15 +79,12 @@ export function populateApiKeyPanel(
     streamingOutputEl.checked = config.streamingOutput ?? true;
   }
 
-  // Update visit website button state based on provider type
+  // Update visit website button state
   const visitWebsiteBtn = doc.getElementById(
     "pref-visit-website",
   ) as HTMLButtonElement;
   if (visitWebsiteBtn) {
-    // Check if any endpoint has a website or provider has a default website
-    const hasWebsite =
-      metadata?.endpoints?.some((ep) => ep.website) ||
-      (metadata?.website && metadata.website.length > 0);
+    const hasWebsite = !!metadata?.website;
     visitWebsiteBtn.disabled = !hasWebsite;
     if (!hasWebsite) {
       visitWebsiteBtn.setAttribute("disabled", "true");
@@ -211,140 +97,35 @@ export function populateApiKeyPanel(
   if (testResult) testResult.textContent = "";
 }
 
-function populateEndpointDropdown(
-  doc: Document,
-  endpoints: EndpointConfig[],
-  selectedIndex: number,
-  isBuiltin: boolean,
-  metadata?: ProviderMetadata | null,
-): void {
-  const baseurlSelect = doc.getElementById(
-    "pref-provider-baseurl",
-  ) as unknown as XULMenuListElement;
-  const baseurlPopup = doc.getElementById("pref-provider-baseurl-popup");
-
-  if (!baseurlSelect || !baseurlPopup) return;
-
-  clearElement(baseurlPopup);
-
-  endpoints.forEach((endpoint, index) => {
-    const menuitem = doc.createXULElement("menuitem");
-    menuitem.setAttribute("label", endpoint.baseUrl);
-    menuitem.setAttribute("value", String(index));
-    baseurlPopup.appendChild(menuitem);
-  });
-
-  if (!isBuiltin && endpoints.length > 0) {
-    const separator1 = doc.createXULElement("menuseparator");
-    baseurlPopup.appendChild(separator1);
-
-    const editItem = doc.createXULElement("menuitem");
-    editItem.setAttribute(
-      "label",
-      getString("pref-edit-endpoint" as any) || "Edit Endpoint",
-    );
-    editItem.setAttribute("value", "__edit_endpoint__");
-    editItem.setAttribute("style", "font-weight: bold; color: #0066cc;");
-    baseurlPopup.appendChild(editItem);
-
-    const deleteItem = doc.createXULElement("menuitem");
-    deleteItem.setAttribute(
-      "label",
-      getString("pref-delete-endpoint" as any) || "Delete Endpoint",
-    );
-    deleteItem.setAttribute("value", "__delete__");
-    deleteItem.setAttribute("style", "font-weight: bold; color: #cc0000;");
-    baseurlPopup.appendChild(deleteItem);
-  }
-
-  if (!isBuiltin) {
-    const separator2 = doc.createXULElement("menuseparator");
-    baseurlPopup.appendChild(separator2);
-
-    const addNewItem = doc.createXULElement("menuitem");
-    addNewItem.setAttribute(
-      "label",
-      getString("pref-add-endpoint" as any) || "+ Add Endpoint",
-    );
-    addNewItem.setAttribute("value", "__add_new__");
-    addNewItem.setAttribute("style", "font-weight: bold; color: #0066cc;");
-    baseurlPopup.appendChild(addNewItem);
-  }
-
-  if (endpoints.length > 0 && selectedIndex < endpoints.length) {
-    baseurlSelect.selectedIndex = selectedIndex;
-    baseurlSelect.value = String(selectedIndex);
-  } else {
-    baseurlSelect.selectedIndex = -1;
-    baseurlSelect.setAttribute("label", "");
-    baseurlSelect.value = "";
-  }
+/**
+ * Sync the single API key input with the stored key.
+ * The input is always re-masked when the panel is repopulated.
+ */
+function setApiKeyInputValue(doc: Document, apiKey: string): void {
+  const apikeyInput = doc.getElementById(
+    "pref-provider-apikey",
+  ) as HTMLInputElement | null;
+  if (!apikeyInput) return;
+  apikeyInput.value = apiKey;
+  apikeyInput.type = "password";
+  updateToggleKeyButton(doc, false);
 }
 
-function populateApiKeyDropdown(doc: Document, apiKey: string): void {
-  const apikeySelect = doc.getElementById(
-    "pref-provider-apikey",
-  ) as unknown as XULMenuListElement;
-  const apikeyPopup = doc.getElementById("pref-provider-apikey-popup");
-
-  if (!apikeySelect || !apikeyPopup) return;
-
-  clearElement(apikeyPopup);
-
-  if (apiKey) {
-    const currentItem = doc.createXULElement("menuitem");
-    currentItem.setAttribute("label", maskApiKey(apiKey));
-    currentItem.setAttribute("value", "__current_apikey__");
-    apikeyPopup.appendChild(currentItem);
-
-    const separator1 = doc.createXULElement("menuseparator");
-    apikeyPopup.appendChild(separator1);
-
-    const editItem = doc.createXULElement("menuitem");
-    editItem.setAttribute(
-      "label",
-      getString("pref-edit-apikey" as any) || "Edit API Key",
-    );
-    editItem.setAttribute("value", "__edit_apikey__");
-    editItem.setAttribute("style", "font-weight: bold; color: #0066cc;");
-    apikeyPopup.appendChild(editItem);
-
-    const deleteItem = doc.createXULElement("menuitem");
-    deleteItem.setAttribute(
-      "label",
-      getString("pref-delete-apikey" as any) || "Delete API Key",
-    );
-    deleteItem.setAttribute("value", "__delete_apikey__");
-    deleteItem.setAttribute("style", "font-weight: bold; color: #cc0000;");
-    apikeyPopup.appendChild(deleteItem);
-  }
-
-  const separator2 = doc.createXULElement("menuseparator");
-  apikeyPopup.appendChild(separator2);
-
-  const addNewItem = doc.createXULElement("menuitem");
-  addNewItem.setAttribute(
+/**
+ * Update the show/hide toggle button label.
+ */
+function updateToggleKeyButton(doc: Document, keyVisible: boolean): void {
+  const toggleKeyBtn = doc.getElementById("pref-toggle-apikey");
+  if (!toggleKeyBtn) return;
+  toggleKeyBtn.setAttribute(
     "label",
-    getString("pref-add-apikey" as any) || "+ Add API Key",
+    keyVisible ? getString("pref-hide-key") : getString("pref-show-key"),
   );
-  addNewItem.setAttribute("value", "__add_apikey__");
-  addNewItem.setAttribute("style", "font-weight: bold; color: #0066cc;");
-  apikeyPopup.appendChild(addNewItem);
-
-  if (apiKey) {
-    apikeySelect.selectedIndex = 0;
-    apikeySelect.value = "__current_apikey__";
-  } else {
-    apikeySelect.selectedIndex = -1;
-    apikeySelect.setAttribute("label", "");
-    apikeySelect.value = "";
-  }
 }
 
 function populateModelList(
   doc: Document,
   config: ApiKeyProviderConfig,
-  currentEndpoint?: EndpointConfig,
 ): void {
   const providerManager = getProviderManager();
   const listContainer = doc.getElementById("pref-model-list");
@@ -352,7 +133,7 @@ function populateModelList(
 
   clearElement(listContainer);
 
-  const models = currentEndpoint?.availableModels || [];
+  const models = config.availableModels || [];
 
   models.forEach((modelId) => {
     const isCustom = providerManager.isCustomModel(config.id, modelId);
@@ -420,36 +201,12 @@ function populateModelList(
       `;
       deleteBtn.addEventListener("click", () => {
         if (providerManager.removeCustomModel(config.id, modelId)) {
-          const win = doc.defaultView;
-          if (win && currentEndpoint) {
-            const currentEndpointIndex = getCurrentIndex(win, config.id);
-            let endpoints = getEndpointsData(win, config.id) || [];
-            endpoints = endpoints.map((ep, idx) =>
-              idx === currentEndpointIndex
-                ? {
-                    ...ep,
-                    availableModels: ep.availableModels?.filter(
-                      (m) => m !== modelId,
-                    ),
-                  }
-                : ep,
-            );
-            setEndpointsData(win, config.id, endpoints);
-
-            const providerManager = getProviderManager();
-            providerManager.updateProviderConfig(config.id, {
-              endpoints,
-              availableModels:
-                endpoints[currentEndpointIndex]?.availableModels || [],
-            });
-
-            const updatedConfig = providerManager.getProviderConfig(
-              config.id,
-            ) as ApiKeyProviderConfig;
-            if (updatedConfig) {
-              const metadata = providerManager.getProviderMetadata(config.id);
-              populateApiKeyPanel(doc, updatedConfig, metadata);
-            }
+          const updatedConfig = providerManager.getProviderConfig(
+            config.id,
+          ) as ApiKeyProviderConfig;
+          if (updatedConfig) {
+            const metadata = providerManager.getProviderMetadata(config.id);
+            populateApiKeyPanel(doc, updatedConfig, metadata);
           }
         }
       });
@@ -475,11 +232,14 @@ export function saveCurrentProviderConfig(
   doc: Document,
   currentProviderId: string,
 ): void {
-  const win = doc.defaultView;
-  if (!win) return;
-
   const providerManager = getProviderManager();
 
+  const baseUrlInput = doc.getElementById(
+    "pref-provider-baseurl",
+  ) as HTMLInputElement;
+  const apikeyInput = doc.getElementById(
+    "pref-provider-apikey",
+  ) as HTMLInputElement;
   const modelSelect = doc.getElementById(
     "pref-provider-model",
   ) as unknown as XULMenuListElement;
@@ -502,38 +262,20 @@ export function saveCurrentProviderConfig(
     "pref-streaming-output",
   ) as HTMLInputElement;
 
-  const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-
-  let endpoints = getEndpointsData(win, currentProviderId) || [];
-
-  if (endpoints.length > 0 && currentEndpointIndex < endpoints.length) {
-    endpoints = endpoints.map((ep, idx) =>
-      idx === currentEndpointIndex
-        ? { ...ep, defaultModel: modelSelect?.value || ep.defaultModel }
-        : ep,
-    );
-    setEndpointsData(win, currentProviderId, endpoints);
-  }
-
-  const currentEndpoint = endpoints[currentEndpointIndex];
-  const currentApiKey = currentEndpoint?.apiKey || "";
-  const isNowEnabled = endpoints.some((ep) => ep.apiKey.trim() !== "");
+  const apiKey = (apikeyInput?.value || "").trim();
 
   const updates: Partial<ApiKeyProviderConfig> = {
-    enabled: isNowEnabled,
-    apiKey: currentApiKey,
-    baseUrl: currentEndpoint?.baseUrl || "",
+    enabled: apiKey !== "",
+    apiKey,
+    baseUrl: (baseUrlInput?.value || "").trim(),
     defaultModel: modelSelect?.value || "",
-    availableModels: currentEndpoint?.availableModels || [],
     maxTokens: parseInt(maxTokensEl?.value) || -1,
     temperature: parseFloat(temperatureEl?.value) || 0.7,
     pdfMaxChars: parseInt(pdfMaxCharsEl?.value) || 50000,
     maxDocuments: parseInt(maxDocumentsEl?.value) || 3,
     systemPrompt: systemPromptEl?.value || "",
     streamingOutput: streamingOutputEl?.checked ?? true,
-    endpoints,
   };
-
   providerManager.updateProviderConfig(currentProviderId, updates);
 
   const model = modelSelect?.value;
@@ -543,555 +285,49 @@ export function saveCurrentProviderConfig(
   }
 }
 
-function addNewEndpoint(doc: Document, currentProviderId: string): void {
-  const win = doc.defaultView;
-  if (!win) return;
-
-  const providerManager = getProviderManager();
-  const config = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-
-  if (config.isBuiltin) {
-    showTestResult(
-      doc,
-      getString("pref-cannot-add-endpoint-builtin" as any) ||
-        "Cannot add endpoint to built-in provider",
-      true,
-    );
-    return;
-  }
-
-  const newBaseUrl = addon.data.prefs?.window?.prompt(
-    getString("pref-enter-base-url" as any) || "Enter endpoint URL:",
-  );
-
-  if (!newBaseUrl || !newBaseUrl.trim()) {
-    const config = providerManager.getProviderConfig(
-      currentProviderId,
-    ) as ApiKeyProviderConfig;
-    if (config) {
-      const metadata = providerManager.getProviderMetadata(config.id);
-      populateApiKeyPanel(doc, config, metadata);
-    }
-    return;
-  }
-
-  let endpoints = getEndpointsData(win, currentProviderId) || [];
-
-  const exists = endpoints.some(
-    (ep) => ep.baseUrl.toLowerCase() === newBaseUrl.trim().toLowerCase(),
-  );
-
-  if (exists) {
-    showTestResult(
-      doc,
-      getString("pref-endpoint-exists" as any) || "Endpoint already exists",
-      true,
-    );
-    const baseurlSelect = doc.getElementById(
-      "pref-provider-baseurl",
-    ) as unknown as XULMenuListElement;
-    if (baseurlSelect) {
-      const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-      baseurlSelect.selectedIndex = currentEndpointIndex;
-      baseurlSelect.value = String(currentEndpointIndex);
-    }
-    return;
-  }
-
-  endpoints = [
-    ...endpoints,
-    {
-      baseUrl: newBaseUrl.trim(),
-      apiKey: "",
-      availableModels: [],
-      defaultModel: "",
-    },
-  ];
-
-  const newIndex = endpoints.length - 1;
-  setEndpointsData(win, currentProviderId, endpoints);
-  setCurrentIndex(win, currentProviderId, newIndex, providerManager);
-
-  const updates: Partial<ApiKeyProviderConfig> = {
-    endpoints,
-    baseUrl: newBaseUrl.trim(),
-    apiKey: "",
-    availableModels: [],
-    defaultModel: "",
-    currentEndpointIndex: newIndex,
-  };
-
-  providerManager.updateProviderConfig(currentProviderId, updates);
-
-  const updatedConfig = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-  if (updatedConfig) populateApiKeyPanel(doc, updatedConfig);
-
-  showTestResult(
-    doc,
-    getString("pref-endpoint-added" as any) || "Endpoint added",
-    false,
-  );
-}
-
-function editEndpoint(doc: Document, currentProviderId: string): void {
-  const win = doc.defaultView;
-  if (!win) return;
-
-  const providerManager = getProviderManager();
-  const config = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-
-  if (config.isBuiltin) {
-    showTestResult(
-      doc,
-      getString("pref-cannot-edit-endpoint-builtin" as any) ||
-        "Cannot edit built-in provider endpoint",
-      true,
-    );
-    return;
-  }
-
-  const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-  let endpoints = getEndpointsData(win, currentProviderId) || [];
-
-  if (endpoints.length === 0 || currentEndpointIndex >= endpoints.length)
-    return;
-
-  const currentEndpoint = endpoints[currentEndpointIndex];
-  const currentUrl = currentEndpoint.baseUrl;
-
-  const newBaseUrl = addon.data.prefs?.window?.prompt(
-    getString("pref-edit-base-url" as any) || "Edit endpoint URL:",
-    currentUrl,
-  );
-
-  if (!newBaseUrl || !newBaseUrl.trim()) {
-    const config = providerManager.getProviderConfig(
-      currentProviderId,
-    ) as ApiKeyProviderConfig;
-    if (config) {
-      const metadata = providerManager.getProviderMetadata(config.id);
-      populateApiKeyPanel(doc, config, metadata);
-    }
-    return;
-  }
-
-  const exists = endpoints.some(
-    (ep, idx) =>
-      idx !== currentEndpointIndex &&
-      ep.baseUrl.toLowerCase() === newBaseUrl.trim().toLowerCase(),
-  );
-
-  if (exists) {
-    showTestResult(
-      doc,
-      getString("pref-endpoint-exists" as any) || "Endpoint already exists",
-      true,
-    );
-    const config = providerManager.getProviderConfig(
-      currentProviderId,
-    ) as ApiKeyProviderConfig;
-    if (config) {
-      const metadata = providerManager.getProviderMetadata(config.id);
-      populateApiKeyPanel(doc, config, metadata);
-    }
-    return;
-  }
-
-  endpoints = endpoints.map((ep, idx) =>
-    idx === currentEndpointIndex ? { ...ep, baseUrl: newBaseUrl.trim() } : ep,
-  );
-
-  setEndpointsData(win, currentProviderId, endpoints);
-
-  const updates: Partial<ApiKeyProviderConfig> = {
-    endpoints,
-    baseUrl: newBaseUrl.trim(),
-  };
-
-  providerManager.updateProviderConfig(currentProviderId, updates);
-
-  const updatedConfig = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-  if (updatedConfig) populateApiKeyPanel(doc, updatedConfig);
-
-  showTestResult(
-    doc,
-    getString("pref-endpoint-edited" as any) || "Endpoint edited",
-    false,
-  );
-}
-
-function deleteEndpoint(doc: Document, currentProviderId: string): void {
-  const win = doc.defaultView;
-  if (!win) return;
-
-  const providerManager = getProviderManager();
-  const config = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-
-  if (config.isBuiltin) {
-    showTestResult(
-      doc,
-      getString("pref-cannot-delete-endpoint-builtin" as any) ||
-        "Cannot delete built-in provider endpoint",
-      true,
-    );
-    return;
-  }
-
-  let endpoints = getEndpointsData(win, currentProviderId) || [];
-  const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-
-  if (endpoints.length === 0 || currentEndpointIndex >= endpoints.length)
-    return;
-
-  const endpointToDelete = endpoints[currentEndpointIndex];
-  const message =
-    getString("pref-delete-endpoint-confirm" as any, {
-      args: { endpoint: endpointToDelete.baseUrl },
-    }) || `Delete endpoint "${endpointToDelete.baseUrl}"?`;
-  const confirmed = addon.data.prefs?.window?.confirm(message);
-
-  if (!confirmed) {
-    const config = providerManager.getProviderConfig(
-      currentProviderId,
-    ) as ApiKeyProviderConfig;
-    if (config) {
-      const metadata = providerManager.getProviderMetadata(config.id);
-      populateApiKeyPanel(doc, config, metadata);
-    }
-    return;
-  }
-
-  endpoints = endpoints.filter((_, idx) => idx !== currentEndpointIndex);
-  setEndpointsData(win, currentProviderId, endpoints);
-
-  const newIndex = Math.max(
-    0,
-    Math.min(currentEndpointIndex, endpoints.length - 1),
-  );
-  setCurrentIndex(win, currentProviderId, newIndex, providerManager);
-
-  const newEndpoint = endpoints[newIndex];
-
-  const hasAnyKey = endpoints.some((ep) => ep.apiKey.trim() !== "");
-  const newDefaultModel = newEndpoint?.defaultModel || "";
-  const updates: Partial<ApiKeyProviderConfig> = {
-    endpoints,
-    baseUrl: newEndpoint?.baseUrl || "",
-    apiKey: newEndpoint?.apiKey || "",
-    availableModels: newEndpoint?.availableModels || [],
-    currentEndpointIndex: newIndex,
-    defaultModel: newDefaultModel,
-    enabled: hasAnyKey,
-  };
-
-  providerManager.updateProviderConfig(currentProviderId, updates);
-
-  const modelStateManager = getModelStateManager();
-  if (newDefaultModel) {
-    modelStateManager.setModel(newDefaultModel, currentProviderId);
-  } else {
-    modelStateManager.setModel("", currentProviderId);
-  }
-
-  const updatedConfig = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-  if (updatedConfig) populateApiKeyPanel(doc, updatedConfig);
-
-  showTestResult(
-    doc,
-    getString("pref-endpoint-deleted" as any) || "Endpoint deleted",
-    false,
-  );
-}
-
-function switchEndpoint(
-  doc: Document,
-  currentProviderId: string,
-  endpointIndex: number,
-): void {
-  const win = doc.defaultView;
-  if (!win) return;
-
-  const providerManager = getProviderManager();
-
-  saveCurrentProviderConfig(doc, currentProviderId);
-
-  const endpoints = getEndpointsData(win, currentProviderId) || [];
-
-  if (endpointIndex < 0 || endpointIndex >= endpoints.length) return;
-
-  setCurrentIndex(win, currentProviderId, endpointIndex, providerManager);
-  const endpoint = endpoints[endpointIndex];
-
-  providerManager.updateProviderConfig(currentProviderId, {
-    baseUrl: endpoint.baseUrl,
-    apiKey: endpoint.apiKey || "",
-    availableModels: endpoint.availableModels || [],
-    defaultModel: endpoint.defaultModel || "",
-    currentEndpointIndex: endpointIndex,
-  });
-
-  const updatedConfig = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-  if (updatedConfig) {
-    const metadata = providerManager.getProviderMetadata(currentProviderId);
-    populateApiKeyPanel(doc, updatedConfig, metadata);
-  }
-}
-
-function addNewApiKey(doc: Document, currentProviderId: string): void {
-  const win = doc.defaultView;
-  if (!win) return;
-
-  const providerManager = getProviderManager();
-
-  const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-  let endpoints = getEndpointsData(win, currentProviderId) || [];
-
-  if (endpoints.length === 0 || currentEndpointIndex >= endpoints.length) {
-    showTestResult(
-      doc,
-      getString("pref-add-endpoint-first" as any) ||
-        "Please add an endpoint first",
-      true,
-    );
-    return;
-  }
-
-  const newApiKey = addon.data.prefs?.window?.prompt(
-    getString("pref-enter-apikey" as any) || "Enter API Key:",
-  );
-
-  if (!newApiKey || !newApiKey.trim()) {
-    const config = providerManager.getProviderConfig(
-      currentProviderId,
-    ) as ApiKeyProviderConfig;
-    if (config) {
-      const metadata = providerManager.getProviderMetadata(config.id);
-      populateApiKeyPanel(doc, config, metadata);
-    }
-    return;
-  }
-
-  endpoints = endpoints.map((ep, idx) =>
-    idx === currentEndpointIndex ? { ...ep, apiKey: newApiKey.trim() } : ep,
-  );
-
-  setEndpointsData(win, currentProviderId, endpoints);
-
-  const updates: Partial<ApiKeyProviderConfig> = {
-    endpoints,
-    apiKey: newApiKey.trim(),
-    enabled: true,
-  };
-
-  providerManager.updateProviderConfig(currentProviderId, updates);
-
-  const updatedConfig = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-  if (updatedConfig) populateApiKeyPanel(doc, updatedConfig);
-
-  autoFetchModels(doc, currentProviderId);
-}
-
-function editApiKey(doc: Document, currentProviderId: string): void {
-  const win = doc.defaultView;
-  if (!win) return;
-
-  const providerManager = getProviderManager();
-
-  const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-  let endpoints = getEndpointsData(win, currentProviderId) || [];
-
-  if (endpoints.length === 0 || currentEndpointIndex >= endpoints.length)
-    return;
-
-  const currentEndpoint = endpoints[currentEndpointIndex];
-
-  if (!currentEndpoint.apiKey) return;
-
-  const newApiKey = addon.data.prefs?.window?.prompt(
-    getString("pref-edit-apikey" as any) || "Edit API Key:",
-    currentEndpoint.apiKey,
-  );
-
-  if (!newApiKey || !newApiKey.trim()) {
-    const config = providerManager.getProviderConfig(
-      currentProviderId,
-    ) as ApiKeyProviderConfig;
-    if (config) {
-      const metadata = providerManager.getProviderMetadata(config.id);
-      populateApiKeyPanel(doc, config, metadata);
-    }
-    return;
-  }
-
-  endpoints = endpoints.map((ep, idx) =>
-    idx === currentEndpointIndex ? { ...ep, apiKey: newApiKey.trim() } : ep,
-  );
-
-  setEndpointsData(win, currentProviderId, endpoints);
-
-  const updates: Partial<ApiKeyProviderConfig> = {
-    endpoints,
-    apiKey: newApiKey.trim(),
-  };
-
-  providerManager.updateProviderConfig(currentProviderId, updates);
-
-  const updatedConfig = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-  if (updatedConfig) populateApiKeyPanel(doc, updatedConfig);
-
-  showTestResult(
-    doc,
-    getString("pref-apikey-edited" as any) || "API Key edited",
-    false,
-  );
-}
-
-function deleteApiKey(doc: Document, currentProviderId: string): void {
-  const win = doc.defaultView;
-  if (!win) return;
-
-  const providerManager = getProviderManager();
-
-  const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-  let endpoints = getEndpointsData(win, currentProviderId) || [];
-
-  if (endpoints.length === 0 || currentEndpointIndex >= endpoints.length)
-    return;
-
-  const currentEndpoint = endpoints[currentEndpointIndex];
-
-  if (!currentEndpoint.apiKey) return;
-
-  const displayName = maskApiKey(currentEndpoint.apiKey);
-  const message =
-    getString("pref-delete-apikey-confirm" as any, {
-      args: { key: displayName },
-    }) || `Delete API Key "${displayName}"?`;
-  const confirmed = addon.data.prefs?.window?.confirm(message);
-
-  if (!confirmed) {
-    const config = providerManager.getProviderConfig(
-      currentProviderId,
-    ) as ApiKeyProviderConfig;
-    if (config) {
-      const metadata = providerManager.getProviderMetadata(config.id);
-      populateApiKeyPanel(doc, config, metadata);
-    }
-    return;
-  }
-
-  endpoints = endpoints.map((ep, idx) =>
-    idx === currentEndpointIndex ? { ...ep, apiKey: "" } : ep,
-  );
-
-  setEndpointsData(win, currentProviderId, endpoints);
-
-  const hasAnyKey = endpoints.some((ep) => ep.apiKey.trim() !== "");
-  const updates: Partial<ApiKeyProviderConfig> = {
-    endpoints,
-    apiKey: "",
-    enabled: hasAnyKey,
-  };
-
-  providerManager.updateProviderConfig(currentProviderId, updates);
-
-  const updatedConfig = providerManager.getProviderConfig(
-    currentProviderId,
-  ) as ApiKeyProviderConfig;
-  if (updatedConfig) populateApiKeyPanel(doc, updatedConfig);
-
-  showTestResult(
-    doc,
-    getString("pref-apikey-deleted" as any) || "API Key deleted",
-    false,
-  );
-}
-
 export async function autoFetchModels(
   doc: Document,
   currentProviderId: string,
 ): Promise<void> {
-  const win = doc.defaultView;
-  if (!win) return;
-
   const providerManager = getProviderManager();
   const provider = providerManager.getProvider(currentProviderId);
-  if (!provider || !provider.isReady()) {
-    showTestResult(doc, getString("pref-provider-not-ready"), true);
-    return;
-  }
-
-  const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-  const endpoints = getEndpointsData(win, currentProviderId) || [];
-  const currentEndpoint = endpoints[currentEndpointIndex];
-  const currentApiKey = currentEndpoint?.apiKey;
-
-  if (!currentApiKey) {
+  const config = providerManager.getProviderConfig(
+    currentProviderId,
+  ) as ApiKeyProviderConfig | null;
+  if (!provider || !provider.isReady() || !config) {
     showTestResult(doc, getString("pref-provider-not-ready"), true);
     return;
   }
 
   provider.updateConfig({
-    apiKey: currentApiKey,
-    baseUrl: currentEndpoint?.baseUrl,
+    apiKey: config.apiKey,
+    baseUrl: config.baseUrl,
   });
 
   try {
     showTestResult(doc, getString("pref-fetching-models"), false);
     const models = await provider.getAvailableModels();
 
-    let endpoints = getEndpointsData(win, currentProviderId) || [];
+    providerManager.updateProviderConfig(currentProviderId, {
+      availableModels: models,
+      defaultModel: config.defaultModel || models[0] || "",
+    });
 
-    if (endpoints.length > 0 && currentEndpointIndex < endpoints.length) {
-      endpoints = endpoints.map((ep, idx) =>
-        idx === currentEndpointIndex
-          ? {
-              ...ep,
-              availableModels: models,
-              defaultModel: ep.defaultModel || models[0] || "",
-            }
-          : ep,
-      );
-      setEndpointsData(win, currentProviderId, endpoints);
-
-      providerManager.updateProviderConfig(currentProviderId, {
-        endpoints,
-        availableModels: models,
-        defaultModel:
-          endpoints[currentEndpointIndex]?.defaultModel || models[0] || "",
-      });
-
-      const updatedConfig = providerManager.getProviderConfig(
-        currentProviderId,
-      ) as ApiKeyProviderConfig;
-      if (updatedConfig) populateApiKeyPanel(doc, updatedConfig);
-
-      showTestResult(
+    const updatedConfig = providerManager.getProviderConfig(currentProviderId);
+    if (updatedConfig) {
+      const metadata = providerManager.getProviderMetadata(currentProviderId);
+      populateApiKeyPanel(
         doc,
-        getString("pref-models-loaded", { args: { count: models.length } }),
-        false,
+        updatedConfig as ApiKeyProviderConfig,
+        metadata,
       );
-    } else {
-      showTestResult(doc, "", false);
     }
+
+    showTestResult(
+      doc,
+      getString("pref-models-loaded", { args: { count: models.length } }),
+      false,
+    );
   } catch {
     showTestResult(doc, getString("pref-fetch-models-failed"), true);
   }
@@ -1103,77 +339,49 @@ export function bindApiKeyEvents(
 ): void {
   const providerManager = getProviderManager();
 
-  const baseurlSelect = doc.getElementById(
+  // Base URL input: save on blur
+  const baseUrlInput = doc.getElementById(
     "pref-provider-baseurl",
-  ) as unknown as XULMenuListElement;
-  baseurlSelect?.addEventListener("command", () => {
-    const selectedValue = baseurlSelect.value;
+  ) as HTMLInputElement;
+  baseUrlInput?.addEventListener("blur", () => {
     const currentProviderId = getCurrentProviderId();
-
-    if (selectedValue === "__add_new__") {
-      addNewEndpoint(doc, currentProviderId);
-    } else if (selectedValue === "__edit_endpoint__") {
-      editEndpoint(doc, currentProviderId);
-    } else if (selectedValue === "__delete__") {
-      deleteEndpoint(doc, currentProviderId);
-    } else {
-      const index = parseInt(selectedValue, 10);
-      if (!isNaN(index)) {
-        switchEndpoint(doc, currentProviderId, index);
-      }
-    }
+    const config = providerManager.getProviderConfig(currentProviderId);
+    if ((baseUrlInput.value || "").trim() === (config?.baseUrl || "")) return;
+    saveCurrentProviderConfig(doc, currentProviderId);
   });
 
-  const apikeySelect = doc.getElementById(
+  // API key input: save the key on blur and refresh the model list
+  const apikeyInput = doc.getElementById(
     "pref-provider-apikey",
-  ) as unknown as XULMenuListElement;
-  apikeySelect?.addEventListener("command", () => {
-    const selectedValue = apikeySelect.value;
+  ) as HTMLInputElement;
+  apikeyInput?.addEventListener("blur", () => {
     const currentProviderId = getCurrentProviderId();
-
-    if (selectedValue === "__add_apikey__") {
-      addNewApiKey(doc, currentProviderId);
-    } else if (selectedValue === "__edit_apikey__") {
-      editApiKey(doc, currentProviderId);
-    } else if (selectedValue === "__delete_apikey__") {
-      deleteApiKey(doc, currentProviderId);
+    const config = providerManager.getProviderConfig(currentProviderId);
+    const newApiKey = (apikeyInput.value || "").trim();
+    if (newApiKey === (config?.apiKey || "")) {
+      return;
     }
-    // Selecting the current key item needs no action
+
+    saveCurrentProviderConfig(doc, currentProviderId);
+    autoFetchModels(doc, currentProviderId);
   });
 
+  // Toggle key visibility between masked and plain text
   const toggleKeyBtn = doc.getElementById("pref-toggle-apikey");
   toggleKeyBtn?.addEventListener("click", () => {
-    const win = doc.defaultView;
-    if (!win) return;
-
-    const currentProviderId = getCurrentProviderId();
-    const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-    const endpoints = getEndpointsData(win, currentProviderId) || [];
-    const currentEndpoint = endpoints[currentEndpointIndex];
-
-    if (!currentEndpoint?.apiKey) return;
-
-    addon.data.prefs?.window?.alert(`API Key: ${currentEndpoint.apiKey}`);
+    const keyVisible = apikeyInput?.type === "text";
+    if (apikeyInput) {
+      apikeyInput.type = keyVisible ? "password" : "text";
+    }
+    updateToggleKeyButton(doc, !keyVisible);
   });
 
   const visitWebsiteBtn = doc.getElementById("pref-visit-website");
   visitWebsiteBtn?.addEventListener("click", () => {
-    const win = doc.defaultView;
-    if (!win) return;
-
     const currentProviderId = getCurrentProviderId();
     const providerMeta = providerManager.getProviderMetadata(currentProviderId);
-
-    // Get current endpoint index to find the corresponding website
-    const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-    const endpointMeta = providerMeta?.endpoints?.[currentEndpointIndex];
-
-    // Use endpoint-specific website if available, otherwise use provider's default
-    const website = endpointMeta?.website || providerMeta?.website;
-
-    if (website) {
-      // Open website in default browser using Zotero's launchURL
-      Zotero.launchURL(website);
+    if (providerMeta?.website) {
+      Zotero.launchURL(providerMeta.website);
     }
   });
 
@@ -1241,29 +449,17 @@ export function bindApiKeyEvents(
 
   const testConnectionBtn = doc.getElementById("pref-test-connection");
   testConnectionBtn?.addEventListener("click", async () => {
-    const win = doc.defaultView;
-    if (!win) return;
-
     const currentProviderId = getCurrentProviderId();
     const provider = providerManager.getProvider(currentProviderId);
-    if (!provider || !provider.isReady()) {
-      showTestResult(doc, getString("pref-provider-not-ready"), true);
-      return;
-    }
-
-    const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
-    const endpoints = getEndpointsData(win, currentProviderId) || [];
-    const currentEndpoint = endpoints[currentEndpointIndex];
-    const currentApiKey = currentEndpoint?.apiKey;
-
-    if (!currentApiKey) {
+    const config = providerManager.getProviderConfig(currentProviderId);
+    if (!provider || !provider.isReady() || !config?.apiKey) {
       showTestResult(doc, getString("pref-provider-not-ready"), true);
       return;
     }
 
     provider.updateConfig({
-      apiKey: currentApiKey,
-      baseUrl: currentEndpoint?.baseUrl,
+      apiKey: config.apiKey,
+      baseUrl: config.baseUrl,
     });
 
     showTestResult(doc, getString("pref-testing"), false);
@@ -1281,11 +477,7 @@ export function bindApiKeyEvents(
 
   const addModelBtn = doc.getElementById("pref-add-model-btn");
   addModelBtn?.addEventListener("click", () => {
-    const win = doc.defaultView;
-    if (!win) return;
-
     const currentProviderId = getCurrentProviderId();
-    const currentEndpointIndex = getCurrentIndex(win, currentProviderId);
 
     const modelId = addon.data.prefs?.window?.prompt(
       getString("pref-enter-model-id"),
@@ -1296,28 +488,6 @@ export function bindApiKeyEvents(
         modelId.trim(),
       );
       if (success) {
-        let endpoints = getEndpointsData(win, currentProviderId) || [];
-        if (endpoints.length > 0 && currentEndpointIndex < endpoints.length) {
-          endpoints = endpoints.map((ep, idx) =>
-            idx === currentEndpointIndex
-              ? {
-                  ...ep,
-                  availableModels: [
-                    ...(ep.availableModels || []),
-                    modelId.trim(),
-                  ],
-                }
-              : ep,
-          );
-          setEndpointsData(win, currentProviderId, endpoints);
-
-          providerManager.updateProviderConfig(currentProviderId, {
-            endpoints,
-            availableModels:
-              endpoints[currentEndpointIndex]?.availableModels || [],
-          });
-        }
-
         const config = providerManager.getProviderConfig(
           currentProviderId,
         ) as ApiKeyProviderConfig;

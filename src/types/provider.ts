@@ -26,40 +26,19 @@ export interface ModelInfo {
 }
 
 /**
- * Supported provider types
- * Hybrid architecture: some providers have independent implementations,
- * while others reuse openai-compatible base implementation
+ * Supported provider types, one per routed pi-ai API kind
  */
 export type ProviderType =
   | "anthropic-compatible"
   | "gemini"
   | "openai-compatible"
-  | "deepseek"
-  | "kimi"
-  | "mistral"
-  | "groq"
-  | "openrouter"
-  | "siliconflow"
-  | "minimax"
-  | "xai"
-  | "glm";
+  | "openai-responses"
+  | "mistral-conversations";
 
 /**
- * Provider identifier for built-in providers
+ * Provider identifier for built-in providers (pi-ai's kebab-case ids).
  */
-export type BuiltinProviderId =
-  | "openai"
-  | "claude"
-  | "gemini"
-  | "deepseek"
-  | "mistral"
-  | "groq"
-  | "openrouter"
-  | "kimi"
-  | "glm"
-  | "siliconflow"
-  | "minimax"
-  | "xai";
+export type BuiltinProviderId = string;
 
 /**
  * Base provider configuration
@@ -71,16 +50,6 @@ export interface BaseProviderConfig {
   enabled: boolean;
   isBuiltin: boolean;
   order: number;
-}
-
-/**
- * Endpoint configuration with a single API key and models
- */
-export interface EndpointConfig {
-  baseUrl: string;
-  apiKey: string;
-  availableModels?: string[];
-  defaultModel?: string;
 }
 
 /**
@@ -99,23 +68,12 @@ export interface ApiKeyProviderConfig extends BaseProviderConfig {
   pdfMaxChars?: number;
   maxDocuments?: number;
   streamingOutput?: boolean;
-  endpoints?: EndpointConfig[];
-  currentEndpointIndex?: number;
 }
 
 /**
  * Union type for all provider configs
  */
 export type ProviderConfig = ApiKeyProviderConfig;
-
-/**
- * Endpoint option for providers with multiple endpoints
- */
-export interface EndpointOption {
-  label: string;
-  baseUrl: string;
-  website: string;
-}
 
 /**
  * Provider metadata for display and defaults
@@ -126,7 +84,9 @@ export interface ProviderMetadata {
   defaultBaseUrl: string;
   website: string;
   type: ProviderType;
-  endpoints?: EndpointOption[];
+  /** Optional static model list (e.g. from pi-ai's catalog) */
+  availableModels?: string[];
+  models?: ModelInfo[];
 }
 
 /**

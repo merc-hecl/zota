@@ -29,20 +29,19 @@
           ></button>
         </hbox>
 
-        <!-- Base URL (Endpoint) Dropdown -->
+        <!-- Base URL -->
         <hbox align="center" style="margin-bottom: 8px">
           <label
             for="pref-provider-baseurl"
             data-l10n-id="pref-base-url"
             style="width: 100px; text-align: right"
           ></label>
-          <menulist
+          <html:input
+            type="text"
             id="pref-provider-baseurl"
             style="flex: 1; margin-left: 8px; min-width: 150px"
-            editable="true"
-          >
-            <menupopup id="pref-provider-baseurl-popup"> </menupopup>
-          </menulist>
+            autocomplete="off"
+          ></html:input>
           <button
             id="pref-visit-website"
             data-l10n-id="pref-visit-website"
@@ -51,20 +50,19 @@
           ></button>
         </hbox>
 
-        <!-- API Key Dropdown -->
+        <!-- API Key Input (single key per endpoint) -->
         <hbox align="center" style="margin-bottom: 8px">
           <label
             for="pref-provider-apikey"
             data-l10n-id="pref-api-key"
             style="width: 100px; text-align: right"
           ></label>
-          <menulist
+          <html:input
+            type="password"
             id="pref-provider-apikey"
             style="flex: 1; margin-left: 8px; min-width: 150px"
-            editable="true"
-          >
-            <menupopup id="pref-provider-apikey-popup"> </menupopup>
-          </menulist>
+            autocomplete="off"
+          ></html:input>
           <button
             id="pref-toggle-apikey"
             data-l10n-id="pref-show-key"

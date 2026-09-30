@@ -52,33 +52,8 @@ pref-enter-model-id = 请输入模型ID:
 pref-model-custom = 自定义
 pref-model-exists = 该模型已存在
 
-# Endpoint Management
-pref-add-endpoint = + 新增接口地址
-pref-edit-endpoint = 修改接口地址
-pref-delete-endpoint = 删除接口地址
-pref-enter-base-url = 请输入接口地址:
-pref-edit-base-url = 修改接口地址:
-pref-endpoint-exists = 该接口地址已存在
-pref-endpoint-added = 接口地址已添加
-pref-endpoint-edited = 接口地址已修改
-pref-endpoint-deleted = 接口地址已删除
-pref-delete-endpoint-confirm = 确定要删除接口地址 "{ $endpoint }" 吗？
-pref-cannot-add-endpoint-builtin = 无法为内置提供商添加接口地址
-pref-cannot-edit-endpoint-builtin = 无法修改内置提供商的接口地址
-pref-cannot-delete-endpoint-builtin = 无法删除内置提供商的接口地址
-pref-add-endpoint-first = 请先添加接口地址
-
 # API Key Management
-pref-add-apikey = + 新增 API 密钥
-pref-edit-apikey = 修改 API 密钥
-pref-delete-apikey = 删除 API 密钥
-pref-enter-apikey = 请输入 API 密钥:
-pref-enter-apikey-name = API 密钥名称（可选）:
-pref-edit-apikey-name = 修改 API 密钥名称（可选）:
-pref-apikey-exists = 该 API 密钥已存在
-pref-delete-apikey-confirm = 确定要删除 API 密钥 "{ $key }" 吗？
-pref-apikey-deleted = API 密钥已删除
-pref-apikey-edited = API 密钥已修改
+pref-hide-key = 隐藏
 
 # Delete Provider
 pref-cannot-delete-builtin = 无法删除内置提供商
