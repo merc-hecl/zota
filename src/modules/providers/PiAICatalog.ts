@@ -204,7 +204,5 @@ export function findCatalogModel(
   providerId: string,
   modelId: string,
 ): CatalogModel | null {
-  return (
-    getCatalogModels(providerId).find((m) => m.id === modelId) || null
-  );
+  return getCatalogModels(providerId).find((m) => m.id === modelId) || null;
 }

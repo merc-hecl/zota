@@ -107,11 +107,14 @@ export class ProviderManager {
         defaultModel?: string;
       }[];
       const index =
-        typeof cfg.currentEndpointIndex === "number" ? cfg.currentEndpointIndex : 0;
+        typeof cfg.currentEndpointIndex === "number"
+          ? cfg.currentEndpointIndex
+          : 0;
       const active = endpoints[index] || endpoints[0];
       // Older still: rotating apiKeys array on the endpoint.
-      const apiKey = active.apiKey
-        ?? (Array.isArray(active.apiKeys)
+      const apiKey =
+        active.apiKey ??
+        (Array.isArray(active.apiKeys)
           ? active.apiKeys[active.currentApiKeyIndex ?? 0]?.key ||
             active.apiKeys[0]?.key ||
             ""
@@ -366,9 +369,7 @@ export class ProviderManager {
   }
 
   getProviderMetadata(providerId: string): ProviderMetadata | null {
-    return (
-      getBuiltinProviderList().find((p) => p.id === providerId) || null
-    );
+    return getBuiltinProviderList().find((p) => p.id === providerId) || null;
   }
 
   getAllProviderMetadata(): ProviderMetadata[] {

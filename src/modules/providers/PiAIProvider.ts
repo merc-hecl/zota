@@ -1,32 +1,20 @@
 /**
- * PiAIProvider - Unified AI provider backed by @earendil-works/pi-ai
+ * PiAIProvider - Unified AI provider.
  *
- * Routes each provider to one of pi-ai's API adapters according to its type:
- * - anthropic-compatible vendors (Anthropic, MiniMax) -> anthropic-messages API
- * - gemini -> google-generative-ai API
- * - mistral -> mistral-conversations API
- * - openai/xai/meta -> openai-responses API
- * - all other OpenAI-compatible vendors -> openai-completions API
+ * Provider metadata (base URLs, model lists, per-model compat settings and
+ * thinking level maps) comes from pi-ai's runtime catalog (see PiAICatalog),
+ * but the streaming transport is zota's own: plain fetch + SSE adapters in
+ * ./streaming, one per API kind. No third-party SDK code runs inside
+ * Zotero's privileged scope (where host globals like `console` are missing).
  *
- * Per-model metadata (compat settings, context window, thinking level maps)
- * is taken from pi-ai's runtime catalog when the model is known there, so
- * vendor behavior stays in sync with the catalog instead of hand-tuned
- * switches. Models not in the catalog are built on the fly from the stored
- * provider config with conservative defaults.
+ * Routing by provider type:
+ * - anthropic-compatible vendors (Anthropic, MiniMax) -> anthropic-messages
+ * - gemini -> google-generative-ai
+ * - mistral -> mistral-conversations
+ * - openai/xai/meta -> openai-responses
+ * - all other OpenAI-compatible vendors -> openai-completions
  */
 
-import { normalizeContext } from "@earendil-works/pi-ai";
-import type {
-  Context,
-  Message,
-  Model,
-  UserMessage,
-} from "@earendil-works/pi-ai";
-import { stream as openAICompletionsStream } from "@earendil-works/pi-ai/api/openai-completions";
-import { stream as openAIResponsesStream } from "@earendil-works/pi-ai/api/openai-responses";
-import { stream as anthropicMessagesStream } from "@earendil-works/pi-ai/api/anthropic-messages";
-import { stream as googleGenerativeAIStream } from "@earendil-works/pi-ai/api/google-generative-ai";
-import { stream as mistralConversationsStream } from "@earendil-works/pi-ai/api/mistral-conversations";
 import type { ChatMessage, StreamCallbacks } from "../../types/chat";
 import type {
   AIProvider,
@@ -34,6 +22,8 @@ import type {
   ProviderConfig,
 } from "../../types/provider";
 import { getCatalogModels } from "./PiAICatalog";
+import { resolveStreamAdapter } from "./streaming";
+import type { AdapterModel, StreamRequest, ThinkingControl } from "./streaming";
 
 export const DEFAULT_SYSTEM_PROMPT =
   "You are a helpful research assistant. Help the user understand and analyze academic papers and documents.";
@@ -60,21 +50,7 @@ When writing mathematical formulas, you MUST follow these formatting rules:
 
 === END FORMATTING REQUIREMENTS ===`;
 
-type OpenAICompletionsModel = Model<"openai-completions">;
-type OpenAIResponsesModel = Model<"openai-responses">;
-type MistralConversationsModel = Model<"mistral-conversations">;
-type AnthropicMessagesModel = Model<"anthropic-messages">;
-type GoogleGenerativeAIModel = Model<"google-generative-ai">;
-
-/** Union of the pi-ai models zota can build */
-type AnyPiModel =
-  | OpenAICompletionsModel
-  | OpenAIResponsesModel
-  | MistralConversationsModel
-  | AnthropicMessagesModel
-  | GoogleGenerativeAIModel;
-
-/** Supported pi-ai API kinds mapped from zota provider types */
+/** Supported API kinds mapped from zota provider types */
 type PiApiKind =
   | "openai-completions"
   | "openai-responses"
@@ -98,7 +74,7 @@ function getApiKind(type: string): PiApiKind {
  * models that are not covered by pi-ai's catalog. All vendors disable
  * `store` (zota never persisted server-side sessions).
  */
-const CONSERVATIVE_OPENAI_COMPAT: OpenAICompletionsModel["compat"] = {
+const CONSERVATIVE_OPENAI_COMPAT: Record<string, unknown> = {
   supportsStore: false,
   supportsDeveloperRole: false,
   supportsReasoningEffort: false,
@@ -197,14 +173,13 @@ export class PiAIProvider implements AIProvider {
   }
 
   /**
-   * Construct the pi-ai Model for the request. When the selected model is
-   * known in pi-ai's catalog the catalog entry is used wholesale (carrying
-   * pi-ai's tested compat settings, thinking level map and limits) with the
-   * base URL overridden from the config. Otherwise the model is built on
-   * the fly from the stored config so any base URL and any model id
-   * (fetched or custom) can be used.
+   * Collect the catalog metadata the adapter needs for the request. When the
+   * selected model is known in pi-ai's catalog its entry is used wholesale
+   * (carrying pi-ai's tested compat settings and thinking level map).
+   * Otherwise the model is built on the fly from the stored config with
+   * conservative defaults so any base URL and model id can be used.
    */
-  private buildModel(): AnyPiModel {
+  private buildModel(): AdapterModel {
     const kind = this.apiKind;
     const catalogModels = getCatalogModels(this._config.id);
     const exact = catalogModels.find(
@@ -213,11 +188,14 @@ export class PiAIProvider implements AIProvider {
 
     if (exact) {
       return {
-        ...exact,
         id: this.effectiveModelId,
         provider: this._config.id,
-        baseUrl: this.normalizeBaseUrl(this._config.baseUrl, kind),
-      } as AnyPiModel;
+        reasoning: exact.reasoning,
+        input: exact.input,
+        maxTokens: exact.maxTokens,
+        thinkingLevelMap: exact.thinkingLevelMap,
+        compat: exact.compat,
+      };
     }
 
     // Vendor-level fallback: a fetched/custom model id on a catalog vendor
@@ -227,58 +205,19 @@ export class PiAIProvider implements AIProvider {
     const modelInfo = this._config.models?.find(
       (m) => m.modelId === this.effectiveModelId,
     );
-    const base = {
-      id: this.effectiveModelId,
-      name: modelInfo?.nickname || this.effectiveModelId,
-      provider: this._config.id,
-      baseUrl: this.normalizeBaseUrl(
-        this._config.baseUrl || vendorFallback?.baseUrl || "",
-        kind,
-      ),
-      reasoning: true,
-      input: ["text", "image"] as ("text" | "image")[],
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      contextWindow: modelInfo?.contextWindow || 128000,
-      maxTokens: modelInfo?.maxOutput || 8192,
-    };
 
-    switch (kind) {
-      case "anthropic-messages":
-        return {
-          ...base,
-          api: "anthropic-messages",
-          compat: (vendorFallback?.compat as
-            | AnthropicMessagesModel["compat"]
-            | undefined) || undefined,
-        };
-      case "google-generative-ai":
-        return { ...base, api: "google-generative-ai" };
-      case "openai-responses":
-        return {
-          ...base,
-          api: "openai-responses",
-          compat: (vendorFallback?.compat as
-            | OpenAIResponsesModel["compat"]
-            | undefined) || undefined,
-        };
-      case "mistral-conversations":
-        return {
-          ...base,
-          api: "mistral-conversations",
-          compat: (vendorFallback?.compat as
-            | MistralConversationsModel["compat"]
-            | undefined) || undefined,
-        };
-      default:
-        return {
-          ...base,
-          api: "openai-completions",
-          compat:
-            (vendorFallback?.compat as
-              | OpenAICompletionsModel["compat"]
-              | undefined) || CONSERVATIVE_OPENAI_COMPAT,
-        };
-    }
+    return {
+      id: this.effectiveModelId,
+      provider: this._config.id,
+      reasoning: true,
+      input: ["text", "image"],
+      maxTokens: modelInfo?.maxOutput || 8192,
+      thinkingLevelMap: vendorFallback?.thinkingLevelMap,
+      compat:
+        kind === "openai-completions"
+          ? vendorFallback?.compat || CONSERVATIVE_OPENAI_COMPAT
+          : vendorFallback?.compat,
+    };
   }
 
   private get effectiveModelId(): string {
@@ -286,8 +225,8 @@ export class PiAIProvider implements AIProvider {
   }
 
   /**
-   * Normalize base URL: pi-ai SDKs expect the versioned root without a
-   * trailing slash. The anthropic/mistral SDKs append /v1 themselves, so a
+   * Normalize base URL: adapters expect the API root without a trailing
+   * slash. Anthropic/Mistral endpoints are versioned via /v1 paths, so a
    * legacy /v1 suffix is stripped; OpenAI Responses endpoint variants are
    * folded back onto the API root.
    */
@@ -303,146 +242,73 @@ export class PiAIProvider implements AIProvider {
   }
 
   /**
-   * Build pi-ai request options per API kind, mapping zota's thinking prefs
-   * to each API's native thinking parameters.
+   * Map zota's thinking preferences to each API kind's native thinking
+   * control, mirroring the options the previous pi-ai-based stack passed.
    */
-  private buildStreamOptions(signal?: AbortSignal): Record<string, unknown> {
+  private buildThinkingControl(): ThinkingControl {
     const kind = this.apiKind;
-    const maxTokens =
-      this._config.maxTokens && this._config.maxTokens > 0
-        ? this._config.maxTokens
-        : undefined;
-    const temperature = this._config.temperature;
-
-    const options: Record<string, unknown> = {
-      apiKey: this._config.apiKey,
-      signal,
-      temperature,
-      maxTokens,
-    };
 
     if (kind === "anthropic-messages") {
-      // Anthropic requires max_tokens
-      if (!options.maxTokens) options.maxTokens = 8192;
       if (this._config.id === "minimax" || this._config.id === "minimax-cn") {
         // MiniMax: binary thinking toggle via budget-based thinking
-        if (this.thinkingModeEnabled) {
-          options.thinkingEnabled = true;
-        }
-      } else {
-        // Claude: effort-based adaptive thinking
-        if (this.thinkingEffort !== "none") {
-          options.thinkingEnabled = true;
-          options.effort = this.thinkingEffort;
-        }
+        return { enabled: this.thinkingModeEnabled };
       }
-    } else if (kind === "google-generative-ai") {
-      if (this.thinkingEffort !== "none") {
-        options.thinking = {
-          enabled: true,
-          budgetTokens: geminiThinkingBudget(this.thinkingEffort),
-        };
-      }
-    } else if (kind === "openai-responses") {
-      // OpenAI/xAI/Meta: effort-based reasoning
-      if (this.reasoningEffort !== "none") {
-        options.reasoningEffort = this.reasoningEffort;
-      }
-    } else if (kind === "mistral-conversations") {
-      // Mistral only accepts none|high
-      if (this.thinkingModeEnabled || this.reasoningEffort !== "none") {
-        options.reasoningEffort = "high";
-      }
-    } else {
-      // OpenAI-completions family
-      if (this._config.id === "deepseek") {
-        // DeepSeek: thinking param only applies to deepseek-chat
-        if (this.thinkingModeEnabled && this.currentModel === "deepseek-chat") {
-          options.reasoningEffort = "medium";
-        }
-      } else if (this.thinkingModeEnabled) {
-        // Kimi/GLM/SiliconFlow and other vendors: binary toggle
-        options.reasoningEffort = "medium";
-      }
+      // Claude: effort-based adaptive thinking
+      const enabled = this.thinkingEffort !== "none";
+      return { enabled, effort: enabled ? this.thinkingEffort : undefined };
     }
 
-    return options;
+    if (kind === "google-generative-ai") {
+      const enabled = this.thinkingEffort !== "none";
+      return {
+        enabled,
+        budgetTokens: enabled
+          ? geminiThinkingBudget(this.thinkingEffort)
+          : undefined,
+      };
+    }
+
+    if (kind === "openai-responses") {
+      // OpenAI/xAI/Meta: effort-based reasoning
+      const enabled = this.reasoningEffort !== "none";
+      return { enabled, effort: enabled ? this.reasoningEffort : undefined };
+    }
+
+    if (kind === "mistral-conversations") {
+      // Mistral only accepts none|high
+      const enabled =
+        this.thinkingModeEnabled || this.reasoningEffort !== "none";
+      return { enabled, effort: enabled ? "high" : undefined };
+    }
+
+    // OpenAI-completions family
+    if (this._config.id === "deepseek") {
+      // DeepSeek: thinking param only applies to deepseek-chat
+      const enabled =
+        this.thinkingModeEnabled && this.currentModel === "deepseek-chat";
+      return { enabled, effort: enabled ? "medium" : undefined };
+    }
+    // Kimi/GLM/SiliconFlow and other vendors: binary toggle
+    return {
+      enabled: this.thinkingModeEnabled,
+      effort: this.thinkingModeEnabled ? "medium" : undefined,
+    };
   }
 
   /**
-   * Convert zota ChatMessages to pi-ai messages.
-   * Filters out error messages and empty content, keeps image attachments.
+   * Filter the chat history for the request: drop error messages and empty
+   * content, and normalize system-role messages to user messages (the
+   * system prompt is always sent separately).
    */
-  private buildPiMessages(messages: ChatMessage[]): Message[] {
-    const nonError = messages.filter((msg) => msg.role !== "error");
-    const lastIndex = nonError.length - 1;
-
-    const filtered = nonError.filter((msg, index) => {
-      if (index === lastIndex && msg.role === "assistant") {
-        return msg.content.trim() !== "";
-      }
-      return msg.content && msg.content.trim() !== "";
-    });
-
-    return filtered.map((msg): Message => {
-      const timestamp = msg.timestamp || Date.now();
-
-      if (msg.role === "assistant") {
-        return {
-          role: "assistant",
-          content: [{ type: "text", text: msg.content }],
-          api: this.apiKind,
-          provider: this._config.id,
-          model: this.effectiveModelId,
-          usage: {
-            input: 0,
-            output: 0,
-            cacheRead: 0,
-            cacheWrite: 0,
-            totalTokens: 0,
-            cost: {
-              input: 0,
-              output: 0,
-              cacheRead: 0,
-              cacheWrite: 0,
-              total: 0,
-            },
-          },
-          stopReason: "stop",
-          timestamp,
-        };
-      }
-
-      const userMessage: UserMessage = {
-        role: "user",
-        content: msg.content,
-        timestamp,
-      };
-
-      if (msg.images && msg.images.length > 0) {
-        const content: UserMessage["content"] = [];
-        if (msg.content && msg.content.trim()) {
-          content.push({ type: "text", text: msg.content });
-        }
-        for (const image of msg.images) {
-          content.push({
-            type: "image",
-            data: image.base64,
-            mimeType: image.mimeType,
-          });
-        }
-        userMessage.content = content;
-      }
-
-      return userMessage;
-    });
-  }
-
-  private buildContext(messages: ChatMessage[]): Context {
-    return {
-      systemPrompt: this.buildSystemPrompt(),
-      messages: this.buildPiMessages(messages),
-    };
+  private filterMessages(messages: ChatMessage[]): ChatMessage[] {
+    const filtered = messages.filter(
+      (msg) => msg.role !== "error" && msg.content && msg.content.trim() !== "",
+    );
+    return filtered.map((msg) =>
+      msg.role === "assistant" || msg.role === "user"
+        ? msg
+        : { ...msg, role: "user" as const },
+    );
   }
 
   async streamChatCompletion(
@@ -458,98 +324,34 @@ export class PiAIProvider implements AIProvider {
     }
 
     try {
-      const model = this.buildModel();
-      const context = normalizeContext(this.buildContext(messages));
-      const options = this.buildStreamOptions(signal);
       const kind = this.apiKind;
-      const stream =
-        kind === "anthropic-messages"
-          ? anthropicMessagesStream(
-              model as AnthropicMessagesModel,
-              context,
-              options as never,
-            )
-          : kind === "google-generative-ai"
-            ? googleGenerativeAIStream(
-                model as GoogleGenerativeAIModel,
-                context,
-                options as never,
-              )
-            : kind === "openai-responses"
-              ? openAIResponsesStream(
-                  model as OpenAIResponsesModel,
-                  context,
-                  options as never,
-                )
-              : kind === "mistral-conversations"
-                ? mistralConversationsStream(
-                    model as MistralConversationsModel,
-                    context,
-                    options as never,
-                  )
-                : openAICompletionsStream(
-                    model as OpenAICompletionsModel,
-                    context,
-                    options as never,
-                  );
-
-      let fullContent = "";
-      let settled = false;
-
-      const complete = (content: string) => {
-        if (settled) return;
-        settled = true;
-        onComplete(content);
-      };
-      const fail = (error: Error) => {
-        if (settled) return;
-        settled = true;
-        onError(error);
+      const request: StreamRequest = {
+        baseUrl: this.normalizeBaseUrl(this._config.baseUrl, kind),
+        apiKey: this._config.apiKey,
+        modelId: this.effectiveModelId,
+        systemPrompt: this.buildSystemPrompt(),
+        messages: this.filterMessages(messages),
+        temperature: this._config.temperature,
+        maxTokens:
+          this._config.maxTokens && this._config.maxTokens > 0
+            ? this._config.maxTokens
+            : undefined,
+        signal,
       };
 
-      for await (const event of stream) {
-        if (settled) break;
-        switch (event.type) {
-          case "text_delta":
-            fullContent += event.delta;
-            onChunk(event.delta);
-            break;
-          case "thinking_delta":
-            if (onReasoningChunk) {
-              onReasoningChunk(event.delta);
-            }
-            break;
-          case "done": {
-            // Prefer the authoritative final message content
-            const text = event.message.content
-              .filter((block) => block.type === "text")
-              .map((block) => (block.type === "text" ? block.text : ""))
-              .join("");
-            complete(text || fullContent);
-            break;
-          }
-          case "error": {
-            if (event.reason === "aborted") {
-              const abortError = new Error("Request aborted");
-              abortError.name = "AbortError";
-              fail(abortError);
-            } else {
-              const message = event.error.errorMessage || "API request failed";
-              fail(new Error(message));
-            }
-            break;
-          }
-          default:
-            break;
-        }
-      }
-
-      // Stream ended without a terminal event (should not happen, but be safe)
-      complete(fullContent);
+      const content = await resolveStreamAdapter(kind)(
+        request,
+        this.buildModel(),
+        this.buildThinkingControl(),
+        {
+          onText: onChunk,
+          onThinking: (delta) => onReasoningChunk?.(delta),
+        },
+      );
+      onComplete(content);
     } catch (error) {
-      if ((error as Error).name === "AbortError") {
-        return;
-      }
+      // AbortError reaches onError on purpose: ChatManager relies on it to
+      // preserve partial content and settle the request promise.
       onError(error instanceof Error ? error : new Error(String(error)));
     }
   }

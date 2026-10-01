@@ -123,10 +123,7 @@ function updateToggleKeyButton(doc: Document, keyVisible: boolean): void {
   );
 }
 
-function populateModelList(
-  doc: Document,
-  config: ApiKeyProviderConfig,
-): void {
+function populateModelList(doc: Document, config: ApiKeyProviderConfig): void {
   const providerManager = getProviderManager();
   const listContainer = doc.getElementById("pref-model-list");
   if (!listContainer) return;
@@ -316,11 +313,7 @@ export async function autoFetchModels(
     const updatedConfig = providerManager.getProviderConfig(currentProviderId);
     if (updatedConfig) {
       const metadata = providerManager.getProviderMetadata(currentProviderId);
-      populateApiKeyPanel(
-        doc,
-        updatedConfig as ApiKeyProviderConfig,
-        metadata,
-      );
+      populateApiKeyPanel(doc, updatedConfig as ApiKeyProviderConfig, metadata);
     }
 
     showTestResult(
