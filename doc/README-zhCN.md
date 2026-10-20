@@ -14,6 +14,16 @@
 
 ## 特性
 
+### 版本 0.0.9 (2026-10-20)
+
+- 兼容 Zotero 10，并修复 Zotero 10 中浮动窗口无法置顶的问题。
+- 支持渲染 AI 回复中的 Mermaid 流程图，并支持复制图表源码。
+- 新增悬停展开的消息导航栏，方便在较长对话中跳转到不同问题。
+- 调整聊天布局：AI 回复使用通栏显示，思考内容可折叠，操作按钮在悬停时显示，引用以徽标呈现。
+- 基于 pi-ai 目录扩充内置供应商及模型信息，同时保留自定义 OpenAI-Compatible 供应商。
+- 每个供应商简化为一个 API 端点和一个 API Key。旧配置会自动迁移，保留当前选中的端点和密钥；不再列入内置目录的供应商会保留为自定义供应商。
+- 使用原生 fetch 和 SSE 实现聊天流式传输，不再打包各供应商的官方 SDK。
+
 ### 版本 0.0.8 (2026-04-04)
 
 - 新增同标题笔记导出时的覆盖写入行为。
@@ -88,7 +98,7 @@
 
 [AGPL-3.0](../LICENSE)
 
-本项目打包了以下第三方开源软件包：[@earendil-works/pi-ai](https://github.com/earendil-works/pi)（MIT 许可证，© Mario Zechner），用于实现多厂商大模型 API 的调用适配；及其依赖的各厂商官方 SDK（`openai`、`@anthropic-ai/sdk`、`@google/generative-ai`）。上述包均遵循其各自的开源协议分发，相关许可持续有效。
+本项目打包了第三方开源软件包，包括 [@earendil-works/pi-ai](https://github.com/earendil-works/pi)（MIT 许可证，© Mario Zechner），用于提供内置供应商目录（厂商列表、基础 URL 和模型元数据）。这些软件包均遵循其各自的开源协议分发，相关许可持续有效。
 
 ## 致谢
 
@@ -97,4 +107,4 @@
 - [Kimi-K2.5](https://github.com/MoonshotAI/Kimi-K2.5) - 本项目完全使用 Kimi-K2.5 模型进行开发。
 - [lucide](https://lucide.dev) - 本项目使用了 lucide 图标库。
 - [ai-research-assistant](https://github.com/lifan0127/ai-research-assistant) - 本项目的一些功能受到了 ai-research-assistant 的启发。
-- [pi-ai](https://github.com/earendil-works/pi) - 本项目的多厂商 AI 接入层（流式输出、思考/推理模式支持、厂商适配）基于 `@earendil-works/pi-ai` 实现（MIT 许可证）。
+- [pi-ai](https://github.com/earendil-works/pi) - 本项目的内置供应商目录（厂商、基础 URL、模型元数据及兼容性标记）来自 `@earendil-works/pi-ai`（MIT 许可证）。

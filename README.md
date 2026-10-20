@@ -14,6 +14,16 @@
 
 ## Features
 
+### Version 0.0.9 (2026-10-20)
+
+- Add Zotero 10 compatibility and restore always-on-top pinning for the floating window on Zotero 10.
+- Render Mermaid flowcharts in AI replies, with source copying support.
+- Add a hover navigation rail for jumping between questions in longer conversations.
+- Refresh the chat layout with full-width assistant replies, collapsible thinking, hover actions, and citation badges.
+- Expand built-in providers and model metadata using the pi-ai catalog, while retaining custom OpenAI-compatible providers.
+- Simplify provider settings to one API endpoint and one API key per provider. Existing settings migrate automatically, keeping the currently selected endpoint and key; providers no longer in the built-in catalog remain available as custom providers.
+- Replace SDK-based chat transport with native fetch and SSE streaming, avoiding bundling the vendors' official SDKs.
+
 ### Version 0.0.8 (2026-04-04)
 
 - Add overwrite behavior when exporting notes with the same title.
